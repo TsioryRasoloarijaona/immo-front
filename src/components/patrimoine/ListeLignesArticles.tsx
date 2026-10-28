@@ -1,29 +1,27 @@
-import { useMemo, useState } from 'react';
-import { RotateCcw, Search } from 'lucide-react';
-import BarreFiltresArticles from './BarreFiltresArticles';
-import BoutonExporter from '../BoutonExporter';
+import { useMemo, useState, type ComponentProps, type ReactNode } from 'react';
+import usePanneauArticles from './usePanneauArticles';
+import CadreListe from './CadreListe';
 import ColumnSelector from '../ColumnSelector';
 import DataGrid from '../DataGrid';
 import EtatColonnes from '../EtatColonnes';
-import MultiSelectDropdown from '../MultiSelectDropdown';
-import Pagination from '../Pagination';
-import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../ui';
-import { Button } from '../ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
+import { EmptyState } from '../ui';
 import { listLignesArticles } from '../../lib/apiSousArticles';
 import {
   catalogueLignesArticles, dispositionLignesArticles, grilleLignesArticles, useEntiteObligatoire, useFiltresArticles,
 } from '../../lib/articlesListe';
 import { useColonnesVisibles } from '../../lib/colonnes';
-import { formatNumber } from '../../lib/format';
+import { pluriel } from '../../lib/format';
 import { usePreview } from '../../lib/previewContext';
 import { useColonnesArticles, useTranchesReferentiel } from '../../lib/referentiels';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useExportListe } from '../../lib/useExportListe';
 
 /** Liste à colonnes choisies (catalogue serveur) de `/articles` et `/sous-articles` : filtres, sélecteur, grille. */
-export default function ListeLignesArticles({ liste, onOuvrir }: Readonly<{
+export default function ListeLignesArticles({ liste, onOuvrir, admin, dialogues }: Readonly<{
   liste: 'articles' | 'sous-articles';
   onOuvrir: (id: string) => void;
+  admin: ComponentProps<typeof CadreListe>['admin'];
+  dialogues?: ReactNode;
 }>) {
   const sous = liste === 'sous-articles';
   const nom = sous ? 'sous-article' : 'article';
@@ -64,100 +62,73 @@ export default function ListeLignesArticles({ liste, onOuvrir }: Readonly<{
   );
   const grille = useMemo(() => grilleLignesArticles(colonnes.colonnes, ouvrirFicheDossier), [colonnes.colonnes, ouvrirFicheDossier]);
   const rows = data?.content ?? [];
+  const exportListe = useExportListe(
+    `/api/${liste}/export`,
+    { search: debouncedSearch || undefined, trancheId: trancheId.length > 0 ? trancheId : undefined, ...filtres.params, colonnes: colonnes.visibles },
+    liste,
+  );
+  const panneau = usePanneauArticles({
+    filtres,
+    sousArticles: sous,
+    entiteObligatoire: !sous,
+    tranche: {
+      items: tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
+      valeur: trancheId,
+      onChange: (v) => {
+        setPage(0);
+        setTrancheId(v);
+      },
+    },
+    recherche: search,
+  });
+  const erreur = error ?? catalogue.error;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
-      <BarreFiltresArticles
-        filtres={filtres}
-        sousArticles={sous}
-        onReinitialiser={resetFilters}
-        avant={
-          <>
-            <InputGroup className="min-w-55 flex-1">
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              <InputGroupInput
-                placeholder="Recherche — code, description, parent, titre foncier…"
-                value={search}
-                onChange={(e) => {
-                  setPage(0);
-                  setSearch(e.target.value);
-                }}
-              />
-            </InputGroup>
-            <MultiSelectDropdown
-              label="Tranche"
-              placeholder={tranches.loading ? 'Chargement…' : 'Toutes'}
-              value={trancheId}
-              onChange={(v) => {
-                setPage(0);
-                setTrancheId(v);
-              }}
-              items={tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }))}
-            />
-          </>
-        }
-      />
-
-      {aucuneEntite && <EmptyState title="Aucune entité active" message="Aucune entité active : la liste des articles ne peut pas être affichée." />}
-      {!data && !error && !catalogue.error && !aucuneEntite && <LoadingState />}
-      {(error || catalogue.error) && <ErrorState message={error ?? catalogue.error ?? ''} />}
-      {!error && data && (
-        <ResultsRegion loading={loading}>
-          <div className="flex shrink-0 items-center justify-between gap-3">
-            <div className="text-body text-muted-foreground">
-              {formatNumber(data.totalElements)} {nom}{data.totalElements > 1 ? 's' : ''}
-            </div>
-            <div className="flex items-center gap-2">
-              <BoutonExporter
-                pdf
-                chemin={`/api/${liste}/export`}
-                nomListe={liste}
-                disabled={colonnes.visibles.length === 0}
-                params={{ search: debouncedSearch || undefined, trancheId: trancheId.length > 0 ? trancheId : undefined, ...filtres.params, colonnes: colonnes.visibles }}
-              />
-              {colonnes.catalogueServi.length > 0 && (
-                <ColumnSelector
-                  catalogue={colonnes.catalogueServi}
-                  visibles={colonnes.visibles}
-                  onBasculer={colonnes.basculer}
-                  onReinitialiser={colonnes.reinitialiser}
-                  estDefaut={colonnes.estDefaut}
-                />
-              )}
-            </div>
-          </div>
-          {rows.length === 0 ? (
-            <EmptyState
-              title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
-              message={hasActiveFilters ? `Aucun ${nom} ne correspond aux filtres actifs.` : `Aucun ${nom} n'est encore enregistré.`}
-              action={
-                hasActiveFilters ? (
-                  <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
-                    <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-              <EtatColonnes pret={grille.length > 0} erreur={catalogue.error}>
-                <DataGrid
-                  cleOrdre={cleStockage}
-                  rows={rows}
-                  colonnes={grille}
-                  onOuvrir={onOuvrir}
-                  libelleLigne={(a) => `Ouvrir la fiche de ${a.code ?? ''}`.trim()}
-                />
-              </EtatColonnes>
-            </div>
-          )}
-          <div className="shrink-0">
-            <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
-          </div>
-        </ResultsRegion>
-      )}
-    </div>
+    <CadreListe
+      titre={sous ? 'Sous-articles' : 'Articles'}
+      cle={liste}
+      lignes={data ? pluriel(data.totalElements, nom) : undefined}
+      selecteur={
+        colonnes.catalogueServi.length > 0 && (
+          <ColumnSelector
+            compact
+            catalogue={colonnes.catalogueServi}
+            visibles={colonnes.visibles}
+            onBasculer={colonnes.basculer}
+            onReinitialiser={colonnes.reinitialiser}
+            estDefaut={colonnes.estDefaut}
+          />
+        )
+      }
+      panneau={{
+        ...panneau,
+        recherche: {
+          valeur: search,
+          onChange: (v) => {
+            setPage(0);
+            setSearch(v);
+          },
+          placeholder: 'Code, description, parent, titre foncier…',
+        },
+        onReinitialiser: resetFilters,
+      }}
+      etat={{ chargement: !aucuneEntite && !erreur && (loading || !data), erreur, pret: !!data }}
+      sansDonnees={aucuneEntite && <EmptyState title="Aucune entité active" message="Aucune entité active : la liste des articles ne peut pas être affichée." />}
+      vide={rows.length === 0 ? { aucun: `Aucun ${nom}`, filtresActifs: hasActiveFilters, onReinitialiser: resetFilters, message: `Aucun ${nom} n'est encore enregistré.` } : null}
+      pagination={data ? { page: data.page, totalPages: data.totalPages, totalElements: data.totalElements, onPageChange: setPage } : undefined}
+      admin={admin}
+      exportListe={{ export: exportListe, pdf: true, inactif: colonnes.visibles.length === 0 }}
+      dialogues={dialogues}
+    >
+      <EtatColonnes pret={grille.length > 0} erreur={catalogue.error}>
+        <DataGrid
+          cleOrdre={cleStockage}
+          rows={rows}
+          colonnes={grille}
+          onOuvrir={onOuvrir}
+          libelleLigne={(a) => `Ouvrir la fiche de ${a.code ?? ''}`.trim()}
+        />
+      </EtatColonnes>
+    </CadreListe>
   );
 }

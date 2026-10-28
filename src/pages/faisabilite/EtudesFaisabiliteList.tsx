@@ -1,21 +1,21 @@
 import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Ruler, Search, Settings2 } from 'lucide-react';
-import BoutonExporter from '../../components/BoutonExporter';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Ruler, Settings2 } from 'lucide-react';
 import type { ColonneGrille } from '../../components/DataGrid';
 import ListeAdmin from '../../components/entites/ListeAdmin';
 import ConfigWorkflowFaisabilite from '../../components/faisabilite/ConfigWorkflowFaisabilite';
 import GardeEtudes from '../../components/faisabilite/GardeEtudes';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
 import PageShell from '../../components/PageShell';
 import { Badge } from '../../components/ui';
 import { buttonVariants } from '../../components/ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { listEtudesFaisabilite } from '../../lib/apiFaisabilite';
 import { toneStatut } from '../../lib/faisabilite';
 import { formatSurface } from '../../lib/format';
+import { puceUnique } from '../../lib/pucesFiltres';
 import { referentielItems, useEntitesReferentiel } from '../../lib/referentiels';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useExportListe } from '../../lib/useExportListe';
 import type { EtudeFaisabiliteListeDto } from '../../types/faisabilite';
 
 const TOUS = 'tous';
@@ -48,6 +48,7 @@ const COLONNES: ColonneGrille<EtudeFaisabiliteListeDto>[] = [
 ];
 
 function Contenu() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const recherche = useDebouncedValue(search).trim();
   const [societeId, setSocieteId] = useState(TOUS);
@@ -66,54 +67,42 @@ function Contenu() {
     return [...parId].map(([value, label]) => ({ label, value }));
   }, [toutes.data]);
 
-  const choix = (items: { label: string; value: string }[], tous: string) => [{ label: tous, value: TOUS }, ...items];
-  const itemsSocietes = choix(referentielItems(societes.data), 'Toutes les sociétés');
-  const itemsStatuts = choix(statuts, 'Tous les statuts');
+  const itemsSocietes = referentielItems(societes.data);
+  const exportListe = useExportListe('/api/etudes-faisabilite/export', {
+    search: recherche || undefined, societeId: societeId === TOUS ? undefined : societeId,
+    statutId: statutId === TOUS ? undefined : statutId, colonnes: COLONNES.map((c) => c.nom),
+  }, 'etudes-faisabilite');
+  const unique = (valeur: string) => (valeur === TOUS ? null : valeur);
+
+  function resetFilters() {
+    setSearch('');
+    setSocieteId(TOUS);
+    setStatutId(TOUS);
+  }
 
   return (
     <ListeAdmin
       titre="Études de faisabilité"
-      icon={<Ruler />}
       chemin="/etudes-faisabilite"
       libelleNouveau="Nouvelle étude"
+      sujet="étude"
+      aucun="Aucune étude"
       etat={etat}
       colonnes={COLONNES}
-      outils={(
-        <div className="flex items-center gap-2">
-          <BoutonExporter pdf chemin="/api/etudes-faisabilite/export" nomListe="etudes-faisabilite"
-            params={{ search: recherche || undefined, societeId: societeId === TOUS ? undefined : societeId,
-              statutId: statutId === TOUS ? undefined : statutId, colonnes: COLONNES.map((c) => c.nom) }} />
-          <Link to={`${LISTE}?vue=configuration`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-            <Settings2 data-icon="inline-start" /> Statuts et transitions
-          </Link>
-        </div>
-      )}
+      exportListe={{ export: exportListe, pdf: true }}
+      propres={[{ id: 'statuts', libelle: 'Statuts et transitions', icone: Settings2, onClick: () => void navigate(`${LISTE}?vue=configuration`) }]}
       filtre={recherche !== '' || societeId !== TOUS || statutId !== TOUS}
-      filtres={
-        <>
-          <InputGroup className="max-w-md">
-            <InputGroupAddon><Search /></InputGroupAddon>
-            <InputGroupInput placeholder="Rechercher un code, une description, un terrain…" value={search}
-              onChange={(e) => setSearch(e.target.value)} />
-          </InputGroup>
-          <Select items={itemsSocietes} value={societeId} onValueChange={(v) => setSocieteId(v ?? TOUS)}>
-            <SelectTrigger aria-label="Filtre Société" className="w-52"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {itemsSocietes.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Select items={itemsStatuts} value={statutId} onValueChange={(v) => setStatutId(v ?? TOUS)}>
-            <SelectTrigger aria-label="Filtre Statut" className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {itemsStatuts.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </>
-      }
+      panneau={{
+        puces: [...puceUnique(itemsSocietes, unique(societeId)), ...puceUnique(statuts, unique(statutId)), ...(search ? [`« ${search} »`] : [])],
+        recherche: { valeur: search, onChange: setSearch, placeholder: 'Code, description, terrain…' },
+        onReinitialiser: resetFilters,
+        children: (
+          <>
+            <BoiteFiltre titre="Société" mode="unique" items={itemsSocietes} valeur={unique(societeId)} onChange={(v) => setSocieteId(v ?? TOUS)} />
+            <BoiteFiltre titre="Statut" mode="unique" items={statuts} valeur={unique(statutId)} onChange={(v) => setStatutId(v ?? TOUS)} />
+          </>
+        ),
+      }}
     />
   );
 }
