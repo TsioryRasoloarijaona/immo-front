@@ -52645,7 +52645,7 @@
           "dateMinute": {
             "type": "string",
             "format": "date-time",
-            "description": "Minute / enregistrement contrat (ComFolder.AgreementSavingDate)."
+            "description": "Date minute / signature du contrat (ComFolder.AgreementSavingDate)."
           },
           "dateRemiseClesPrevue": {
             "type": "string",
@@ -52679,7 +52679,7 @@
           "dateDecisionMeilleurTaux": {
             "type": "string",
             "format": "date-time",
-            "description": "Décision de MEILLEURTAUX (ComFolder.LoanCompanyDecisionDate)."
+            "description": "Date de la décision MEILLEURTAUX (ComFolder.LoanCompanyDecisionDate)."
           },
           "dateImpressionContrat": {
             "type": "string",
@@ -52828,6 +52828,81 @@
             "type": "integer",
             "format": "int32",
             "description": "Jours entre l'envoi et la décision MEILLEURTAUX ; 0 si l'une manque, comme OMRAN."
+          },
+          "dateRemiseContratLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de remise du contrat pour légalisation (ComFolder.AgreementSavingDateForLegalization)."
+          },
+          "dateLegalisationContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de légalisation du contrat (ComFolder.AgreementSavingDateLegalization)."
+          },
+          "dateRemiseCertificatPropriete": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de remise du certificat de propriété au client (ComFolder.FinalTitleDate)."
+          },
+          "numeroTitre": {
+            "type": "string",
+            "description": "Numéro du titre de propriété (ComFolder.FinalTitleNumber)."
+          },
+          "decisionMeilleurTaux": {
+            "type": "string",
+            "description": "Libellé de la décision MEILLEURTAUX (ComLoanCompanyDecision.Description), null sans décision."
+          },
+          "datePromesseVente": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la promesse de vente (ComFolder.ReservationDate)."
+          },
+          "dateFicheIntervention": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la fiche d'intervention (ComFolder.InterventionDate)."
+          },
+          "dateOctroiCredit": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'attestation de consignation / d'octroi du crédit (ComFolder.CreditPossessionDate)."
+          },
+          "dateVisiteTechnique": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de visite technique / réception (ComFolder.ReceptionDate)."
+          },
+          "dateExpedition": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'expédition (ComFolder.OwnershipCertificateDate)."
+          },
+          "echeanceRelance1": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance 1 (ComFolder.Revival1ValidityDate)."
+          },
+          "echeanceRelance2": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance 2 (ComFolder.Revival2ValidityDate)."
+          },
+          "dateEnvoiMeilleurTaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'envoi à MEILLEURTAUX (ComFolder.loanCompanySendDate)."
+          },
+          "delaiNotaireCredit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre l'envoi au notaire et l'octroi du crédit ; null si l'une des dates manque.",
+            "example": 40
+          },
+          "delaiCreditCles": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre l'octroi du crédit et la remise des clés ; null si l'une des dates manque.",
+            "example": 20
           },
           "prixContractuel": {
             "type": "number",

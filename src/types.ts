@@ -1326,7 +1326,7 @@ export interface DossierListItemDto {
   dateMinute?: string | null;
   dateMinuteClient?: string | null;
   dateMinuteAvocat?: string | null;
-  dateRemiseLegalisationContrat?: string | null;
+  dateRemiseContratLegalisation?: string | null;
   dateLegalisationContrat?: string | null;
   dateDepotEnregistrementContrat?: string | null;
   dateRemiseClesPrevue?: string | null;
@@ -1340,7 +1340,7 @@ export interface DossierListItemDto {
   echeanceRelance2?: string | null;
   dateDepotCpf?: string | null;
   dateRetraitCpf?: string | null;
-  dateRemiseCertificat?: string | null;
+  dateRemiseCertificatPropriete?: string | null;
   numeroTitre?: string | null;
   dateValiditeStatut?: string | null;
   dateModificationRemise?: string | null;
@@ -1393,8 +1393,10 @@ export interface DossierListItemDto {
   /** Instruction non lue qui vise l'utilisateur connecté : icône en tête de ligne. */
   instructionNonLue?: boolean | null;
   nombreActions?: number | null;
-  delaiCredit?: number | null;
-  delaiCreditRemiseCles?: number | null;
+  /** Jours de l'envoi au notaire à l'octroi du crédit ; null si une borne manque. */
+  delaiNotaireCredit?: number | null;
+  /** Jours de l'octroi du crédit à la remise des clés ; null si une borne manque. */
+  delaiCreditCles?: number | null;
   delaiMeilleurTaux?: number | null;
 }
 
