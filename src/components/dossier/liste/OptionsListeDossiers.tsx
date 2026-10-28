@@ -1,4 +1,6 @@
-/** Cases de la liste des dossiers : dossiers sortis (exclus par défaut, comme OMRAN) et tri d'OMRAN. */
+import { CadreBoiteFiltre, CLASSE_LIGNE } from '../../liste/BoiteFiltre';
+
+/** Boîte « Options » de la liste des dossiers : dossiers sortis (exclus par défaut, comme OMRAN) et tri d'OMRAN. */
 export default function OptionsListeDossiers({
   inclureSortis,
   onInclureSortis,
@@ -11,25 +13,15 @@ export default function OptionsListeDossiers({
   onOrdreOmran: (v: boolean) => void;
 }>) {
   return (
-    <div className="flex flex-wrap items-center gap-3 text-body">
-      <label className="inline-flex items-center gap-1.5">
-        <input
-          type="checkbox"
-          className="size-3.5 accent-(--primary)"
-          checked={inclureSortis}
-          onChange={(e) => onInclureSortis(e.target.checked)}
-        />
+    <CadreBoiteFiltre titre="Options">
+      <label className={CLASSE_LIGNE}>
+        <input type="checkbox" className="m-0 accent-(--brand)" checked={inclureSortis} onChange={(e) => onInclureSortis(e.target.checked)} />
         Inclure annulés / désistés
       </label>
-      <label className="inline-flex items-center gap-1.5" title="Article, tranche, projet puis entité">
-        <input
-          type="checkbox"
-          className="size-3.5 accent-(--primary)"
-          checked={ordreOmran}
-          onChange={(e) => onOrdreOmran(e.target.checked)}
-        />
+      <label className={CLASSE_LIGNE} title="Article, tranche, projet puis entité">
+        <input type="checkbox" className="m-0 accent-(--brand)" checked={ordreOmran} onChange={(e) => onOrdreOmran(e.target.checked)} />
         Ordre OMRAN
       </label>
-    </div>
+    </CadreBoiteFiltre>
   );
 }

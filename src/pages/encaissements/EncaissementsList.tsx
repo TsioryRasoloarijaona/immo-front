@@ -1,18 +1,19 @@
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarRange, Info, RotateCcw, Search, Wallet } from 'lucide-react';
-import PageShell from '../../components/PageShell';
-import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
-import MultiSelectDropdown from '../../components/MultiSelectDropdown';
+import { Info } from 'lucide-react';
+import { ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
-import { Button } from '../../components/ui/button';
+import EtatVideListe from '../../components/liste/EtatVideListe';
 import { Input } from '../../components/ui/input';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import EncaissementTable from '../../components/EncaissementTable';
 import ColumnSelector from '../../components/ColumnSelector';
 import BandeGroupement from '../../components/BandeGroupement';
-import BoutonExporter from '../../components/BoutonExporter';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import FiltreTiers, { type TiersChoisi } from '../../components/encaissements/FiltreTiers';
 import BandeTotalEncaissements from '../../components/encaissements/BandeTotalEncaissements';
 import {
@@ -27,8 +28,11 @@ import { useColonnesVisibles } from '../../lib/colonnes';
 import { DISPOSITION_ENCAISSEMENTS } from '../../lib/dispositions';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
 import EtatColonnes from '../../components/EtatColonnes';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
+import { useExportListe } from '../../lib/useExportListe';
 import {
   referentielItems,
   useColonnesEncaissements,
@@ -56,7 +60,6 @@ const CHAMP_DATE_ITEMS: { label: string; value: ChampDate }[] = [
 ];
 
 const COMPTABILISE_ITEMS: { label: string; value: ComptabiliseFilter }[] = [
-  { label: 'Tous', value: 'all' },
   { label: 'Comptabilisés', value: 'yes' },
   { label: 'Non comptabilisés', value: 'no' },
 ];
@@ -69,6 +72,7 @@ export default function EncaissementsList() {
   const types = useTypesReglement();
   const comptes = useComptesReferentiel();
   const depots = useDepotsReferentiel();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('encaissements'));
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
@@ -232,169 +236,105 @@ export default function EncaissementsList() {
   const compteItems = referentielItems(comptes.data);
   const depotItems = referentielItems(depots.data);
 
+  const exportListe = useExportListe('/api/encaissements/export', { ...filtresServeur, colonnes: colonnes.visibles }, 'encaissements');
+  const puces = [
+    ...puceSelection('Entité', entiteItems, entiteId),
+    ...puceSelection('Type', typeItems, typeId),
+    ...puceSelection('État', ETAT_ITEMS, etat),
+    ...puceSelection('Tranche', trancheItems, trancheId),
+    ...puceUnique(compteItems, compteId),
+    ...puceUnique(depotItems, depotId),
+    ...puceUnique(COMPTABILISE_ITEMS, comptabilise === 'all' ? null : comptabilise),
+    ...(reference ? [`Réf. ${reference}`] : []),
+    ...(tiers ? [tiers.nom] : []),
+    ...(search ? [`« ${search} »`] : []),
+  ];
+  const unite = enGroupes ? 'groupe' : 'encaissement';
+  const decompte = pageAffichee ? pluriel(pageAffichee.totalElements, unite) : undefined;
+
+  function periodeChangee(debut: string, fin: string) {
+    setPage(0);
+    setDateDebut(debut);
+    setDateFin(fin);
+  }
+
   return (
-    <PageShell
-      title="Encaissements"
-      crumbs={[{ label: 'Ventes' }, { label: 'Encaissements' }]}
-      fullHeight
-      icon={<Wallet />}
-      accent="var(--sec-dossier)"
-      accentBg="var(--sec-dossier-bg)"
-      actions={
-        <BoutonExporter
-          chemin="/api/encaissements/export"
-          params={{ ...filtresServeur, colonnes: colonnes.visibles }}
-          nomListe="encaissements"
+    <PageListe titre="Encaissements">
+      <EnteteListe titre="Encaissements" lignes={decompte}>
+        {colonnes.catalogueServi.length > 0 && (
+          <ColumnSelector
+            compact
+            catalogue={colonnes.catalogueServi}
+            visibles={colonnes.visibles}
+            onBasculer={colonnes.basculer}
+            onReinitialiser={colonnes.reinitialiser}
+            estDefaut={colonnes.estDefaut}
+          />
+        )}
+      </EnteteListe>
+      <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
+      <PanneauFiltresCoches
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        puces={puces}
+        champDate={{ items: CHAMP_DATE_ITEMS, valeur: champDate, onChange: (v) => resetAndSet(setChampDate, v as ChampDate) }}
+        periode={{ debut: dateDebut, fin: dateFin, onChange: periodeChangee }}
+        recherche={{
+          valeur: search,
+          onChange: (v) => resetAndSet(setSearch, v),
+          placeholder: 'Référence, tiers…',
+        }}
+        onReinitialiser={resetFilters}
+        champs={
+          <>
+            <Input aria-label="Référence" placeholder="Référence" className="w-35" value={reference} onChange={(e) => resetAndSet(setReference, e.target.value)} />
+            <FiltreTiers choisi={tiers} onChoisir={(t) => resetAndSet(setTiers, t)} />
+            <Input type="number" aria-label="Montant de" placeholder="Montant de" className="w-30" value={montantDe} onChange={(e) => resetAndSet(setMontantDe, e.target.value)} />
+            <Input type="number" aria-label="Montant à" placeholder="à" className="w-24" value={montantA} onChange={(e) => resetAndSet(setMontantA, e.target.value)} />
+          </>
+        }
+      >
+        <BoiteFiltre titre="Entité" mode="multiple" items={entiteItems} valeur={entiteId} onChange={(v) => resetAndSet(setEntiteId, v)} />
+        <BoiteFiltre titre="Type" mode="multiple" items={typeItems} valeur={typeId} onChange={(v) => resetAndSet(setTypeId, v)} />
+        <BoiteFiltre titre="État" mode="multiple" items={ETAT_ITEMS} valeur={etat} onChange={(v) => resetAndSet(setEtat, v)} />
+        {/* Un règlement remonte dès qu'une de ses échéances porte sur un lot de
+            la tranche : à cheval sur deux tranches, il remonte pour les deux. */}
+        <BoiteFiltre titre="Tranche" mode="multiple" items={trancheItems} valeur={trancheId} onChange={(v) => resetAndSet(setTrancheId, v)} />
+        <BoiteFiltre titre="Compte" mode="unique" items={compteItems} valeur={compteId} onChange={(v) => resetAndSet(setCompteId, v)} />
+        <BoiteFiltre titre="Dépôt" mode="unique" items={depotItems} valeur={depotId} onChange={(v) => resetAndSet(setDepotId, v)} />
+        <BoiteFiltre
+          titre="Comptabilisé"
+          mode="unique"
+          items={COMPTABILISE_ITEMS}
+          valeur={comptabilise === 'all' ? null : comptabilise}
+          onChange={(v) => resetAndSet(setComptabilise, (v ?? 'all') as ComptabiliseFilter)}
         />
-      }
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
+      </PanneauFiltresCoches>
 
-        <div className="flex shrink-0 flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <InputGroup className="min-w-55 flex-1">
-                <InputGroupAddon>
-                  <Search />
-                </InputGroupAddon>
-                <InputGroupInput
-                  placeholder="Recherche multi-critère — référence, tiers…"
-                  value={search}
-                  onChange={(e) => resetAndSet(setSearch, e.target.value)}
-                />
-              </InputGroup>
-              <Input
-                placeholder="Référence"
-                className="w-35"
-                value={reference}
-                onChange={(e) => resetAndSet(setReference, e.target.value)}
-              />
-              <MultiSelectDropdown label="Entité" placeholder="Toutes" value={entiteId} onChange={(v) => resetAndSet(setEntiteId, v)} items={entiteItems} />
-              <MultiSelectDropdown label="Type" placeholder="Tous" value={typeId} onChange={(v) => resetAndSet(setTypeId, v)} items={typeItems} />
-              <MultiSelectDropdown label="État" placeholder="Tous" value={etat} onChange={(v) => resetAndSet(setEtat, v)} items={ETAT_ITEMS} />
-              {/* Un règlement remonte dès qu'une de ses échéances porte sur un lot de
-                  la tranche : à cheval sur deux tranches, il remonte pour les deux. */}
-              <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={trancheId} onChange={(v) => resetAndSet(setTrancheId, v)} items={trancheItems} />
-              <FiltreTiers choisi={tiers} onChoisir={(t) => resetAndSet(setTiers, t)} />
-              <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
-                <RotateCcw data-icon="inline-start" /> Réinitialiser
-              </Button>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Select items={compteItems} value={compteId} onValueChange={(v) => resetAndSet(setCompteId, v)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Compte…" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {compteItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Select items={depotItems} value={depotId} onValueChange={(v) => resetAndSet(setDepotId, v)}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Dépôt…" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {depotItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Select items={COMPTABILISE_ITEMS} value={comptabilise} onValueChange={(v) => resetAndSet(setComptabilise, v as ComptabiliseFilter)}>
-                <SelectTrigger className="w-45">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {COMPTABILISE_ITEMS.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Select items={CHAMP_DATE_ITEMS} value={champDate} onValueChange={(v) => resetAndSet(setChampDate, v as ChampDate)}>
-                <SelectTrigger className="w-38">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {CHAMP_DATE_ITEMS.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-1.5">
-                <InputGroup className="w-32.5">
-                  <InputGroupInput type="date" aria-label="Du" value={dateDebut} onChange={(e) => resetAndSet(setDateDebut, e.target.value)} />
-                </InputGroup>
-                <InputGroup className="w-32.5">
-                  <InputGroupInput type="date" aria-label="Au" value={dateFin} onChange={(e) => resetAndSet(setDateFin, e.target.value)} />
-                </InputGroup>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Input type="number" placeholder="Montant de" className="w-30" value={montantDe} onChange={(e) => resetAndSet(setMontantDe, e.target.value)} />
-                <Input type="number" placeholder="à" className="w-24" value={montantA} onChange={(e) => resetAndSet(setMontantA, e.target.value)} />
-              </div>
-            </div>
-        </div>
-
-        {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul, le
-            chargement plein écran se rallumerait par-dessus les groupes. */}
+      {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul, le
+          chargement plein écran se rallumerait par-dessus les groupes. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {loading && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
-            <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <span className="text-body text-muted-foreground">
-                {pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : 'encaissement')}
-              </span>
-              {/* Un règlement non imputé n'a aucune ligne : l'API ne le sert jamais, alors
-                  que l'écran légataire l'affiche. Sans cette mention, l'écart des totaux
-                  passerait pour un bug. */}
-              <span className="inline-flex items-center gap-1 text-micro text-muted-foreground">
-                <Info aria-hidden className="size-3 shrink-0" />
-                Les règlements pas encore imputés à une échéance ne figurent pas dans cette liste.
-              </span>
-            </div>
-            {colonnes.catalogueServi.length > 0 && (
-              <ColumnSelector
-                catalogue={colonnes.catalogueServi}
-                visibles={colonnes.visibles}
-                onBasculer={colonnes.basculer}
-                onReinitialiser={colonnes.reinitialiser}
-                estDefaut={colonnes.estDefaut}
-              />
-            )}
-            </div>
+            {/* Un règlement non imputé n'a aucune ligne : l'API ne le sert jamais, alors
+                que l'écran légataire l'affiche. Sans cette mention, l'écart des totaux
+                passerait pour un bug. */}
+            <span className="inline-flex shrink-0 items-center gap-1 text-micro text-muted-foreground">
+              <Info aria-hidden className="size-3 shrink-0" />
+              Les règlements pas encore imputés à une échéance ne figurent pas dans cette liste.
+            </span>
             {/* La bande reste hors du test « vide » : un groupe vide garde sa sortie. */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
               {vide ? (
-                <EmptyState
-                  title={hasActiveFilters ? 'Aucun résultat' : 'Rien ce mois-ci'}
-                  message={
-                    hasActiveFilters
-                      ? 'Aucun encaissement ne correspond aux filtres actifs.'
-                      : 'Aucun encaissement daté du mois en cours.'
-                  }
-                  action={
-                    hasActiveFilters ? (
-                      <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
-                        <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                      </Button>
-                    ) : (
-                      <Button type="button" variant="outline" size="sm" onClick={toutesLesPeriodes}>
-                        <CalendarRange data-icon="inline-start" /> Toutes les périodes
-                      </Button>
-                    )
-                  }
+                <EtatVideListe
+                  filtresActifs={hasActiveFilters}
+                  sujet="encaissement"
+                  surMois="Aucun encaissement daté du mois en cours."
+                  onReinitialiser={resetFilters}
+                  onToutesPeriodes={toutesLesPeriodes}
                 />
               ) : (
                 <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
@@ -424,6 +364,15 @@ export default function EncaissementsList() {
           </ResultsRegion>
         )}
       </div>
-    </PageShell>
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
+      <BarreOutilsFlottante
+        cle="encaissements"
+        ligneSelectionnee={false}
+        actions={[
+          { id: 'rafraichir', onClick: refetchAllApis },
+          { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
+        ]}
+      />
+    </PageListe>
   );
 }

@@ -25,6 +25,7 @@ export default function ColumnSelector({
   onReinitialiser,
   estDefaut,
   className,
+  compact = false,
 }: Readonly<{
   catalogue: ColonneDto[];
   visibles: string[];
@@ -32,6 +33,8 @@ export default function ColumnSelector({
   onReinitialiser: () => void;
   estDefaut: boolean;
   className?: string;
+  /** Format de l'en-tête de liste : « Colonnes n » plus bas, sans fond. */
+  compact?: boolean;
 }>) {
   const [ouvert, setOuvert] = useState(false);
   const [requete, setRequete] = useState('');
@@ -52,6 +55,7 @@ export default function ColumnSelector({
       <DropdownMenuTrigger
         className={cn(
           'flex h-8 items-center gap-1.5 rounded-lg border border-input bg-transparent px-2.5 text-sm whitespace-nowrap outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50',
+          compact && 'h-7 border-transparent hover:bg-muted',
           className,
         )}
       >
