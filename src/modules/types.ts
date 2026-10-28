@@ -1,6 +1,7 @@
 import type { ComponentType, ReactNode, SVGProps } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import type { estAdministrateur } from '../lib/roles';
+import type { ArbreModule } from './arbre';
 
 export type Utilisateur = Parameters<typeof estAdministrateur>[0];
 
@@ -30,6 +31,6 @@ export interface ModuleApp {
   /** Débuts de chemin du module ; `/` ne vaut que pour lui-même. */
   prefixes: string[];
   routes: { path: string; element: ReactNode }[];
-  menu?: { titre: string; entrees: EntreeMenu[] };
+  arbre?: ArbreModule;
   Menu?: ComponentType<{ pathname: string }>;
 }

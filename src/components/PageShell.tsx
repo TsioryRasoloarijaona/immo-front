@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Grid2x2 } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   Breadcrumb,
@@ -10,11 +10,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from './ui/breadcrumb';
-import { SidebarTrigger } from './ui/sidebar';
-import { Button } from './ui/button';
-import ThemeToggle from './ThemeToggle';
-import Cloche from './notifications/Cloche';
-import ModuleSwitcher from './ModuleSwitcher';
 
 interface Crumb {
   label: string;
@@ -45,19 +40,15 @@ export default function PageShell({
   entete?: ReactNode;
   children: ReactNode;
 }>) {
-  const [switcherOpen, setSwitcherOpen] = useState(false);
-
   return (
-    <div className={cn(fullHeight && 'flex h-svh flex-col overflow-hidden md:h-[calc(100svh-1rem)]')}>
-      {/* `md:rounded-t-xl` : l'en-tête épouse les coins de la feuille inset de Layout. */}
+    <div className={cn(fullHeight && 'flex h-[calc(100svh-var(--hauteur-barre-haut,0px))] flex-col overflow-hidden md:h-[calc(100svh-1rem-var(--hauteur-barre-haut,0px))]')}>
       <header
         className={cn(
-          'sticky top-0 z-5 flex shrink-0 items-center justify-between gap-x-4 gap-y-2 border-b border-border/70 bg-background/88 px-4 py-2 backdrop-blur-sm md:rounded-t-xl md:px-7',
+          'sticky top-(--hauteur-barre-haut,0px) z-5 flex shrink-0 items-center justify-between gap-x-4 gap-y-2 border-b border-border/70 bg-background/88 px-4 py-2 backdrop-blur-sm md:px-7',
           entete && 'flex-wrap',
         )}
       >
         <div className="flex min-w-0 items-center gap-2.5">
-          <SidebarTrigger title="Afficher/masquer la barre latérale" />
           {icon && (
             <span
               className="flex size-7 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4"
@@ -112,23 +103,9 @@ export default function PageShell({
         </div>
         <div className={cn('flex items-center gap-2', entete ? 'ml-auto max-w-full' : 'shrink-0')}>
           {actions && <div className="flex min-w-0 flex-wrap justify-end gap-2">{actions}</div>}
-          <Cloche />
-          <ThemeToggle />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setSwitcherOpen(true)}
-            aria-label="Changer de module"
-            title="Changer de module"
-          >
-            <Grid2x2 />
-          </Button>
         </div>
       </header>
       <div className={cn('page', fullHeight && 'flex min-h-0 flex-col overflow-hidden')}>{children}</div>
-
-      {switcherOpen && <ModuleSwitcher onClose={() => setSwitcherOpen(false)} />}
     </div>
   );
 }

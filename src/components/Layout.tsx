@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { NavLink, Link, useLocation } from 'react-router-dom';
-import { CircleHelp, LogOut } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -9,19 +9,15 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
 } from './ui/sidebar';
 import { Button } from './ui/button';
-import SyncButton from './SyncButton';
-import ActionsRecentes from './ActionsRecentes';
+import ArbreMenu from './ArbreMenu';
+import BarreHaut from './BarreHaut';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
-import { estAdministrateur } from '../lib/roles';
-import GroupeMenu from '../modules/GroupeMenu';
+import { estAdministrateur, estCommercialTerrain } from '../lib/roles';
 import { MODULES_DECLARES } from '../modules/registre';
 import type { ModuleApp } from '../modules/types';
 
@@ -35,11 +31,14 @@ function MessageModule({ titre, children }: Readonly<{ titre: string; children: 
 }
 
 function MenuDuModule({ module, isAdmin, pathname }: Readonly<{ module: ModuleApp; isAdmin: boolean; pathname: string }>) {
+  const { user } = useAuth();
   if (module.reserveAdmin && !isAdmin) {
     return <MessageModule titre={module.label}>Ce module est réservé aux comptes ayant le rôle Administrateur.</MessageModule>;
   }
-  if (module.Menu) return <module.Menu pathname={pathname} />;
-  return module.menu ? <GroupeMenu titre={module.menu.titre} entrees={module.menu.entrees} pathname={pathname} /> : null;
+  if (module.arbre) {
+    return <ArbreMenu key={module.slug} slug={module.slug} groupes={module.arbre({ user, terrain: estCommercialTerrain(user) })} pathname={pathname} />;
+  }
+  return module.Menu ? <module.Menu pathname={pathname} /> : null;
 }
 
 export default function Layout({ children }: Readonly<{ children: ReactNode }>) {
@@ -91,18 +90,7 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
         </SidebarContent>
 
         <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton render={<NavLink to="/aide" />} isActive={location.pathname.startsWith('/aide')} tooltip="Aide">
-                <CircleHelp />
-                Aide
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-          {/* SyncButton se cache lui-même pour les rôles auxquels le backend refuse l'appel. */}
-          <ActionsRecentes />
-          <SyncButton />
-          <div className="flex items-center gap-2 px-2 pt-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+          <div className="flex items-center gap-2 px-2 pt-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
             <Link
               to="/profil"
               className="flex min-w-0 flex-1 flex-col leading-tight no-underline group-data-[collapsible=icon]:hidden"
@@ -129,7 +117,10 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
       {/* `min-w-0` obligatoire ici : sans lui, un tableau large impose sa largeur
           à cet élément flex et c'est la fenêtre qui défile horizontalement. Le
           poser plus bas ne suffit pas. */}
-      <SidebarInset className="min-w-0">{children}</SidebarInset>
+      <SidebarInset className="min-w-0">
+        <BarreHaut />
+        {children}
+      </SidebarInset>
     </SidebarProvider>
   );
 }
