@@ -12,7 +12,7 @@ import { Button } from '../ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
 import { listLignesArticles } from '../../lib/apiSousArticles';
 import {
-  catalogueLignesArticles, dispositionLignesArticles, grilleLignesArticles, useFiltresArticles,
+  catalogueLignesArticles, dispositionLignesArticles, grilleLignesArticles, useEntiteObligatoire, useFiltresArticles,
 } from '../../lib/articlesListe';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { formatNumber } from '../../lib/format';
@@ -31,7 +31,8 @@ export default function ListeLignesArticles({ liste, onOuvrir }: Readonly<{
   const tranches = useTranchesReferentiel();
   const catalogue = useColonnesArticles();
   const disposition = useMemo(() => dispositionLignesArticles(sous), [sous]);
-  const colonnes = useColonnesVisibles(liste, catalogueLignesArticles(catalogue.data, sous), disposition);
+  const cleStockage = sous ? liste : 'articles-omran';
+  const colonnes = useColonnesVisibles(cleStockage,catalogueLignesArticles(catalogue.data, sous), disposition);
   // Toujours explicite : les défauts du serveur ne portent ni le parent ni l'indicateur « parent occupé ».
   const demandees = [...new Set(colonnes.visibles.flatMap((n) => [n, ...(disposition.dependances?.[n] ?? [])]))];
 
@@ -40,7 +41,8 @@ export default function ListeLignesArticles({ liste, onOuvrir }: Readonly<{
   const [trancheId, setTrancheId] = useState<string[]>([]);
   const [page, setPage] = useState(0);
   const filtres = useFiltresArticles(() => setPage(0));
-  const hasActiveFilters = !!search || trancheId.length > 0 || filtres.actifs;
+  const { aucune: aucuneEntite, prete: requetePrete, seule: entiteSeule } = useEntiteObligatoire(filtres, !sous);
+  const hasActiveFilters = !!search || trancheId.length > 0 || (filtres.actifs && !entiteSeule);
 
   function resetFilters() {
     setPage(0);
@@ -51,14 +53,14 @@ export default function ListeLignesArticles({ liste, onOuvrir }: Readonly<{
 
   const { data, loading, error } = useApi(
     () =>
-      demandees.length > 0
+      demandees.length > 0 && requetePrete
         ? listLignesArticles(
             liste,
             { search: debouncedSearch || undefined, trancheId: trancheId.length > 0 ? trancheId : undefined, ...filtres.params, colonnes: demandees },
             { page, size: 20 },
           )
         : Promise.resolve(null),
-    [liste, debouncedSearch, trancheId.join(','), filtres.cle, page, demandees.join(',')],
+    [liste, debouncedSearch, trancheId.join(','), filtres.cle, page, demandees.join(','), requetePrete],
   );
   const grille = useMemo(() => grilleLignesArticles(colonnes.colonnes, ouvrirFicheDossier), [colonnes.colonnes, ouvrirFicheDossier]);
   const rows = data?.content ?? [];
@@ -98,7 +100,8 @@ export default function ListeLignesArticles({ liste, onOuvrir }: Readonly<{
         }
       />
 
-      {!data && !error && !catalogue.error && <LoadingState />}
+      {aucuneEntite && <EmptyState title="Aucune entité active" message="Aucune entité active : la liste des articles ne peut pas être affichée." />}
+      {!data && !error && !catalogue.error && !aucuneEntite && <LoadingState />}
       {(error || catalogue.error) && <ErrorState message={error ?? catalogue.error ?? ''} />}
       {!error && data && (
         <ResultsRegion loading={loading}>
@@ -141,7 +144,7 @@ export default function ListeLignesArticles({ liste, onOuvrir }: Readonly<{
             <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
               <EtatColonnes pret={grille.length > 0} erreur={catalogue.error}>
                 <DataGrid
-                  cleOrdre={liste}
+                  cleOrdre={cleStockage}
                   rows={rows}
                   colonnes={grille}
                   onOuvrir={onOuvrir}
