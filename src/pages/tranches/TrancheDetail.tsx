@@ -4,12 +4,14 @@ import { Building2, CalendarClock, ChevronDown, Download, Map, Pencil, Printer, 
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import ArticlesTranche from '../../components/patrimoine/ArticlesTranche';
-import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
 import ChampsSpecifiques from '../../components/patrimoine/ChampsSpecifiques';
 import DialogueChargerDepuisTranche from '../../components/patrimoine/DialogueChargerDepuisTranche';
 import DialogueMiseAJourSchemas from '../../components/patrimoine/DialogueMiseAJourSchemas';
 import DialoguePremieresRelances from '../../components/patrimoine/DialoguePremieresRelances';
 import DialoguePrevisionsBase from '../../components/patrimoine/DialoguePrevisionsBase';
+import DialogueFicheReservation from '../../components/patrimoine/impressions/DialogueFicheReservation';
+import DialogueRelance2 from '../../components/patrimoine/impressions/DialogueRelance2';
+import MenuImprimerTranche from '../../components/patrimoine/impressions/MenuImprimerTranche';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
 import PiecesJointesBloc from '../../components/patrimoine/PiecesJointesBloc';
 import FicheShell from '../../components/FicheShell';
@@ -27,7 +29,7 @@ import { ongletsTransverses } from '../../lib/ongletsTransverses';
 import { SECTIONS_TRANCHE } from '../../lib/saisieTranche';
 import { useOngletsTranche } from '../../lib/useOngletsTranche';
 
-type DialogueTranche = 'previsions' | 'schemas' | 'charger' | 'relances';
+type DialogueTranche = 'previsions' | 'schemas' | 'charger' | 'relances' | 'relance2' | 'reservation';
 
 export default function TrancheDetail() {
   const { id = '' } = useParams();
@@ -103,7 +105,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
           <Button type="button" size="sm" variant="outline" onClick={() => void navigate(`/tranches/${id}/plans`)}>
             <Map data-icon="inline-start" /> Plans
           </Button>
-          <BoutonImprimerFiche ressource="tranches" id={id} />
+          <MenuImprimerTranche trancheId={id} onDialogue={setDialogue} />
           <MenuAutresActions onDialogue={setDialogue} onSupprimer={() => void supprimer()} />
           <ActionAdmin to={`/tranches/${id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
           <ActionAdmin to={`/articles/nouveau?trancheId=${id}`} libelle="Nouvel article" />
@@ -153,6 +155,8 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
       {dialogue === 'previsions' && <DialoguePrevisionsBase trancheId={id} onClose={() => setDialogue(null)} />}
       {dialogue === 'schemas' && <DialogueMiseAJourSchemas trancheId={id} onClose={() => setDialogue(null)} />}
       {dialogue === 'relances' && <DialoguePremieresRelances trancheId={id} onClose={() => setDialogue(null)} />}
+      {dialogue === 'relance2' && <DialogueRelance2 trancheId={id} onClose={() => setDialogue(null)} />}
+      {dialogue === 'reservation' && <DialogueFicheReservation trancheId={id} onClose={() => setDialogue(null)} />}
       {dialogue === 'charger' && (
         <DialogueChargerDepuisTranche trancheId={id} onClose={() => setDialogue(null)}
           onCharge={() => { setVersion((v) => v + 1); void refetch(); }} />
