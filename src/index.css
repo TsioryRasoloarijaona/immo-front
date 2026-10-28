@@ -539,6 +539,27 @@ table {
 .editeur-modele-page img { max-width: 100%; }
 .editeur-modele-page h2[data-numero]::before { content: 'n- '; color: #8a7a96; }
 .editeur-modele-page .ProseMirror-selectednode { outline: 2px solid var(--brand); }
+/* Les blocs se repèrent au coin de la page, pas à la zone de texte : ProseMirror ne doit pas être leur ancre. */
+.editeur-modele-page { position: relative; }
+.editeur-modele-page .ProseMirror { position: static; }
+.bloc-positionne {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed var(--brand);
+  overflow: hidden;
+  line-height: 1.2;
+}
+.bloc-positionne:focus-within { border-style: solid; overflow: visible; z-index: 1; }
+.bloc-positionne-contenu { min-height: 100%; outline: none; }
+.bloc-positionne-poignee,
+.bloc-positionne-coin {
+  position: absolute;
+  z-index: 2;
+  background: var(--brand);
+  opacity: 0.7;
+}
+.bloc-positionne-poignee { top: -1px; left: -1px; width: 14px; height: 6px; cursor: move; touch-action: none; }
+.bloc-positionne-coin { right: -1px; bottom: -1px; width: 8px; height: 8px; cursor: nwse-resize; touch-action: none; }
 
 [data-champ] {
   border-radius: 3px;

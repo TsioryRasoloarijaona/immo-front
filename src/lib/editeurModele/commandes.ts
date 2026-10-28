@@ -11,10 +11,12 @@ import {
   ChampModele,
   ConditionPassage,
   EtiquettesModele,
+  PageRepetee,
   RepeterPassage,
   SautPage,
   type Etiqueteur,
 } from './extensions';
+import { BLOC_PAR_DEFAUT, BlocPositionne } from './blocPositionne';
 
 /** Portée d'une condition : le paragraphe courant, le passage sélectionné ou un bloc de paragraphes. */
 export type PorteeCondition = 'paragraphe' | 'passage' | 'bloc';
@@ -67,6 +69,8 @@ export function extensionsModele(etiqueteur: { courant: Etiqueteur }): Extension
     ConditionPassage,
     ChampModele,
     BlocConditionnel,
+    PageRepetee,
+    BlocPositionne,
     SautPage,
     AttributsModele,
     EtiquettesModele.configure({ etiqueteur }),
@@ -130,9 +134,31 @@ export function appliquerRepetition(editor: Editor, liste: string): void {
   else chaine.updateAttributes(blocCourant(editor), attrs).run();
 }
 
+/** Enveloppe tout le corps dans une page répétée ; déjà répétée, change seulement la liste. */
+export function repeterPage(editor: Editor, liste: string): void {
+  if (editor.isActive('pageRepetee')) {
+    editor.chain().focus().updateAttributes('pageRepetee', { repeter: liste }).run();
+    return;
+  }
+  editor.chain().focus().selectAll().wrapIn('pageRepetee', { repeter: liste }).run();
+}
+
+/** Remplace la page répétée englobante par son contenu. */
+function defaireRepetitionPage(editor: Editor): void {
+  const { $from } = editor.state.selection;
+  for (let profondeur = $from.depth; profondeur > 0; profondeur--) {
+    const noeud = $from.node(profondeur);
+    if (noeud.type.name !== 'pageRepetee') continue;
+    const debut = $from.before(profondeur);
+    editor.view.dispatch(editor.state.tr.replaceWith(debut, debut + noeud.nodeSize, noeud.content));
+    return;
+  }
+}
+
 /** Retire condition et répétition de la sélection, du bloc courant et du bloc conditionnel englobant. */
 export function retirerRegles(editor: Editor): void {
   const vide = { si: null, valeur: null, repeter: null };
+  defaireRepetitionPage(editor);
   const chaine = editor
     .chain()
     .focus()
@@ -140,9 +166,27 @@ export function retirerRegles(editor: Editor): void {
     .unsetMark('repeterPassage', { extendEmptyMarkRange: true })
     .updateAttributes('paragraph', vide)
     .updateAttributes('listItem', vide)
+    .updateAttributes('blocPositionne', { repeter: null })
     .updateAttributes('tableRow', { repeter: null });
   if (editor.isActive('blocConditionnel')) chaine.lift('blocConditionnel');
   chaine.run();
+}
+
+/** Position d'insertion d'un bloc : après le bloc courant, sans entrer dans un autre bloc positionné. */
+function positionInsertionBloc(editor: Editor): number {
+  const { $to } = editor.state.selection;
+  for (let profondeur = $to.depth; profondeur > 0; profondeur--) {
+    if (profondeur === 1 || $to.node(profondeur - 1).type.name === 'pageRepetee') return $to.after(profondeur);
+  }
+  return editor.state.doc.content.size;
+}
+
+export function insererBlocPositionne(editor: Editor): void {
+  editor
+    .chain()
+    .focus()
+    .insertContentAt(positionInsertionBloc(editor), { type: 'blocPositionne', attrs: BLOC_PAR_DEFAUT })
+    .run();
 }
 
 /** Ce que TipTap ajoute pour son propre rendu (largeurs de colonnes, `colgroup`) et que le serveur refuse. */

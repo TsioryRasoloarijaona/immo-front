@@ -104,6 +104,23 @@ export const BlocConditionnel = Node.create({
   },
 });
 
+/** Page répétée (`div data-repeter`) : un exemplaire de son contenu, saut de page compris, par élément de la liste. */
+export const PageRepetee = Node.create({
+  name: 'pageRepetee',
+  group: 'block',
+  content: 'block+',
+  defining: true,
+  addAttributes() {
+    return { repeter: attrTexte('data-repeter') };
+  },
+  parseHTML() {
+    return [{ tag: 'div[data-repeter]' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['div', HTMLAttributes, 0];
+  },
+});
+
 export const SautPage = Node.create({
   name: 'sautPage',
   group: 'block',
@@ -122,7 +139,7 @@ export const AttributsModele = Extension.create({
   name: 'attributsModele',
   addGlobalAttributes() {
     return [
-      { types: ['paragraph', 'listItem', 'tableRow'], attributes: { repeter: attrTexte('data-repeter') } },
+      { types: ['paragraph', 'listItem', 'tableRow', 'blocPositionne'], attributes: { repeter: attrTexte('data-repeter') } },
       { types: ['paragraph', 'listItem'], attributes: ATTRS_CONDITION },
       {
         types: ['heading'],

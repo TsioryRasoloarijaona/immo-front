@@ -7,6 +7,8 @@ import {
   AlignRight,
   Bold,
   Eraser,
+  Files,
+  Frame,
   GitBranch,
   Hash,
   Heading1,
@@ -25,7 +27,7 @@ import {
   Underline,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { insererImage, retirerRegles } from '../../lib/editeurModele/commandes';
+import { insererBlocPositionne, insererImage, retirerRegles } from '../../lib/editeurModele/commandes';
 
 function Bouton({
   titre,
@@ -62,11 +64,16 @@ export default function BarreOutilsModele({
   editor,
   onCondition,
   onRepeter,
+  onRepeterPage,
+  blocsActifs,
   onErreur,
 }: Readonly<{
   editor: Editor;
   onCondition: () => void;
   onRepeter: () => void;
+  onRepeterPage: () => void;
+  /** Blocs positionnés et pages répétées : corps du modèle seulement, pas en-tête ni pied. */
+  blocsActifs: boolean;
   onErreur: (message: string) => void;
 }>) {
   const fichier = useRef<HTMLInputElement>(null);
@@ -152,9 +159,17 @@ export default function BarreOutilsModele({
         onChange={(e) => void ajouterImage(e.target.files?.[0])}
       />
       <Bouton titre="Saut de page" onClick={() => chaine().insertContent({ type: 'sautPage' }).run()}><SeparatorHorizontal /></Bouton>
+      <Bouton
+        titre="Bloc positionné (formulaire pré-imprimé, corps du modèle)"
+        desactive={!blocsActifs}
+        onClick={() => insererBlocPositionne(editor)}
+      >
+        <Frame />
+      </Bouton>
       <Separateur />
       <Bouton titre="Condition : afficher selon un champ" onClick={onCondition}><GitBranch /></Bouton>
       <Bouton titre="Répéter pour chaque élément d'une liste" onClick={onRepeter}><Repeat /></Bouton>
+      <Bouton titre="Répéter la page pour chaque élément d'une liste" desactive={!blocsActifs} onClick={onRepeterPage}><Files /></Bouton>
       <Bouton titre="Retirer condition et répétition" onClick={() => retirerRegles(editor)}><Eraser /></Bouton>
     </div>
   );
