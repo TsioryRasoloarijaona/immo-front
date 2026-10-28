@@ -53,7 +53,7 @@ export default function BarreHaut() {
         <button
           type="button"
           onClick={() => setPalette(true)}
-          className="mr-1 hidden h-7.5 w-56 items-center gap-2 rounded-md border border-border bg-background px-2 text-xs text-muted-foreground transition-colors hover:text-foreground lg:flex"
+          className="mr-1 hidden h-7.5 w-56 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-background px-2 text-xs text-muted-foreground transition-colors hover:text-foreground lg:flex"
         >
           <Search className="size-3.5" aria-hidden />
           Rechercher partout
