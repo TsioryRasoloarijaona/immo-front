@@ -1,9 +1,11 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarRange, Plus, RotateCcw, Users } from 'lucide-react';
-import PageShell from '../../components/PageShell';
-import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
-import { Button } from '../../components/ui/button';
+import { ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import EtatVideListe from '../../components/liste/EtatVideListe';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import ColumnSelector from '../../components/ColumnSelector';
 import Pagination from '../../components/Pagination';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
@@ -14,7 +16,6 @@ import { useActionsLigneProspection } from '../../components/ActionsLigneProspec
 import BasculeVue from '../../components/parcours/BasculeVue';
 import KanbanProspections from '../../components/parcours/KanbanProspections';
 import { lireVueProspections, memoriserVueProspections, type VueProspections } from '../../lib/kanban';
-import BoutonExporter from '../../components/BoutonExporter';
 import {
   DEFAULT_PAGE_SIZE,
   listProspections,
@@ -29,7 +30,9 @@ import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupe
 import EtatColonnes from '../../components/EtatColonnes';
 import type { ProspectionListItemDto } from '../../types';
 import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { useExportListe } from '../../lib/useExportListe';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useColonnesProspections, useOriginesProspection, useTranchesFiltre } from '../../lib/referentiels';
@@ -60,6 +63,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const { commerciaux, commerciauxLoading } = useAppData();
   const origines = useOriginesProspection();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('prospections'));
 
   const ownCommercial = commerciaux.find((c) => c.id === user?.employeeId) ?? null;
   const defauts = emptyProspectionFilters(ownCommercial?.id);
@@ -197,9 +201,29 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
   const origineItems = origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.code || o.id }));
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
-  let messageVide = 'Aucune prospection sur le mois en cours.';
-  if (filtresActifs) messageVide = 'Aucune prospection ne correspond aux filtres actifs.';
-  else if (ownCommercial) messageVide = "Vous n'avez aucune prospection sur le mois en cours.";
+  const surMois = ownCommercial
+    ? "Vous n'avez aucune prospection sur le mois en cours."
+    : 'Aucune prospection sur le mois en cours.';
+
+  function resetFilters() {
+    setPage(0);
+    groupement.reinitialiser();
+    setModifs({});
+    setAvances(emptyFiltresAvances());
+  }
+
+  function toutesLesPeriodes() {
+    setPage(0);
+    setModifs((m) => ({ ...m, dateDebut: '', dateFin: '' }));
+  }
+
+  const exportListe = useExportListe(
+    '/api/prospections/export',
+    paramsExportProspections(filtresServeur, filtresAvances, colonnes.visibles),
+    'prospections',
+  );
+  const unite = enGroupes ? 'groupe' : 'prospection';
+  const decompte = pageAffichee ? pluriel(pageAffichee.totalElements, unite) : undefined;
 
   const grille = (
     <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
@@ -217,20 +241,9 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
   );
 
   return (
-    <PageShell
-      title="Prospections"
-      crumbs={[{ label: 'Ventes' }, { label: 'Prospections' }]}
-      fullHeight
-      icon={<Users />}
-      accent="var(--sec-prospection)"
-      accentBg="var(--sec-prospection-bg)"
-      actions={
-        <>
-          <BoutonExporter
-            chemin="/api/prospections/export"
-            params={paramsExportProspections(filtresServeur, filtresAvances, colonnes.visibles)}
-            nomListe="prospections"
-          />
+    <PageListe titre="Prospections">
+      <EnteteListe titre="Prospections" lignes={decompte}>
+        <div className="flex items-center gap-2">
           <BasculeVue
             vue={vue}
             onChange={(v) => {
@@ -238,35 +251,42 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
               setVue(v);
             }}
           />
-          <Button type="button" size="sm" onClick={() => navigate('/prospections/nouveau')}>
-            <Plus data-icon="inline-start" /> Nouvelle prospection
-          </Button>
-        </>
-      }
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
-
-        <ProspectionFilterBar
-          state={filters}
-          onChange={setFilter}
-          etapeItems={ETAPE_ITEMS}
-          origineItems={origineItems}
-          commercialItems={commercialItems}
-          trancheItems={trancheItems}
-          defauts={defauts}
-          extra={
-            <ProspectionFiltresAvances
-              state={avances}
-              onChange={setAvance}
-              onReset={() => {
-                setPage(0);
-                setAvances(emptyFiltresAvances());
-              }}
+          {colonnes.catalogueServi.length > 0 && (
+            <ColumnSelector
+              compact
+              catalogue={colonnes.catalogueServi}
+              visibles={colonnes.visibles}
+              onBasculer={colonnes.basculer}
+              onReinitialiser={colonnes.reinitialiser}
+              estDefaut={colonnes.estDefaut}
             />
-          }
-        />
+          )}
+        </div>
+      </EnteteListe>
+      <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
+      <ProspectionFilterBar
+        state={filters}
+        onChange={setFilter}
+        etapeItems={ETAPE_ITEMS}
+        origineItems={origineItems}
+        commercialItems={commercialItems}
+        trancheItems={trancheItems}
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        onReinitialiser={resetFilters}
+        champs={
+          <ProspectionFiltresAvances
+            state={avances}
+            onChange={setAvance}
+            onReset={() => {
+              setPage(0);
+              setAvances(emptyFiltresAvances());
+            }}
+          />
+        }
+      />
 
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {/* En Kanban, liste et groupes ne chargent rien (`null`) : seul le tableau s'affiche. */}
         {kanban && (
           <KanbanProspections
@@ -282,22 +302,6 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
         {error && <ErrorState message={error} />}
         {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
-            <div className="flex shrink-0 items-center justify-between gap-3">
-              <div className="text-body text-muted-foreground">
-                {enGroupes
-                  ? pluriel(pageAffichee.totalElements, 'groupe')
-                  : `${pluriel(pageAffichee.totalElements, 'prospection')} au total`}
-              </div>
-              {colonnes.catalogueServi.length > 0 && (
-                <ColumnSelector
-                  catalogue={colonnes.catalogueServi}
-                  visibles={colonnes.visibles}
-                  onBasculer={colonnes.basculer}
-                  onReinitialiser={colonnes.reinitialiser}
-                  estDefaut={colonnes.estDefaut}
-                />
-              )}
-            </div>
             {/* Seul conteneur de défilement, sur les deux axes : sans `min-w-0`/`min-h-0`
                 il grandirait au lieu de défiler. La bande reste hors du test « vide »,
                 sinon un groupe vide laisse l'écran sans issue. */}
@@ -306,38 +310,12 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
               {vide ? (
                 /* Les filtres avancés comptent comme la barre et sont réinitialisés
                    avec elle : un volet replié rendrait sinon le vide inexplicable. */
-                <EmptyState
-                  title={filtresActifs ? 'Aucun résultat' : 'Rien ce mois-ci'}
-                  message={messageVide}
-                  action={
-                    filtresActifs ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setPage(0);
-                          groupement.reinitialiser();
-                          setModifs({});
-                          setAvances(emptyFiltresAvances());
-                        }}
-                      >
-                        <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setPage(0);
-                          setModifs((m) => ({ ...m, dateDebut: '', dateFin: '' }));
-                        }}
-                      >
-                        <CalendarRange data-icon="inline-start" /> Toutes les périodes
-                      </Button>
-                    )
-                  }
+                <EtatVideListe
+                  filtresActifs={filtresActifs}
+                  sujet="prospection"
+                  surMois={surMois}
+                  onReinitialiser={resetFilters}
+                  onToutesPeriodes={toutesLesPeriodes}
                 />
               ) : (
                 grille
@@ -362,6 +340,17 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
       )}
 
       {actionsLigne.boites}
-    </PageShell>
+
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
+      <BarreOutilsFlottante
+        cle="prospections"
+        ligneSelectionnee={false}
+        nouveau={{ libelle: 'Nouvelle prospection', onClick: () => void navigate('/prospections/nouveau') }}
+        actions={[
+          { id: 'rafraichir', onClick: refetchAllApis },
+          { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
+        ]}
+      />
+    </PageListe>
   );
 }

@@ -1,17 +1,17 @@
 import { useCallback, useMemo, useState } from 'react';
-import { ListChecks, RotateCcw } from 'lucide-react';
 import ActionDetailDialog from '../../components/ActionDetailDialog';
-import PageShell from '../../components/PageShell';
-import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
-import MultiSelectDropdown from '../../components/MultiSelectDropdown';
+import { ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
-import { Button } from '../../components/ui/button';
-import { InputGroup, InputGroupInput } from '../../components/ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import SuiviActionTable from '../../components/SuiviActionTable';
 import ColumnSelector from '../../components/ColumnSelector';
 import BandeGroupement from '../../components/BandeGroupement';
-import BoutonExporter from '../../components/BoutonExporter';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import EtatVideListe from '../../components/liste/EtatVideListe';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import {
   DEFAULT_PAGE_SIZE,
   listSuiviActions,
@@ -22,7 +22,10 @@ import { useColonnesVisibles } from '../../lib/colonnes';
 import { CLES_OUVERTURE_SUIVI_ACTION, DISPOSITION_SUIVI_ACTIONS } from '../../lib/dispositions';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
 import EtatColonnes from '../../components/EtatColonnes';
-import { useApi } from '../../lib/useApi';
+import { refetchAllApis, useApi } from '../../lib/useApi';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
+import { useExportListe } from '../../lib/useExportListe';
 import { useAuth } from '../../lib/auth';
 import { estAdministrateur } from '../../lib/roles';
 import { referentielItems, useColonnesSuiviActions, useTranchesFiltre, useTypesContactProspection } from '../../lib/referentiels';
@@ -32,8 +35,7 @@ import type { SuiviActionDto } from '../../types';
 type SystemeFilter = 'all' | 'saisies' | 'systeme';
 const SYSTEME_PARAM: Record<SystemeFilter, boolean | undefined> = { all: undefined, saisies: false, systeme: true };
 
-const SYSTEME_ITEMS: { label: string; value: SystemeFilter }[] = [
-  { label: 'Toutes les actions', value: 'all' },
+const SYSTEME_ITEMS: { label: string; value: string }[] = [
   { label: 'Saisies seules', value: 'saisies' },
   { label: 'Système seules', value: 'systeme' },
 ];
@@ -53,6 +55,7 @@ export default function SuiviActionsList() {
      quelqu'un d'autre rendrait une page vide, sans 403. D'où le sélecteur masqué. */
   const isAdmin = estAdministrateur(user);
   const typesAction = useTypesContactProspection();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('suivi-actions'));
 
   const [dateDebut, setDateDebut] = useState(premierDuMois);
   const [dateFin, setDateFin] = useState(todayISO);
@@ -100,9 +103,6 @@ export default function SuiviActionsList() {
   const hasActiveFilters =
     dateDebut !== premierDuMois() || dateFin !== todayISO() || utilisateur.length > 0 || typeId.length > 0 || trancheId.length > 0 || systeme !== 'all';
 
-  const aujourdhui = todayISO();
-  const estAujourdhui = dateDebut === aujourdhui && dateFin === aujourdhui;
-  const estCeMois = dateDebut === premierDuMois() && dateFin === aujourdhui;
   function poserPeriode(debut: string, fin: string) {
     setPage(0);
     setDateDebut(debut);
@@ -191,109 +191,68 @@ export default function SuiviActionsList() {
   const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const typeItems = referentielItems(typesAction.data);
 
-  let messageVide = "Vous n'avez saisi aucune action ce mois-ci.";
-  if (hasActiveFilters) messageVide = 'Aucune action ne correspond aux filtres actifs.';
-  else if (isAdmin) messageVide = "Aucune action n'a été saisie ce mois-ci.";
+  const surMois = isAdmin ? "Aucune action n'a été saisie ce mois-ci." : "Vous n'avez saisi aucune action ce mois-ci.";
+  const titre = isAdmin ? 'Suivi des actions' : 'Mes actions';
+  const exportListe = useExportListe('/api/suivi-actions/export', { ...filtresServeur, colonnes: colonnes.visibles }, 'suivi-actions');
+  const unite = enGroupes ? 'groupe' : 'action';
+  const decompte = pageAffichee ? pluriel(pageAffichee.totalElements, unite) : undefined;
+  const puces = [
+    ...(isAdmin ? puceSelection('Utilisateur', utilisateurItems, utilisateur) : []),
+    ...puceSelection('Action', typeItems, typeId),
+    ...puceSelection('Tranche', trancheItems, trancheId),
+    ...puceUnique(SYSTEME_ITEMS, systeme === 'all' ? null : systeme),
+  ];
 
   return (
-    <PageShell
-      title={isAdmin ? 'Suivi des actions' : 'Mes actions'}
-      crumbs={[{ label: 'Ventes' }, { label: 'Suivi' }, { label: isAdmin ? 'Suivi des actions' : 'Mes actions' }]}
-      fullHeight
-      icon={<ListChecks />}
-      accent="var(--sec-accent)"
-      accentBg="var(--sec-accent-bg)"
-      actions={
-        <BoutonExporter
-          chemin="/api/suivi-actions/export"
-          params={{ ...filtresServeur, colonnes: colonnes.visibles }}
-          nomListe="suivi-actions"
+    <PageListe titre={titre}>
+      <EnteteListe titre={titre} lignes={decompte}>
+        {colonnes.catalogueServi.length > 0 && (
+          <ColumnSelector
+            compact
+            catalogue={colonnes.catalogueServi}
+            visibles={colonnes.visibles}
+            onBasculer={colonnes.basculer}
+            onReinitialiser={colonnes.reinitialiser}
+            estDefaut={colonnes.estDefaut}
+          />
+        )}
+      </EnteteListe>
+      <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
+      <PanneauFiltresCoches
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        puces={puces}
+        periode={{ debut: dateDebut, fin: dateFin, onChange: poserPeriode }}
+        onReinitialiser={resetFilters}
+      >
+        {isAdmin && (
+          <BoiteFiltre titre="Utilisateur" mode="multiple" items={utilisateurItems} valeur={utilisateur} onChange={(v) => resetAndSet(setUtilisateur, v)} />
+        )}
+        <BoiteFiltre titre="Action" mode="multiple" items={typeItems} valeur={typeId} onChange={(v) => resetAndSet(setTypeId, v)} />
+        <BoiteFiltre titre="Tranche" mode="multiple" items={trancheItems} valeur={trancheId} onChange={(v) => resetAndSet(setTrancheId, v)} />
+        <BoiteFiltre
+          titre="Saisie"
+          mode="unique"
+          items={SYSTEME_ITEMS}
+          valeur={systeme === 'all' ? null : systeme}
+          onChange={(v) => resetAndSet(setSysteme, (v ?? 'all') as SystemeFilter)}
         />
-      }
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
+      </PanneauFiltresCoches>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <Button
-              type="button"
-              size="sm"
-              variant={estAujourdhui ? 'default' : 'outline'}
-              aria-pressed={estAujourdhui}
-              onClick={() => poserPeriode(aujourdhui, aujourdhui)}
-            >
-              Aujourd'hui
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant={estCeMois ? 'default' : 'outline'}
-              aria-pressed={estCeMois}
-              onClick={() => poserPeriode(premierDuMois(), aujourdhui)}
-            >
-              Ce mois
-            </Button>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <InputGroup className="w-32.5">
-              <InputGroupInput type="date" aria-label="Du" value={dateDebut} onChange={(e) => resetAndSet(setDateDebut, e.target.value)} />
-            </InputGroup>
-            <InputGroup className="w-32.5">
-              <InputGroupInput type="date" aria-label="Au" value={dateFin} onChange={(e) => resetAndSet(setDateFin, e.target.value)} />
-            </InputGroup>
-          </div>
-          {isAdmin && (
-            <MultiSelectDropdown label="Utilisateur" placeholder="Tous" value={utilisateur} onChange={(v) => resetAndSet(setUtilisateur, v)} items={utilisateurItems} />
-          )}
-          <MultiSelectDropdown label="Action" placeholder="Toutes" value={typeId} onChange={(v) => resetAndSet(setTypeId, v)} items={typeItems} />
-          <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={trancheId} onChange={(v) => resetAndSet(setTrancheId, v)} items={trancheItems} />
-          <Select items={SYSTEME_ITEMS} value={systeme} onValueChange={(v) => resetAndSet(setSysteme, v as SystemeFilter)}>
-            <SelectTrigger className="w-42">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {SYSTEME_ITEMS.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
-            <RotateCcw data-icon="inline-start" /> Réinitialiser
-          </Button>
-        </div>
-
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {loading && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
-            <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-              <span className="text-body text-muted-foreground">
-                {pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : 'action')}
-              </span>
-              {colonnes.catalogueServi.length > 0 && (
-                <ColumnSelector
-                  catalogue={colonnes.catalogueServi}
-                  visibles={colonnes.visibles}
-                  onBasculer={colonnes.basculer}
-                  onReinitialiser={colonnes.reinitialiser}
-                  estDefaut={colonnes.estDefaut}
-                />
-              )}
-            </div>
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
               {vide ? (
-                <EmptyState
-                  title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
-                  message={messageVide}
-                  action={
-                    <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
-                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                    </Button>
-                  }
+                <EtatVideListe
+                  filtresActifs={hasActiveFilters}
+                  sujet="action"
+                  surMois={surMois}
+                  onReinitialiser={resetFilters}
+                  onToutesPeriodes={() => poserPeriode('', '')}
                 />
               ) : (
                 <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
@@ -323,6 +282,16 @@ export default function SuiviActionsList() {
       {actionOuverte && (
         <ActionDetailDialog action={actionOuverte} catalogue={catalogue.data} onClose={() => setActionOuverte(null)} />
       )}
-    </PageShell>
+
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
+      <BarreOutilsFlottante
+        cle="suivi-actions"
+        ligneSelectionnee={false}
+        actions={[
+          { id: 'rafraichir', onClick: refetchAllApis },
+          { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
+        ]}
+      />
+    </PageListe>
   );
 }

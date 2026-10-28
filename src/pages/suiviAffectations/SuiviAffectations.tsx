@@ -1,12 +1,14 @@
 import { useCallback, useState } from 'react';
-import { Link2, RotateCcw } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import { RotateCcw } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import ColumnSelector from '../../components/ColumnSelector';
 import BandeGroupement from '../../components/BandeGroupement';
-import BoutonExporter from '../../components/BoutonExporter';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import EtatColonnes from '../../components/EtatColonnes';
 import { usePreview } from '../../lib/previewContext';
 import FiltresAffectationsPanneau from '../../components/suiviAffectations/FiltresAffectationsPanneau';
@@ -37,7 +39,10 @@ import {
   useTypesReglement,
 } from '../../lib/referentiels';
 import { useTotauxServeur } from '../../lib/totauxServeur';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { useExportListe } from '../../lib/useExportListe';
+import { pluriel } from '../../lib/format';
 
 const CLE = 'suivi-affectations';
 const VIDE = 'Aucune affectation pour ces filtres';
@@ -46,6 +51,7 @@ export default function SuiviAffectations() {
   const { user } = useAuth();
   const { ouvrirFicheDossier } = usePreview();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes(CLE));
 
   const [filtres, setFiltres] = useState<FiltresListeAffectations>(filtresAffectationsDefaut);
   const toutesTranches = useTranchesFiltre().data;
@@ -131,34 +137,39 @@ export default function SuiviAffectations() {
     if (dossierId) ouvrirFicheDossier(dossierId);
   }
 
+  const exportListe = useExportListe('/api/suivi-affectations/export', { ...params, colonnes: colonnes.visibles }, CLE);
+  const unite = enGroupes ? 'groupe' : 'affectation';
+  const decompte = total == null ? undefined : pluriel(total, unite);
+
   return (
-    <PageShell
-      title={total == null ? 'Suivi des affectations' : `Suivi des affectations (${total})`}
-      crumbs={[{ label: 'Ventes' }, { label: 'Suivi des affectations' }]}
-      icon={<Link2 />}
-      accent="var(--sec-dossier)"
-      accentBg="var(--sec-dossier-bg)"
-      actions={<BoutonExporter chemin="/api/suivi-affectations/export" params={{ ...params, colonnes: colonnes.visibles }} nomListe={CLE} />}
-    >
-      <div className="flex flex-col gap-3">
-        <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
-        <FiltresAffectationsPanneau filtres={filtres} changer={changer} reinitialiser={reinitialiser} choix={choix} />
+    <PageListe titre="Suivi des affectations">
+      <EnteteListe titre="Suivi des affectations" lignes={decompte}>
+        {colonnes.catalogueServi.length > 0 && (
+          <ColumnSelector
+            compact
+            catalogue={colonnes.catalogueServi}
+            visibles={colonnes.visibles}
+            onBasculer={colonnes.basculer}
+            onReinitialiser={colonnes.reinitialiser}
+            estDefaut={colonnes.estDefaut}
+          />
+        )}
+      </EnteteListe>
+      <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
+      <FiltresAffectationsPanneau
+        filtres={filtres}
+        changer={changer}
+        reinitialiser={reinitialiser}
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        choix={choix}
+      />
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {chargement && !pageAffichee && <LoadingState />}
         {erreur && <ErrorState message={erreur} />}
         {!erreur && pageAffichee && (
           <ResultsRegion loading={chargement}>
-            {colonnes.catalogueServi.length > 0 && (
-              <div className="flex justify-end">
-                <ColumnSelector
-                  catalogue={colonnes.catalogueServi}
-                  visibles={colonnes.visibles}
-                  onBasculer={colonnes.basculer}
-                  onReinitialiser={colonnes.reinitialiser}
-                  estDefaut={colonnes.estDefaut}
-                />
-              </div>
-            )}
-            <div className="flex h-[70vh] min-w-0 flex-col overflow-auto rounded-xl border border-border bg-card">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
               {vide ? (
                 <EmptyState
@@ -183,15 +194,26 @@ export default function SuiviAffectations() {
                 </EtatColonnes>
               )}
             </div>
-            <Pagination
-              page={pageAffichee.page}
-              totalPages={pageAffichee.totalPages}
-              totalElements={pageAffichee.totalElements}
-              onPageChange={setPage}
-            />
+            <div className="shrink-0">
+              <Pagination
+                page={pageAffichee.page}
+                totalPages={pageAffichee.totalPages}
+                totalElements={pageAffichee.totalElements}
+                onPageChange={setPage}
+              />
+            </div>
           </ResultsRegion>
         )}
       </div>
-    </PageShell>
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
+      <BarreOutilsFlottante
+        cle={CLE}
+        ligneSelectionnee={false}
+        actions={[
+          { id: 'rafraichir', onClick: refetchAllApis },
+          { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
+        ]}
+      />
+    </PageListe>
   );
 }

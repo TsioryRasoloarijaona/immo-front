@@ -1,25 +1,32 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Contact, Plus, RotateCcw, Search } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import { RotateCcw } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
-import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import ProspectTable from '../../components/ProspectTable';
 import EtatColonnes from '../../components/EtatColonnes';
-import BoutonExporter from '../../components/BoutonExporter';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import { DEFAULT_PAGE_SIZE, listProspects } from '../../lib/api';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { DISPOSITION_PROSPECTS } from '../../lib/dispositions';
 import { useColonnesProspects, useTierTypes } from '../../lib/referentiels';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { puceSelection } from '../../lib/pucesFiltres';
+import { useExportListe } from '../../lib/useExportListe';
+import { pluriel } from '../../lib/format';
 
 export default function ProspectsList() {
   const navigate = useNavigate();
   const tierTypes = useTierTypes();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('prospects'));
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
@@ -61,6 +68,10 @@ export default function ProspectsList() {
   // `type` porte le *code* du type de tiers (« PRO »), pas sa `description` : filtrer sur `code`.
   const typeItems = tierTypes.data.map((t) => ({ label: t.description || t.code || t.id, value: t.code || t.id }));
 
+  const exportListe = useExportListe('/api/prospects/export', { ...filtresServeur, colonnes: colonnes.visibles }, 'prospects');
+  const puces = [...puceSelection('Type', typeItems, type), ...(search ? [`« ${search} »`] : [])];
+  const decompte = data ? pluriel(data.totalElements, 'prospect') : undefined;
+
   const grille = (
     <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
       <ProspectTable
@@ -73,62 +84,38 @@ export default function ProspectsList() {
   );
 
   return (
-    <PageShell
-      title="Prospects"
-      crumbs={[{ label: 'Ventes' }, { label: 'Prospects' }]}
-      fullHeight
-      icon={<Contact />}
-      accent="var(--sec-prospect)"
-      accentBg="var(--sec-prospect-bg)"
-      actions={
-        <>
-          <BoutonExporter
-            chemin="/api/prospects/export"
-            params={{ ...filtresServeur, colonnes: colonnes.visibles }}
-            nomListe="prospects"
+    <PageListe titre="Prospects">
+      <EnteteListe titre="Prospects" lignes={decompte}>
+        {colonnes.catalogueServi.length > 0 && (
+          <ColumnSelector
+            compact
+            catalogue={colonnes.catalogueServi}
+            visibles={colonnes.visibles}
+            onBasculer={colonnes.basculer}
+            onReinitialiser={colonnes.reinitialiser}
+            estDefaut={colonnes.estDefaut}
           />
-          <Button type="button" size="sm" onClick={() => navigate('/prospects/nouveau')}>
-            <Plus data-icon="inline-start" /> Nouveau prospect
-          </Button>
-        </>
-      }
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <InputGroup className="min-w-55 flex-1">
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              <InputGroupInput
-                placeholder="Recherche multi-critère — nom, téléphone, email…"
-                value={search}
-                onChange={(e) => resetAndSet(setSearch, e.target.value)}
-              />
-            </InputGroup>
-            <MultiSelectDropdown label="Type" placeholder="Tous" value={type} onChange={(v) => resetAndSet(setType, v)} items={typeItems} />
-            <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
-              <RotateCcw data-icon="inline-start" /> Réinitialiser
-            </Button>
-        </div>
+        )}
+      </EnteteListe>
+      <PanneauFiltresCoches
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        puces={puces}
+        recherche={{
+          valeur: search,
+          onChange: (v) => resetAndSet(setSearch, v),
+          placeholder: 'Nom, téléphone, email…',
+        }}
+        onReinitialiser={resetFilters}
+      >
+        <BoiteFiltre titre="Type" mode="multiple" items={typeItems} valeur={type} onChange={(v) => resetAndSet(setType, v)} />
+      </PanneauFiltresCoches>
 
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!error && data && (
           <ResultsRegion loading={loading}>
-            <div className="flex shrink-0 items-center justify-between gap-3">
-              <div className="text-body text-muted-foreground">
-                {data.totalElements} prospect{data.totalElements > 1 ? 's' : ''}
-              </div>
-              {colonnes.catalogueServi.length > 0 && (
-                <ColumnSelector
-                  catalogue={colonnes.catalogueServi}
-                  visibles={colonnes.visibles}
-                  onBasculer={colonnes.basculer}
-                  onReinitialiser={colonnes.reinitialiser}
-                  estDefaut={colonnes.estDefaut}
-                />
-              )}
-            </div>
             {rows.length === 0 ? (
               <EmptyState
                 title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
@@ -139,7 +126,7 @@ export default function ProspectsList() {
                 }
                 action={
                   hasActiveFilters ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
+                    <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
                       <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                     </Button>
                   ) : undefined
@@ -158,6 +145,16 @@ export default function ProspectsList() {
           </ResultsRegion>
         )}
       </div>
-    </PageShell>
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
+      <BarreOutilsFlottante
+        cle="prospects"
+        ligneSelectionnee={false}
+        nouveau={{ libelle: 'Nouveau prospect', onClick: () => void navigate('/prospects/nouveau') }}
+        actions={[
+          { id: 'rafraichir', onClick: refetchAllApis },
+          { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
+        ]}
+      />
+    </PageListe>
   );
 }

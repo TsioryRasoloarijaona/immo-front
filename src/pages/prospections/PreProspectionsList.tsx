@@ -1,15 +1,17 @@
 import { Suspense, lazy, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarRange, Plus, RotateCcw, Upload, UserPlus } from 'lucide-react';
-import PageShell from '../../components/PageShell';
-import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
 import Pagination from '../../components/Pagination';
-import { Button } from '../../components/ui/button';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
-import BoutonExporter from '../../components/BoutonExporter';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import EtatVideListe from '../../components/liste/EtatVideListe';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
 import {
   DEFAULT_PAGE_SIZE,
@@ -24,9 +26,11 @@ import { pluriel } from '../../lib/format';
 import EtatColonnes from '../../components/EtatColonnes';
 import type { ProspectionListItemDto } from '../../types';
 import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import MultiSelectDropdown from '../../components/MultiSelectDropdown';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { puceSelection } from '../../lib/pucesFiltres';
+import { useExportListe } from '../../lib/useExportListe';
 import {
   referentielItems,
   useColonnesProspections,
@@ -54,6 +58,7 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
   const navigate = useNavigate();
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('pre-prospections'));
 
   // Archivé : Tous par défaut, comme OMRAN qui ne filtre pas IsClosed sur cette liste.
   const defauts = emptyProspectionFilters(undefined, 'tous');
@@ -166,117 +171,81 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
   const origineItems = origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.code || o.id }));
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
-  return (
-    <PageShell
-      title="Pré-prospections"
-      crumbs={[{ label: 'Ventes' }, { label: 'Pré-prospections' }]}
-      fullHeight
-      icon={<UserPlus />}
-      accent="var(--sec-preprospection)"
-      accentBg="var(--sec-preprospection-bg)"
-      actions={
-        <>
-          <BoutonExporter
-            chemin="/api/pre-prospections/export"
-            params={{ ...filtresServeur, colonnes: colonnes.visibles }}
-            nomListe="pre-prospections"
-          />
-          <Button type="button" size="sm" variant="outline" onClick={() => navigate('/pre-prospections/import')}>
-            <Upload data-icon="inline-start" /> Importer des leads
-          </Button>
-          <Button type="button" size="sm" onClick={() => navigate('/pre-prospections/nouveau')}>
-            <Plus data-icon="inline-start" /> Nouvelle pré-prospection
-          </Button>
-        </>
-      }
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <ProspectionFilterBar
-          state={filters}
-          onChange={setFilter}
-          etapeItems={ETAPE_ITEMS}
-          origineItems={origineItems}
-          commercialItems={commercialItems}
-          trancheItems={trancheItems}
-          defauts={defauts}
-          mode="pre-prospections"
-          onReset={() => setProjetIds([])}
-          extra={
-            <MultiSelectDropdown
-              label="Projet"
-              placeholder="Tous"
-              value={projetIds}
-              onChange={(v) => {
-                setPage(0);
-                setProjetIds(v);
-              }}
-              items={referentielItems(projets.data)}
-            />
-          }
-        />
+  function resetFilters() {
+    setPage(0);
+    groupement.reinitialiser();
+    setFilters(defauts);
+    setProjetIds([]);
+  }
 
+  function toutesLesPeriodes() {
+    setPage(0);
+    setFilters((f) => ({ ...f, dateDebut: '', dateFin: '' }));
+  }
+
+  const projetItems = referentielItems(projets.data);
+  const exportListe = useExportListe('/api/pre-prospections/export', { ...filtresServeur, colonnes: colonnes.visibles }, 'pre-prospections');
+  const unite = enGroupes ? 'groupe' : 'pré-prospection';
+  const decompte = pageAffichee ? pluriel(pageAffichee.totalElements, unite) : undefined;
+
+  return (
+    <PageListe titre="Pré-prospections">
+      <EnteteListe titre="Pré-prospections" lignes={decompte}>
+        {colonnes.catalogueServi.length > 0 && (
+          <ColumnSelector
+            compact
+            catalogue={colonnes.catalogueServi}
+            visibles={colonnes.visibles}
+            onBasculer={colonnes.basculer}
+            onReinitialiser={colonnes.reinitialiser}
+            estDefaut={colonnes.estDefaut}
+          />
+        )}
+      </EnteteListe>
+      <ProspectionFilterBar
+        state={filters}
+        onChange={setFilter}
+        etapeItems={ETAPE_ITEMS}
+        origineItems={origineItems}
+        commercialItems={commercialItems}
+        trancheItems={trancheItems}
+        mode="pre-prospections"
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        onReinitialiser={resetFilters}
+        pucesSup={puceSelection('Projet', projetItems, projetIds)}
+        boitesSup={
+          <BoiteFiltre
+            titre="Projet"
+            mode="multiple"
+            items={projetItems}
+            valeur={projetIds}
+            onChange={(v) => {
+              setPage(0);
+              setProjetIds(v);
+            }}
+          />
+        }
+      />
+
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul, le
             chargement plein écran se rallumerait par-dessus les groupes. */}
         {loading && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
-            <div className="flex shrink-0 items-center justify-between gap-3">
-              <div className="text-body text-muted-foreground">
-                {enGroupes
-                  ? pluriel(pageAffichee.totalElements, 'groupe')
-                  : `${pluriel(pageAffichee.totalElements, 'pré-prospection')} au total`}
-              </div>
-              {colonnes.catalogueServi.length > 0 && (
-                <ColumnSelector
-                  catalogue={colonnes.catalogueServi}
-                  visibles={colonnes.visibles}
-                  onBasculer={colonnes.basculer}
-                  onReinitialiser={colonnes.reinitialiser}
-                  estDefaut={colonnes.estDefaut}
-                />
-              )}
-            </div>
             {/* `min-w-0` : sans lui la largeur de la table remonte la chaîne flex et
                 élargit la page. La bande reste hors du test « vide » : sinon sans issue. */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
               {vide ? (
-                <EmptyState
-                  title={filtresActifs ? 'Aucun résultat' : 'Rien ce mois-ci'}
-                  message={
-                    filtresActifs
-                      ? 'Aucune pré-prospection ne correspond aux filtres actifs.'
-                      : 'Aucune pré-prospection sur le mois en cours.'
-                  }
-                  action={
-                    filtresActifs ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setPage(0);
-                          setFilters(defauts);
-                          setProjetIds([]);
-                        }}
-                      >
-                        <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setPage(0);
-                          setFilters((f) => ({ ...f, dateDebut: '', dateFin: '' }));
-                        }}
-                      >
-                        <CalendarRange data-icon="inline-start" /> Toutes les périodes
-                      </Button>
-                    )
-                  }
+                <EtatVideListe
+                  filtresActifs={filtresActifs}
+                  sujet="pré-prospection"
+                  surMois="Aucune pré-prospection sur le mois en cours."
+                  onReinitialiser={resetFilters}
+                  onToutesPeriodes={toutesLesPeriodes}
                 />
               ) : (
                 <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
@@ -321,6 +290,18 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
       )}
 
       {actionsLigne.boites}
-    </PageShell>
+
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
+      <BarreOutilsFlottante
+        cle="pre-prospections"
+        ligneSelectionnee={false}
+        nouveau={{ libelle: 'Nouvelle pré-prospection', onClick: () => void navigate('/pre-prospections/nouveau') }}
+        actions={[
+          { id: 'rafraichir', onClick: refetchAllApis },
+          { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
+          { id: 'importer', onClick: () => void navigate('/pre-prospections/import') },
+        ]}
+      />
+    </PageListe>
   );
 }
