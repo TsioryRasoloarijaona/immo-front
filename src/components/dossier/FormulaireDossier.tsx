@@ -19,14 +19,18 @@ function remise(e: EnTeteFicheDto | undefined): string | null {
  * Boutons « Date du dossier » (groupe DATES) et « Modifier la remise / TVA » (groupe PRIX), avertissement d'écart du
  * schéma après enregistrement.
  */
-function EditionEnTete({ dossier: d, enTete: e }: Readonly<{ dossier: DossierDetailDto; enTete?: EnTeteFicheDto }>) {
+export function EditionEnTete({
+  dossier: d,
+  enTete: e,
+  enRuban,
+}: Readonly<{ dossier: DossierDetailDto; enTete?: EnTeteFicheDto; enRuban?: boolean }>) {
   const edition = useEditionDossier(d.id, e);
   const [ouvert, setOuvert] = useState<'prix' | 'date' | null>(null);
   const prix = edition.peut('PRIX');
   if (!e || !(prix || edition.peut('DATES'))) return null;
   return (
-    <div className="mb-1.5 flex flex-col items-end gap-1">
-      <div className="flex flex-wrap justify-end gap-2">
+    <div className={enRuban ? 'flex items-center gap-1' : 'mb-1.5 flex flex-col items-end gap-1'}>
+      <div className={enRuban ? 'flex gap-1' : 'flex flex-wrap justify-end gap-2'}>
         {edition.peut('DATES') && (
           <Button type="button" size="sm" variant="outline" onClick={() => setOuvert('date')}>
             <Pencil aria-hidden />
@@ -41,7 +45,7 @@ function EditionEnTete({ dossier: d, enTete: e }: Readonly<{ dossier: DossierDet
         )}
       </div>
       {edition.ecart != null && (
-        <p role="status" className="text-micro text-(--warning)">
+        <p role="status" className={enRuban ? 'text-micro whitespace-nowrap text-(--warning)' : 'text-micro text-(--warning)'}>
           Écart du schéma de financement : {formatCurrency(edition.ecart)} à reporter dans l'échéancier.
         </p>
       )}

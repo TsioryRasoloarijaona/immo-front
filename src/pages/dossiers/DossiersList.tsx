@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FileText, Ruler } from 'lucide-react';
 import { ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
@@ -9,6 +9,8 @@ import SelecteurDocumentsEnLot from '../../components/dossier/liste/SelecteurDoc
 import DossierTable from '../../components/DossierTable';
 import BandeGroupement from '../../components/BandeGroupement';
 import HoteReajustementSuperficies from '../../components/dossier/HoteReajustementSuperficies';
+import FicheDossierFenetre from '../../components/dossier/fiche/FicheDossierFenetre';
+import { voisinsDe } from '../../lib/fenetreFiche';
 import PageListe from '../../components/liste/PageListe';
 import EnteteListe from '../../components/liste/EnteteListe';
 import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
@@ -75,6 +77,9 @@ const CHAMP_DATE_DEFAUT = [{ label: 'Date réservation', value: 'RESERVATION' }]
 
 export default function DossiersList() {
   const navigate = useNavigate();
+  // `/dossiers/:id` rend cette même page : la liste (filtres, page, sélection) reste montée sous la fenêtre.
+  const { id: idOuvert } = useParams();
+  const { search: rechercheUrl } = useLocation();
   const { ouvrirFicheProspection, ouvrirFicheArticle } = usePreview();
   const { commerciaux } = useAppData();
   const { user } = useAuth();
@@ -219,6 +224,22 @@ export default function DossiersList() {
   const dossiersParId = useMemo(
     () => new Map(dossiersVisibles.map((d) => [d.id, d])),
     [dossiersVisibles],
+  );
+
+  // `nouveau` et `onglet` ne concernent que la fiche ouverte par le lien : ils ne suivent pas ‹ ›, ni un autre dossier.
+  const rechercheConservee = (() => {
+    const p = new URLSearchParams(rechercheUrl);
+    p.delete('nouveau');
+    p.delete('onglet');
+    const s = p.toString();
+    return s ? `?${s}` : '';
+  })();
+  const ouvrirChemin = (chemin: string) => void navigate(`${chemin}${rechercheConservee}`);
+  // ‹ › : lignes de la page affichée seulement ; en groupes, ou pour un lot libre, ils restent inactifs.
+  const voisins = voisinsDe(
+    enGroupes ? [] : dossiers.filter((d) => !d.libre).map((d) => d.id),
+    idOuvert,
+    (id) => ouvrirChemin(`/dossiers/${id}`),
   );
 
   const tranches = useTranchesFiltre();
@@ -420,7 +441,7 @@ export default function DossiersList() {
                     colonnes={colonnes.colonnes}
                     // `enGroupes` et non `groupement.actif` : un filtre de statut bloque le groupement.
                     groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { statut: libelleStatut }, enGroupes)}
-                    onOuvrir={(id) => ouvrirLigne(dossiersParId.get(id), id, (chemin) => void navigate(chemin), ouvrirFicheArticle)}
+                    onOuvrir={(id) => ouvrirLigne(dossiersParId.get(id), id, ouvrirChemin, ouvrirFicheArticle)}
                     onOuvrirProspection={(prospectionId) => ouvrirFicheProspection(prospectionId, false)}
                     bandeauRegroupement={false}
                     totauxServeur={totauxServeur}
@@ -482,6 +503,7 @@ export default function DossiersList() {
             : []),
         ]}
       />
+      {idOuvert && <FicheDossierFenetre key={idOuvert} id={idOuvert} voisins={voisins} onFermer={() => ouvrirChemin('/dossiers')} />}
       <HoteReajustementSuperficies ouvert={reajustementOuvert} onFermer={() => setReajustementOuvert(false)} />
     </PageListe>
   );
