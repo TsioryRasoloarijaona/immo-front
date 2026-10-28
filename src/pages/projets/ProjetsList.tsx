@@ -1,15 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, Search, Upload } from 'lucide-react';
-import BoutonExporter from '../../components/BoutonExporter';
-import PageShell from '../../components/PageShell';
-import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
-import Pagination from '../../components/Pagination';
 import ColumnSelector from '../../components/ColumnSelector';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import DataGrid from '../../components/DataGrid';
-import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import CadreListe from '../../components/patrimoine/CadreListe';
 import { DEFAULT_PAGE_SIZE, listProjets } from '../../lib/api';
+import { pluriel } from '../../lib/format';
+import { useExportListe } from '../../lib/useExportListe';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { colonneLocale as colonne, grilleDepuisCatalogue, useColonnesVisibles, type DispositionColonnes } from '../../lib/colonnes';
 import type { ColonneDto, ProjetListItemDto } from '../../types';
@@ -63,74 +59,56 @@ export default function ProjetsList() {
     [colonnes.colonnes],
   );
   const rows = data?.content ?? [];
+  const exportListe = useExportListe('/api/projets/export', { search: debouncedSearch || undefined, colonnes: colonnes.visibles }, 'projets');
+
+  function resetFilters() {
+    setPage(0);
+    setSearch('');
+  }
 
   return (
-    <PageShell
-      title="Projets"
-      crumbs={[{ label: 'Patrimoine' }, { label: 'Projets' }]}
-      icon={<LayoutGrid />}
-      accent="var(--sec-projet)"
-      accentBg="var(--sec-projet-bg)"
-      actions={
-        <div className="flex gap-2">
-          <BoutonExporter pdf chemin="/api/projets/export" nomListe="projets"
-            params={{ search: debouncedSearch || undefined, colonnes: colonnes.visibles }} />
-          <ActionAdmin to="/articles/import?type=projets" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />
-          <ActionAdmin to="/projets/nouveau" libelle="Nouveau programme" />
-        </div>
+    <CadreListe
+      titre="Projets"
+      cle="projets"
+      lignes={data ? pluriel(data.totalElements, 'programme') : undefined}
+      selecteur={
+        <ColumnSelector
+          compact
+          catalogue={colonnes.catalogueServi}
+          visibles={colonnes.visibles}
+          onBasculer={colonnes.basculer}
+          onReinitialiser={colonnes.reinitialiser}
+          estDefaut={colonnes.estDefaut}
+        />
       }
-      fullHeight
+      panneau={{
+        puces: search ? [`« ${search} »`] : [],
+        recherche: {
+          valeur: search,
+          onChange: (v) => {
+            setPage(0);
+            setSearch(v);
+          },
+          placeholder: 'Code, description, ville, entité…',
+        },
+        onReinitialiser: resetFilters,
+      }}
+      etat={{ chargement: loading, erreur: error, pret: !!data }}
+      vide={rows.length === 0 ? { aucun: 'Aucun programme', filtresActifs: !!search, onReinitialiser: resetFilters } : null}
+      pagination={data ? { page: data.page, totalPages: data.totalPages, totalElements: data.totalElements, onPageChange: setPage } : undefined}
+      admin={{
+        nouveau: { libelle: 'Nouveau programme', onClick: () => void navigate('/projets/nouveau') },
+        actions: [{ id: 'importer', onClick: () => void navigate('/articles/import?type=projets') }],
+      }}
+      exportListe={{ export: exportListe, pdf: true }}
     >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <InputGroup className="max-w-md shrink-0">
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder="Rechercher un code, une description, une ville, une entité…"
-            value={search}
-            onChange={(e) => {
-              setPage(0);
-              setSearch(e.target.value);
-            }}
-          />
-        </InputGroup>
-
-        {loading && !data && <LoadingState />}
-        {error && <ErrorState message={error} />}
-        {!error && data && (
-          <ResultsRegion loading={loading}>
-            <div className="flex shrink-0 items-center justify-between gap-3">
-              <div className="text-body text-muted-foreground">
-                {data.totalElements} programme{data.totalElements > 1 ? 's' : ''}
-              </div>
-              <ColumnSelector
-                catalogue={colonnes.catalogueServi}
-                visibles={colonnes.visibles}
-                onBasculer={colonnes.basculer}
-                onReinitialiser={colonnes.reinitialiser}
-                estDefaut={colonnes.estDefaut}
-              />
-            </div>
-            {rows.length === 0 ? (
-              <EmptyState title={search ? 'Aucun résultat' : 'Aucun programme'} />
-            ) : (
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                <DataGrid
-                  cleOrdre="projets"
-                  rows={rows}
-                  colonnes={grille}
-                  onOuvrir={(id) => navigate(`/projets/${id}`)}
-                  libelleLigne={(p) => `Ouvrir le projet ${p.description || p.code || ''}`.trim()}
-                />
-              </div>
-            )}
-            <div className="shrink-0">
-              <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
-            </div>
-          </ResultsRegion>
-        )}
-      </div>
-    </PageShell>
+      <DataGrid
+        cleOrdre="projets"
+        rows={rows}
+        colonnes={grille}
+        onOuvrir={(id) => navigate(`/projets/${id}`)}
+        libelleLigne={(p) => `Ouvrir le projet ${p.description || p.code || ''}`.trim()}
+      />
+    </CadreListe>
   );
 }

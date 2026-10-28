@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FileCode2, Pencil, Plus, RotateCcw } from 'lucide-react';
-import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { Pencil } from 'lucide-react';
+import { Badge } from '../../components/ui';
 import { Button } from '../../components/ui/button';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import CadreListe from '../../components/patrimoine/CadreListe';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { listCategoriesModeles, listModelesAdmin } from '../../lib/apiModeles';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, pluriel } from '../../lib/format';
+import { puceUnique } from '../../lib/pucesFiltres';
 import { useApi } from '../../lib/useApi';
 import type { ModeleDocumentAdminDto } from '../../types/modeles';
-import AdminGuard from '../utilisateurs/AdminGuard';
 import NouveauModeleDialog from './NouveauModeleDialog';
 
 const TOUTES = '';
@@ -90,67 +92,37 @@ export default function ModelesDocumentsList() {
     [libellesCategories, navigate],
   );
 
+  const itemsCategories = (categories.data ?? []).map((c) => ({ value: c.code, label: c.libelle }));
+  const peutCreer = !!categories.data?.length;
+
   return (
-    <AdminGuard
-      title="Modèles de documents"
-      crumbs={[{ label: 'Administration' }, { label: 'Modèles de documents' }]}
-      icon={<FileCode2 />}
-      accent="var(--sec-accent)"
-      accentBg="var(--sec-accent-bg)"
-      fullHeight
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              aria-label="Catégorie"
-              className="h-8 rounded-md border border-input bg-background px-2 text-body text-foreground"
-              value={categorie}
-              onChange={(e) => setCategorie(e.target.value)}
-            >
-              <option value={TOUTES}>Toutes les catégories</option>
-              {(categories.data ?? []).map((c) => (
-                <option key={c.code} value={c.code}>{c.libelle}</option>
-              ))}
-            </select>
-            <p className="text-micro text-muted-foreground">
-              Documents imprimés depuis une fiche : texte fixe et champs remplis à la génération, en PDF ou Word.
-            </p>
-          </div>
-          <Button type="button" disabled={!categories.data?.length} onClick={() => setCreation(true)}>
-            <Plus data-icon="inline-start" /> Nouveau modèle
-          </Button>
-        </div>
-
-        {loading && !data && <LoadingState />}
-        {error && <ErrorState message={error} />}
-        {!error && data && (
-          <ResultsRegion loading={loading}>
-            <div className="shrink-0 text-body text-muted-foreground">
-              {data.length} modèle{data.length > 1 ? 's' : ''}
-            </div>
-            {data.length === 0 ? (
-              <EmptyState
-                title="Aucun modèle"
-                message={categorie ? 'Aucun modèle dans cette catégorie.' : "Aucun modèle n'existe encore."}
-                action={
-                  categorie ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => setCategorie(TOUTES)}>
-                      <RotateCcw data-icon="inline-start" /> Toutes les catégories
-                    </Button>
-                  ) : undefined
-                }
-              />
-            ) : (
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                <DataGrid rows={data} colonnes={colonnes} cleOrdre="modeles-documents" />
-              </div>
-            )}
-          </ResultsRegion>
-        )}
-      </div>
-
-      {creation && categories.data && (
+    <CadreListe
+      titre="Modèles de documents"
+      cle="modeles-documents"
+      reserveAdmin
+      lignes={data ? pluriel(data.length, 'modèle') : undefined}
+      panneau={{
+        puces: puceUnique(itemsCategories, categorie || null),
+        onReinitialiser: () => setCategorie(TOUTES),
+        children: (
+          <BoiteFiltre titre="Catégorie" mode="unique" items={itemsCategories} valeur={categorie || null}
+            onChange={(v) => setCategorie(v ?? TOUTES)} />
+        ),
+      }}
+      etat={{ chargement: loading, erreur: error, pret: !!data }}
+      avant={
+        <p className="shrink-0 text-micro text-muted-foreground">
+          Documents imprimés depuis une fiche : texte fixe et champs remplis à la génération, en PDF ou Word.
+        </p>
+      }
+      vide={data?.length === 0 ? {
+        aucun: 'Aucun modèle',
+        filtresActifs: !!categorie,
+        onReinitialiser: () => setCategorie(TOUTES),
+        message: "Aucun modèle n'existe encore.",
+      } : null}
+      admin={{ nouveau: peutCreer ? { libelle: 'Nouveau modèle', onClick: () => setCreation(true) } : undefined }}
+      dialogues={creation && categories.data && (
         <NouveauModeleDialog
           categories={categories.data}
           onClose={() => setCreation(false)}
@@ -160,6 +132,8 @@ export default function ModelesDocumentsList() {
           }}
         />
       )}
-    </AdminGuard>
+    >
+      <DataGrid rows={data ?? []} colonnes={colonnes} cleOrdre="modeles-documents" />
+    </CadreListe>
   );
 }

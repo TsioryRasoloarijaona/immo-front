@@ -1,4 +1,3 @@
-import { UserRound } from 'lucide-react';
 import type { ColonneGrille } from '../../components/DataGrid';
 import ListeAdmin from '../../components/entites/ListeAdmin';
 import { listActionnaires } from '../../lib/apiEntites';
@@ -14,6 +13,6 @@ const COLONNES: ColonneGrille<ActionnaireDto>[] = [
 
 export default function ActionnairesList() {
   const etat = useApi(listActionnaires, []);
-  return <ListeAdmin titre="Actionnaires" icon={<UserRound />} chemin="/actionnaires" libelleNouveau="Nouvel actionnaire"
+  return <ListeAdmin titre="Actionnaires" chemin="/actionnaires" libelleNouveau="Nouvel actionnaire" sujet="actionnaire" aucun="Aucun actionnaire"
     etat={etat} colonnes={COLONNES} />;
 }
