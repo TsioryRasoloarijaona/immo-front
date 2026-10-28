@@ -9,6 +9,7 @@ export type TypeImportPatrimoine =
   | 'sous-articles'
   | 'presentations'
   | 'terrains'
+  | 'lotissements'
   | 'previsions'
   | TypeImportGenerique;
 

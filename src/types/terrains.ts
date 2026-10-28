@@ -9,6 +9,8 @@ export type FiltresTerrains = {
   entiteId?: UUID;
   statutId?: UUID;
   vocationId?: UUID;
+  /** Liste des lotissements seulement : lots de cette tranche. */
+  trancheId?: UUID;
 };
 
 /** Ligne des listes Terrains et Lotissements. */

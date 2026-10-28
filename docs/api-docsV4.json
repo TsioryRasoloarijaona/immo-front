@@ -12,6 +12,10 @@
   ],
   "tags": [
     {
+      "name": "Lotissements",
+      "description": "Écran OMRAN « LOTISSEMENTS » : lots de terrain, c'est-à-dire terrains (nature TER) rattachés à une tranche, d'entité\n« article » (StrEntity StkItem) et de vocation autre que PROJET. Fiche, écritures (Administrateur) et fiche PDF ;\nimport de lots par `/api/import-patrimoine/lotissements?trancheId=`. Notes, actions, audit et pièces jointes d'un lot\npassent par les routes article."
+    },
+    {
       "name": "Pièces jointes du patrimoine",
       "description": "Pièces jointes des articles, tranches et programmes (AdmAttachedFile, CategoryId = PKey du porteur)."
     },
@@ -172,6 +176,10 @@
       "description": "Onglet « Financement » d'une étude (OMRAN « Déblocage de crédit » `FSFunding`, « Remboursement de crédit »\n`FSReimbursement`). Lecture Administrateur + Direction Générale, écriture et génération Administrateur ; aucune clé\nd'API (403 `HORS_PORTEE`). Étude inconnue ou de société inactive → 404 ; étude bloquée → 409 sur le PUT."
     },
     {
+      "name": "Impressions de la tranche",
+      "description": "Impressions du menu « Imprimer » de la fiche tranche propres à la tranche : la Relance 2 par statut (gabarit OMRAN\n`CfgTrancheFicheRelance2`). La « Fiche de réservation » de ce menu n'a pas de route ici : l'écran fait choisir un dossier\nde la tranche puis ouvre `GET /api/dossiers/{id}/documents/fiche-reservation`. Lecture seule : aucune écriture.\nRéservé à Administrateur et Direction Générale (403 avant tout autre refus) ; clé d'API : 403 `HORS_PORTEE`."
+    },
+    {
       "name": "Dossiers — réinitialisation",
       "description": "Bouton « Réinitialiser » de la fiche dossier : « Le système recharge les données de l'article et des sous articles à partir du module stock » (aide OMRAN). Pour l'article : superficie, taux de TVA et prix du m² HT ; pour chaque sous-article : superficie, TVA, prix avant remise HT et descriptifs (code, description, adresse, contenance, catégorie, type, étage, bâtiment…). Comme `Sale.cs:Reinitialise`, les sous-articles du stock (`StkItem.ParentId` = article) absents du dossier sont d'abord ajoutés (ligne `ComFolderItem`, sous-article affecté au dossier) et listés dans `sousArticlesAjoutes` ; un sous-article déjà affecté à un autre dossier n'est pas pris. Puis la remise est recalculée comme `Sale.cs:RecalcDiscount` : le montant de remise HT est conservé, le taux change (« Montant remise / Total HT »), et les prix après remise suivent. Le schéma de financement n'est pas modifié ; une valeur absente du stock laisse celle du dossier. Réservé au rôle Administrateur."
     },
@@ -218,10 +226,6 @@
     {
       "name": "Calendrier",
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
-    },
-    {
-      "name": "Lotissements",
-      "description": "Écran OMRAN « LOTISSEMENTS » en lecture : lots de terrain, c'est-à-dire terrains rattachés à une tranche et de\nvocation autre que PROJET. La fiche d'un lot est celle du terrain (`/api/terrains/{id}`)."
     },
     {
       "name": "Audit",
@@ -2923,7 +2927,7 @@
           {
             "name": "porteur",
             "in": "path",
-            "description": "projet, tranche, entite, article (sous-articles compris), terrain, prospection-terrain ou etude.",
+            "description": "projet, tranche, entite, article (sous-articles compris), terrain, lotissement, prospection-terrain ou etude.",
             "required": true,
             "schema": {
               "type": "string"
@@ -2960,7 +2964,7 @@
           {
             "name": "porteur",
             "in": "path",
-            "description": "projet, tranche, entite, article (sous-articles compris), terrain, prospection-terrain ou etude.",
+            "description": "projet, tranche, entite, article (sous-articles compris), terrain, lotissement, prospection-terrain ou etude.",
             "required": true,
             "schema": {
               "type": "string"
@@ -4215,6 +4219,16 @@
             "name": "vocationId",
             "in": "query",
             "description": "Vocation (StkVocation).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche (StkHierarchyId) : lots de cette tranche.",
             "required": false,
             "schema": {
               "type": "string",
@@ -8155,6 +8169,148 @@
         }
       }
     },
+    "/api/lotissements": {
+      "get": {
+        "tags": [
+          "Lotissements"
+        ],
+        "summary": "Lots de terrain : terrains d'une tranche, entité « article », vocation autre que PROJET",
+        "description": "Lots des tranches visibles (société du programme active). Mêmes filtres que `GET /api/terrains`, plus `trancheId`.",
+        "operationId": "lister_6",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse ni espaces : code, description, titre foncier, adresse, notes…",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TER-01"
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Société (CfgCompanyId).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut (StrStatus).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Vocation (StkVocation).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche (StkHierarchyId) : lots de cette tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lots de terrain des tranches visibles.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoTerrainListeDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Lotissements"
+        ],
+        "summary": "Crée un lot de terrain dans une tranche (nature TER, entité « article », sans statut de workflow)",
+        "description": "Tranche obligatoire, visible et d'entité active (sinon 400, sans dire si elle existe). Code unique dans la tranche,\ntoutes natures confondues (409). Vocation obligatoire et jamais PROJET ; catégorie et type obligatoires, de nature TER\nou LOT DE TERRAIN (400 nommant le champ). Prix : un seul calcul, celui des articles (prix au m² HT ou TTC exclusifs).",
+        "operationId": "creer_8",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LotissementEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Lot créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotissementDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent, référence inconnue ou d'une autre nature.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotissementDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotissementDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris dans la tranche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotissementDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/import-patrimoine/{type}": {
       "post": {
         "tags": [
@@ -8176,6 +8332,7 @@
                 "sous-articles",
                 "presentations",
                 "terrains",
+                "lotissements",
                 "previsions",
                 "entites-juridiques",
                 "projets",
@@ -8436,7 +8593,7 @@
           "Études de faisabilité"
         ],
         "summary": "Liste des études des sociétés actives, par code",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "societeId",
@@ -8490,7 +8647,7 @@
         ],
         "summary": "Crée une étude au statut « En étude »",
         "description": "`code` (unique → 409), `description`, `dateDocument`, `societeId` (société active, sinon 400) obligatoires ;\n`terrainId` : article de nature TER (sinon 400). Statut initial « En étude », une ligne d'historique au nom de\nl'appelant ; `tauxTvaDefaut` 0,20 et `tauxTvaInterets` 0,10 si absents. Bloc A et phases calculés et stockés ;\n`unites` / `tranches` du corps sont ignorés (grilles par les PUT).",
-        "operationId": "creer_8",
+        "operationId": "creer_9",
         "requestBody": {
           "content": {
             "application/json": {
@@ -9631,7 +9788,7 @@
           "Entités juridiques"
         ],
         "summary": "Liste des entités, actives ou non (colonnes de la liste OMRAN)",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "actif",
@@ -9673,7 +9830,7 @@
           "Entités juridiques"
         ],
         "summary": "Crée une entité (habilitation du créateur et 4 compteurs AdmSequence dans la même transaction)",
-        "operationId": "creer_9",
+        "operationId": "creer_10",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10342,7 +10499,7 @@
           "Dossiers — sous-articles"
         ],
         "summary": "Sous-articles du dossier et prix qui en dépendent",
-        "operationId": "lister_8",
+        "operationId": "lister_9",
         "parameters": [
           {
             "name": "id",
@@ -10531,7 +10688,7 @@
         ],
         "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
         "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
-        "operationId": "lister_9",
+        "operationId": "lister_10",
         "parameters": [
           {
             "name": "id",
@@ -10579,7 +10736,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_10",
+        "operationId": "creer_11",
         "parameters": [
           {
             "name": "id",
@@ -11041,7 +11198,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_10",
+        "operationId": "lister_11",
         "parameters": [
           {
             "name": "id",
@@ -11135,7 +11292,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_11",
+        "operationId": "lister_12",
         "parameters": [
           {
             "name": "id",
@@ -11747,7 +11904,7 @@
         ],
         "summary": "Crée un désistement (brouillon) sur le dossier",
         "description": "Statut du dossier sans « Peut effectuer un désistement » (`StrStatus.BoolField010`) : 409. Un seul désistement non légalisé par dossier : 409. Les montants sont calculés comme la simulation et enregistrés ; le N° de demande vient de la séquence « Désistement ».",
-        "operationId": "creer_11",
+        "operationId": "creer_12",
         "parameters": [
           {
             "name": "id",
@@ -11802,7 +11959,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "id",
@@ -11934,7 +12091,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_13",
+        "operationId": "lister_14",
         "parameters": [
           {
             "name": "id",
@@ -11975,7 +12132,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_12",
+        "operationId": "creer_13",
         "parameters": [
           {
             "name": "id",
@@ -12878,7 +13035,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_14",
+        "operationId": "lister_15",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -12914,7 +13071,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_13",
+        "operationId": "creer_14",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13045,7 +13202,7 @@
           {
             "name": "porteur",
             "in": "path",
-            "description": "projet, tranche, entite, article (sous-articles compris), terrain, prospection-terrain ou etude.",
+            "description": "projet, tranche, entite, article (sous-articles compris), terrain, lotissement, prospection-terrain ou etude.",
             "required": true,
             "schema": {
               "type": "string"
@@ -13418,7 +13575,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_14",
+        "operationId": "creer_15",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13808,7 +13965,7 @@
           "Actions d'article"
         ],
         "summary": "Actions portant sur l'article (dossiers compris), plus récentes d'abord",
-        "operationId": "lister_15",
+        "operationId": "lister_16",
         "parameters": [
           {
             "name": "id",
@@ -13855,7 +14012,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_15",
+        "operationId": "creer_16",
         "parameters": [
           {
             "name": "id",
@@ -15508,6 +15665,159 @@
         }
       }
     },
+    "/api/lotissements/{id}": {
+      "get": {
+        "tags": [
+          "Lotissements"
+        ],
+        "summary": "Fiche d'un lot de terrain",
+        "description": "Un id qui n'est pas un lot (terrain sans tranche, terrain LandProject, article bâti, sous-article) répond 404. Pas de\nstatut de workflow : `estOccupe` dit si le lot est affecté à un dossier.",
+        "operationId": "lire_5",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du lot (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche du lot.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotissementDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pas un lot (terrain sans tranche, article…), ou lot d'une entité inactive."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Lotissements"
+        ],
+        "summary": "Supprime un lot avec ses contenances, tracés, notes et pièces jointes",
+        "description": "Supprime le lot, ses contenances, tracés de plan, notes, pièces jointes et frais non validés. 409 si le lot est occupé,\nporte un frais validé ou est encore référencé (prospection, offre…), avec la cause dans le message.",
+        "operationId": "supprimer_7",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du lot (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Lot supprimé."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Pas un lot (terrain sans tranche, article…), ou lot d'une entité inactive."
+          },
+          "409": {
+            "description": "Lot occupé, frais validé, ou encore référencé (prospection…)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Lotissements"
+        ],
+        "summary": "Modifie un lot de terrain (champ absent ou null = inchangé)",
+        "description": "Lot occupé : code, surfaces, prix, TVA, remises, classification, titre foncier et tranche → 409. Changer de tranche\nvide la présentation ; refusé (409) si le lot a des prospections. Une présentation d'une autre tranche → 400.",
+        "operationId": "modifier_8",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du lot (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LotissementEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lot modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotissementDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent, référence inconnue ou d'une autre nature.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotissementDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotissementDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pas un lot (terrain sans tranche, article…), ou lot d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotissementDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris, champ protégé d'un lot occupé, ou changement de tranche d'un lot occupé ou ayant des prospections.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotissementDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/groupes-actionnaires/{id}": {
       "get": {
         "tags": [
@@ -15713,7 +16023,7 @@
         ],
         "summary": "Supprime une étude sans prévision ni financement, avec ses grilles et son historique",
         "description": "409 si l'étude est bloquée, ou porte des prévisions (`FSPrevision`) ou des financements (`FSFunding`). Sinon ventilations,\ntranches, unités et historique sont supprimés avec elle, dans la transaction.",
-        "operationId": "supprimer_7",
+        "operationId": "supprimer_8",
         "parameters": [
           {
             "name": "id",
@@ -15747,7 +16057,7 @@
         ],
         "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
         "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel.\n`pourcentageConcretisation` et `tauxIs` : fractions entre 0 et 1 (400) ; écarts-types ≥ 0,5 (400, message OMRAN « la\nvaleur de l'écart type doit être supérieur ou égal à 0.5 ») ; `nombreArticlesAVendre` reçu est ignoré.",
-        "operationId": "modifier_8",
+        "operationId": "modifier_9",
         "parameters": [
           {
             "name": "id",
@@ -15861,7 +16171,7 @@
           "Entités juridiques"
         ],
         "summary": "Supprime une entité sans programme ni autre référence",
-        "operationId": "supprimer_8",
+        "operationId": "supprimer_9",
         "parameters": [
           {
             "name": "id",
@@ -15894,7 +16204,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_9",
+        "operationId": "modifier_10",
         "parameters": [
           {
             "name": "id",
@@ -16020,7 +16330,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_10",
+        "operationId": "modifier_11",
         "parameters": [
           {
             "name": "id",
@@ -16335,7 +16645,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_9",
+        "operationId": "supprimer_10",
         "parameters": [
           {
             "name": "id",
@@ -16488,7 +16798,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Compteurs de l'article principal du dossier",
-        "operationId": "lire_5",
+        "operationId": "lire_6",
         "parameters": [
           {
             "name": "id",
@@ -16539,7 +16849,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_11",
+        "operationId": "modifier_12",
         "parameters": [
           {
             "name": "id",
@@ -16648,7 +16958,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_10",
+        "operationId": "supprimer_11",
         "parameters": [
           {
             "name": "id",
@@ -16679,7 +16989,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_12",
+        "operationId": "modifier_13",
         "parameters": [
           {
             "name": "id",
@@ -16766,7 +17076,7 @@
           "Désistements"
         ],
         "summary": "Supprime un désistement non validé",
-        "operationId": "supprimer_11",
+        "operationId": "supprimer_12",
         "parameters": [
           {
             "name": "id",
@@ -16800,7 +17110,7 @@
         ],
         "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
         "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` (≥ 0) la conserve au centime et recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` (fraction entre 0 et 1) recalcule la pénalité ; les montants du dossier sont relus, et une pénalité saisie est gardée tant que la base (prix, réglé, taux) ne change pas. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
-        "operationId": "modifier_13",
+        "operationId": "modifier_14",
         "parameters": [
           {
             "name": "id",
@@ -17195,7 +17505,7 @@
           {
             "name": "porteur",
             "in": "path",
-            "description": "projet, tranche, entite, article (sous-articles compris), terrain, prospection-terrain ou etude.",
+            "description": "projet, tranche, entite, article (sous-articles compris), terrain, lotissement, prospection-terrain ou etude.",
             "required": true,
             "schema": {
               "type": "string"
@@ -17234,7 +17544,7 @@
           {
             "name": "porteur",
             "in": "path",
-            "description": "projet, tranche, entite, article (sous-articles compris), terrain, prospection-terrain ou etude.",
+            "description": "projet, tranche, entite, article (sous-articles compris), terrain, lotissement, prospection-terrain ou etude.",
             "required": true,
             "schema": {
               "type": "string"
@@ -17312,7 +17622,7 @@
         ],
         "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
         "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article ; s'il lui est affecté par défaut → 409 « Vous ne pouvez pas supprimer un sous article affecté par\ndéfaut à l'article en cours ! ».",
-        "operationId": "supprimer_12",
+        "operationId": "supprimer_13",
         "parameters": [
           {
             "name": "id",
@@ -17346,7 +17656,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_14",
+        "operationId": "modifier_15",
         "parameters": [
           {
             "name": "id",
@@ -17720,6 +18030,107 @@
         }
       }
     },
+    "/api/tranches/{id}/relances-2/apercu": {
+      "get": {
+        "tags": [
+          "Impressions de la tranche"
+        ],
+        "summary": "Aperçu de la Relance 2 par statut : lettres par acquéreur, montants, dossiers écartés",
+        "description": "Une seule sélection, partagée avec le PDF : dossiers dont l'**article** (sous-article compris) est dans la tranche, au\nstatut `CONCRETISATION`, `MEILLEURTAUX`, `ENVOI AU NOTAIRE`, `CREDIT EN COURS` ou `CREDIT ACCORDE` (ou au sous-ensemble\n`statut`), avec un client principal. Une lettre par acquéreur : le client principal, puis chaque co-acquéreur\n(`ComFolderCustomer`) par nom ; tous reçoivent les montants du dossier. Montants = onglet Montants du dossier\n(`prixVente`) : `prixRegle + reste = prixVente`. Un dossier au reste ≤ 0 n'a pas de lettre et va dans `ecartes`.\nOrdre des `lignes` = ordre des pages : code d'article (tri naturel), dossier, principal avant co-acquéreurs.\n`dossiers` et `parStatut[].dossiers` comptent les écartés ; `lettres` non.",
+        "operationId": "apercu_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code de statut à retenir, répétable, parmi les 5 de la Relance 2 ; absent = les 5.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "CONCRETISATION"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Un `statut` hors des 5 codes de la Relance 2."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée."
+          },
+          "404": {
+            "description": "Tranche inconnue ou d'une entité inactive."
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/relances-2.pdf": {
+      "get": {
+        "tags": [
+          "Impressions de la tranche"
+        ],
+        "summary": "Lettres de Relance 2 (PDF inline), une page par acquéreur",
+        "description": "Une page par ligne de l'aperçu, rendue par le modèle de document actif `RELANCE_TITRE_FONCIER / RELANCE_2` (texte à\nrédiger dans les modèles de documents), sinon par le texte livré. Le reste imprimé est `reste.prix` (reste du prix de\nvente), jamais `reste.total`. Date de la lettre (`lettre.date`) = `Revival2` du dossier, sinon la date du jour.\nFichier `relance2_<codeTranche>_<aaaammjj>.pdf`.",
+        "operationId": "lettres",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code de statut à retenir, répétable, parmi les 5 de la Relance 2 ; absent = les 5.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "CONCRETISATION"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF.",
+            "content": {
+              "application/pdf": {}
+            }
+          },
+          "400": {
+            "description": "Un `statut` hors des 5 codes de la Relance 2."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée."
+          },
+          "404": {
+            "description": "Tranche inconnue ou d'une entité inactive."
+          },
+          "409": {
+            "description": "Aucun dossier de la tranche n'a un statut à relancer, ou tous les dossiers retenus ont un reste du prix ≤ 0."
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/previsions-base/stock": {
       "get": {
         "tags": [
@@ -17845,7 +18256,7 @@
         ],
         "summary": "Aperçu des premières relances : dossiers retenus, nouvelle échéance, alertes à créer",
         "description": "Ne lit que la base. Échéance = `Revival1Date` de la tranche + `AgreementFirstDelay` jours (absent = 0 jour, signalé dans\n`avertissement`). `alerte` est vrai quand l'échéance actuelle du dossier (`Revival1ValidityDate`) diffère de la nouvelle\n**et** que le dossier a une prospection : c'est exactement ce que le POST créera.",
-        "operationId": "apercu_2",
+        "operationId": "apercu_3",
         "parameters": [
           {
             "name": "id",
@@ -17878,7 +18289,7 @@
         ],
         "summary": "Lettres de 1re relance (PDF inline), une page par dossier relancé",
         "description": "Une page par dossier de la sélection portant déjà `Revival1`, rendue par le modèle de document actif\n`RELANCE_TITRE_FONCIER / PREMIERE_RELANCE` (texte modifiable dans les modèles de documents). Restes dus prix, frais\n(échéances exclues du prix) et total : même calcul que l'onglet Montants du dossier, règlements annulés exclus. Refus :\ntranche sans date de 1re relance (400), aucun dossier relancé (400 « Aucun dossier à imprimer »).",
-        "operationId": "lettres",
+        "operationId": "lettres_1",
         "parameters": [
           {
             "name": "id",
@@ -18456,6 +18867,16 @@
             }
           },
           {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche (StkHierarchyId) : lots de cette tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
             "name": "format",
             "in": "query",
             "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
@@ -18606,7 +19027,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_16",
+        "operationId": "lister_17",
         "parameters": [
           {
             "name": "du",
@@ -19290,7 +19711,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_17",
+        "operationId": "lister_18",
         "parameters": [
           {
             "name": "entiteId",
@@ -22711,7 +23132,7 @@
           "Rapports"
         ],
         "summary": "Rapports du module visibles par l'appelant, groupés",
-        "operationId": "lister_18",
+        "operationId": "lister_19",
         "parameters": [
           {
             "name": "module",
@@ -25170,7 +25591,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_19",
+        "operationId": "lister_20",
         "parameters": [
           {
             "name": "page",
@@ -25642,74 +26063,28 @@
         }
       }
     },
-    "/api/lotissements": {
+    "/api/lotissements/{id}/fiche.pdf": {
       "get": {
         "tags": [
           "Lotissements"
         ],
-        "summary": "Lots de terrain : terrains d'une tranche, vocation autre que PROJET",
-        "description": "Lots des tranches visibles (société du programme active). Mêmes filtres que `GET /api/terrains`.",
-        "operationId": "lister_20",
+        "summary": "Fiche PDF du lot (inline), mêmes droit et visibilité que le détail",
+        "operationId": "fichePdf_4",
         "parameters": [
           {
-            "name": "search",
-            "in": "query",
-            "description": "Recherche sans casse ni espaces : code, description, titre foncier, adresse, notes…",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "example": "TER-01"
-          },
-          {
-            "name": "entiteId",
-            "in": "query",
-            "description": "Société (CfgCompanyId).",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "statutId",
-            "in": "query",
-            "description": "Statut (StrStatus).",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "vocationId",
-            "in": "query",
-            "description": "Vocation (StkVocation).",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "pageable",
-            "in": "query",
+            "name": "id",
+            "in": "path",
+            "description": "Id du lot (StkItem.PKey).",
             "required": true,
             "schema": {
-              "$ref": "#/components/schemas/Pageable"
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
         "responses": {
-          "200": {
-            "description": "Page de lots de terrain des tranches visibles.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoTerrainListeDto"
-                }
-              }
-            }
+          "404": {
+            "description": "Pas un lot (terrain sans tranche, article…), ou lot d'une entité inactive."
           }
         }
       }
@@ -25757,6 +26132,16 @@
             "name": "vocationId",
             "in": "query",
             "description": "Vocation (StkVocation).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche (StkHierarchyId) : lots de cette tranche.",
             "required": false,
             "schema": {
               "type": "string",
@@ -26000,6 +26385,7 @@
                 "sous-articles",
                 "presentations",
                 "terrains",
+                "lotissements",
                 "previsions",
                 "entites-juridiques",
                 "projets",
@@ -28277,7 +28663,7 @@
           "Entités juridiques"
         ],
         "summary": "Fiche PDF de l'entité (inline), active ou non, avec sa répartition",
-        "operationId": "fichePdf_4",
+        "operationId": "fichePdf_5",
         "parameters": [
           {
             "name": "id",
@@ -29749,7 +30135,7 @@
           "Dossiers — réinitialisation"
         ],
         "summary": "Aperçu de la réinitialisation depuis le stock (avant / après), sans rien écrire",
-        "operationId": "apercu_3",
+        "operationId": "apercu_4",
         "parameters": [
           {
             "name": "id",
@@ -33392,7 +33778,7 @@
           "Articles"
         ],
         "summary": "Fiche PDF d'un article ou sous-article (inline), visibilité du détail",
-        "operationId": "fichePdf_5",
+        "operationId": "fichePdf_6",
         "parameters": [
           {
             "name": "id",
@@ -33811,7 +34197,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_13",
+        "operationId": "supprimer_14",
         "parameters": [
           {
             "name": "porteur",
@@ -34060,7 +34446,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_14",
+        "operationId": "supprimer_15",
         "parameters": [
           {
             "name": "id",
@@ -34304,7 +34690,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_15",
+        "operationId": "supprimer_16",
         "parameters": [
           {
             "name": "id",
@@ -42968,6 +43354,629 @@
             "format": "int64",
             "description": "Taille en octets (500 Ko au plus).",
             "example": 48213
+          }
+        }
+      },
+      "LotissementEcritureDto": {
+        "type": "object",
+        "description": "Création ou modification d'un lot de terrain (StkItem nature TER d'une tranche). En PATCH, absent ou null = inchangé. Taux et remises en fraction (0,2 = 20 %).",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche (StkHierarchyId) visible, d'entité active. Obligatoire à la création ; changée en PATCH, la présentation est vidée (409 si le lot est occupé ou a des prospections)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, unique dans la tranche toutes natures confondues. Obligatoire."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé. Obligatoire."
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vocation (StkVocation), PROJET refusée. Obligatoire à la création."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de nature TER ou LOT DE TERRAIN. Obligatoire à la création."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de nature TER ou LOT DE TERRAIN. Obligatoire à la création."
+          },
+          "presentationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de présentation (StkPresentationType) de la tranche du lot ; d'une autre tranche → 400."
+          },
+          "orientationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Orientation (StkOrientation)."
+          },
+          "categorieChargeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de charge (StkCostCategory)."
+          },
+          "entiteSyndicId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité de gestion du syndic (CfgCompany, CfgCompanySyndicId)."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Address (500 caractères au plus)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1000 caractères au plus)."
+          },
+          "anomalies": {
+            "type": "string",
+            "description": "Anomalies (1000 caractères au plus)."
+          },
+          "contenanceLibre": {
+            "type": "string",
+            "description": "Contenance en texte libre (1000 caractères au plus)."
+          },
+          "surfaceProvisoire": {
+            "type": "number",
+            "description": "AreaFloor : superficie provisoire, > 0, défaut 1."
+          },
+          "surfaceDefinitive": {
+            "type": "number",
+            "description": "Area : superficie définitive, > 0, défaut = provisoire."
+          },
+          "prixM2ProvisoireHT": {
+            "type": "number",
+            "description": "ComSaleUnitCostFloorHT ; exclusif avec prixM2ProvisoireTTC."
+          },
+          "prixM2ProvisoireTTC": {
+            "type": "number",
+            "description": "ComSaleUnitCostFloor ; exclusif avec prixM2ProvisoireHT."
+          },
+          "prixM2DefinitifHT": {
+            "type": "number",
+            "description": "ComSaleUnitCostHT ; exclusif avec prixM2DefinitifTTC."
+          },
+          "prixM2DefinitifTTC": {
+            "type": "number",
+            "description": "ComSaleUnitCost ; exclusif avec prixM2DefinitifHT."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "Vat, fraction entre 0 et 1."
+          },
+          "titreFoncier": {
+            "type": "string",
+            "description": "TitleNumber : n° du titre foncier."
+          },
+          "estTitre": {
+            "type": "boolean",
+            "description": "IsTitled, défaut vrai."
+          },
+          "remiseMax1": {
+            "type": "number",
+            "description": "DiscountMax : remise niveau 1, fraction."
+          },
+          "remiseMax2": {
+            "type": "number",
+            "description": "DiscountMax2 : remise niveau 2, fraction."
+          },
+          "avanceMinimum": {
+            "type": "number",
+            "description": "ComSaleMinAdvance : avance minimum, ≥ 0."
+          },
+          "loyerMensuelHT": {
+            "type": "number",
+            "description": "AmountHT : loyer mensuel HT, ≥ 0."
+          },
+          "nombreCautions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "CautionNumber : nombre de cautions, ≥ 0."
+          },
+          "disponibleVenteWeb": {
+            "type": "boolean",
+            "description": "IsAvailableForSaleInWebSite : disponible à la vente sur le web."
+          },
+          "disponibleLocationWeb": {
+            "type": "boolean",
+            "description": "IsAvailableForRentInWebSite : disponible à la location sur le web."
+          },
+          "dateEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RegistryDate : date d'enregistrement."
+          },
+          "numeroEnregistrement": {
+            "type": "string",
+            "description": "RegistryNumber : numéro d'enregistrement."
+          },
+          "lieuEnregistrement": {
+            "type": "string",
+            "description": "RegistryPlace : lieu d'enregistrement."
+          },
+          "cpfImmatriculation": {
+            "type": "string",
+            "description": "ImmatriculationCPF : C.P.F. de l'immatriculation."
+          },
+          "dateImmatriculation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ImmatriculationDate : date d'immatriculation."
+          },
+          "titreFoncierMere": {
+            "type": "string",
+            "description": "TitleNumberMother : n° du titre foncier mère."
+          },
+          "intituleTitreFoncier": {
+            "type": "string",
+            "description": "TitleName : intitulé du titre foncier."
+          },
+          "dateTitreFoncier": {
+            "type": "string",
+            "format": "date-time",
+            "description": "TitleDate : date du titre foncier."
+          },
+          "proprieteDite": {
+            "type": "string",
+            "description": "PropertyCalled : « propriété dite »."
+          },
+          "fractionDivise": {
+            "type": "string",
+            "description": "FractionDivided : n° de fraction divise."
+          },
+          "fractionDiviseTerrain": {
+            "type": "string",
+            "description": "FractionDividedLand : fraction divise du terrain."
+          },
+          "partiesDivises": {
+            "type": "number",
+            "description": "DividedPart : parties divises, positif ou nul."
+          },
+          "partiesIndivises": {
+            "type": "number",
+            "description": "UndividedPart : parties indivises, positif ou nul."
+          },
+          "quotaTerrainGroupe": {
+            "type": "string",
+            "description": "GroupLandQuota : quota du terrain de groupe."
+          },
+          "notesTitreFoncier": {
+            "type": "string",
+            "description": "TitleNotes : notes du titre foncier."
+          },
+          "referenceElectricite": {
+            "type": "string",
+            "description": "ElectricityRef : référence du compteur d'électricité. Chaque champ de compteur fait 50 caractères au plus."
+          },
+          "policeElectricite": {
+            "type": "string",
+            "description": "ElectricityMeterPolice : n° de police électricité."
+          },
+          "compteurElectricite": {
+            "type": "string",
+            "description": "ElectricityMeter : n° du compteur d'électricité."
+          },
+          "releveElectricite": {
+            "type": "string",
+            "description": "ElectricityMeterIndex : arrêté du compteur d'électricité."
+          },
+          "referenceEau": {
+            "type": "string",
+            "description": "WaterRef : référence du compteur d'eau."
+          },
+          "policeEau": {
+            "type": "string",
+            "description": "WaterMeterPolice : n° de police eau."
+          },
+          "compteurEau": {
+            "type": "string",
+            "description": "WaterMeter : n° du compteur d'eau."
+          },
+          "releveEau": {
+            "type": "string",
+            "description": "WaterMeterIndex : arrêté du compteur d'eau."
+          },
+          "referenceGaz": {
+            "type": "string",
+            "description": "GasRef : référence du compteur de gaz."
+          },
+          "policeGaz": {
+            "type": "string",
+            "description": "GasMeterPolice : n° de police gaz."
+          },
+          "compteurGaz": {
+            "type": "string",
+            "description": "GasMeter : n° du compteur de gaz."
+          },
+          "releveGaz": {
+            "type": "string",
+            "description": "GasMeterIndex : arrêté du compteur de gaz."
+          },
+          "cos": {
+            "type": "number",
+            "description": "Cos : emprise au sol des bâtiments, ≥ 0."
+          },
+          "cuf": {
+            "type": "number",
+            "description": "Cuf : plancher couvert, ≥ 0."
+          },
+          "arreteAlignement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "AlinmentStop : arrêté d'alignement (m), ≥ 0."
+          },
+          "retraitVoisin": {
+            "type": "integer",
+            "format": "int32",
+            "description": "NeighborStop : retrait voisin (m), ≥ 0."
+          },
+          "hauteurMax": {
+            "type": "integer",
+            "format": "int32",
+            "description": "MaxHeight : hauteur maximale autorisée (m), ≥ 0."
+          },
+          "latitude": {
+            "type": "number",
+            "description": "MapLatitude."
+          },
+          "longitude": {
+            "type": "number",
+            "description": "MapLongitude."
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "PATCH : champs à vider (date, référence, notes, adresse → NULL ; nombre → 0 ; case → faux ; autre texte → \"\"). Socle (tranche, code, classification, surfaces, prix, TVA, titre) → 400.",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "LotissementDetailDto": {
+        "type": "object",
+        "description": "Fiche d'un lot de terrain. Les champs de la fiche article (foncier, compteurs, orientation…) sont à plat ; facadeId et vueIds n'y servent pas.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trancheCode": {
+            "type": "string"
+          },
+          "trancheDescription": {
+            "type": "string"
+          },
+          "programmeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Programme de la tranche."
+          },
+          "programmeCode": {
+            "type": "string"
+          },
+          "programmeDescription": {
+            "type": "string"
+          },
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité (société) du programme : en-tête de la fiche PDF."
+          },
+          "entiteCode": {
+            "type": "string"
+          },
+          "entiteDescription": {
+            "type": "string"
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vocationCode": {
+            "type": "string"
+          },
+          "vocationLibelle": {
+            "type": "string"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieCode": {
+            "type": "string"
+          },
+          "categorieLibelle": {
+            "type": "string"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeCode": {
+            "type": "string"
+          },
+          "typeLibelle": {
+            "type": "string"
+          },
+          "presentationTypeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StkPresentationType, propre à la tranche."
+          },
+          "presentationTypeCode": {
+            "type": "string"
+          },
+          "presentationTypeLibelle": {
+            "type": "string"
+          },
+          "orientationLibelle": {
+            "type": "string",
+            "description": "Libellé de orientationId."
+          },
+          "categorieChargeLibelle": {
+            "type": "string",
+            "description": "Libellé de categorieChargeId."
+          },
+          "entiteSyndicLibelle": {
+            "type": "string",
+            "description": "Libellé de entiteSyndicId."
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "titreFoncier": {
+            "type": "string"
+          },
+          "estTitre": {
+            "type": "boolean"
+          },
+          "estOccupe": {
+            "type": "boolean",
+            "description": "Affecté à un dossier de vente ou de location : surfaces, prix, classification, titre et code ne se modifient plus."
+          },
+          "surfaceProvisoire": {
+            "type": "number",
+            "description": "AreaFloor."
+          },
+          "surfaceDefinitive": {
+            "type": "number",
+            "description": "Area."
+          },
+          "prixM2ProvisoireHT": {
+            "type": "number"
+          },
+          "prixM2ProvisoireTTC": {
+            "type": "number"
+          },
+          "prixM2DefinitifHT": {
+            "type": "number"
+          },
+          "prixM2DefinitifTTC": {
+            "type": "number"
+          },
+          "prixProvisoireHT": {
+            "type": "number",
+            "description": "SalePriceFloorHT."
+          },
+          "prixProvisoireTTC": {
+            "type": "number",
+            "description": "SalePriceFloor."
+          },
+          "prixDefinitifHT": {
+            "type": "number",
+            "description": "SalePriceHT."
+          },
+          "prixDefinitifTTC": {
+            "type": "number",
+            "description": "SalePrice."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "Vat, fraction (0,2 = 20 %)."
+          },
+          "remiseMax1": {
+            "type": "number"
+          },
+          "remiseMax2": {
+            "type": "number"
+          },
+          "cos": {
+            "type": "number"
+          },
+          "cuf": {
+            "type": "number"
+          },
+          "arreteAlignement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "retraitVoisin": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "hauteurMax": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "creePar": {
+            "type": "string"
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "modifiePar": {
+            "type": "string"
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "orientationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieChargeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "facadeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entiteSyndicId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vueIds": {
+            "type": "array",
+            "description": "Vues de l'article (StkItemVue.StkVueId).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "avanceMinimum": {
+            "type": "number"
+          },
+          "loyerMensuelHT": {
+            "type": "number"
+          },
+          "nombreCautions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "anomalies": {
+            "type": "string"
+          },
+          "contenanceLibre": {
+            "type": "string"
+          },
+          "disponibleVenteWeb": {
+            "type": "boolean"
+          },
+          "disponibleLocationWeb": {
+            "type": "boolean"
+          },
+          "dateEnregistrement": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "numeroEnregistrement": {
+            "type": "string"
+          },
+          "lieuEnregistrement": {
+            "type": "string"
+          },
+          "cpfImmatriculation": {
+            "type": "string"
+          },
+          "dateImmatriculation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "titreFoncierMere": {
+            "type": "string"
+          },
+          "intituleTitreFoncier": {
+            "type": "string"
+          },
+          "dateTitreFoncier": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "proprieteDite": {
+            "type": "string"
+          },
+          "fractionDivise": {
+            "type": "string"
+          },
+          "fractionDiviseTerrain": {
+            "type": "string"
+          },
+          "partiesDivises": {
+            "type": "number"
+          },
+          "partiesIndivises": {
+            "type": "number"
+          },
+          "quotaTerrainGroupe": {
+            "type": "string"
+          },
+          "notesTitreFoncier": {
+            "type": "string"
+          },
+          "referenceElectricite": {
+            "type": "string"
+          },
+          "policeElectricite": {
+            "type": "string"
+          },
+          "compteurElectricite": {
+            "type": "string"
+          },
+          "releveElectricite": {
+            "type": "string"
+          },
+          "referenceEau": {
+            "type": "string"
+          },
+          "policeEau": {
+            "type": "string"
+          },
+          "compteurEau": {
+            "type": "string"
+          },
+          "releveEau": {
+            "type": "string"
+          },
+          "referenceGaz": {
+            "type": "string"
+          },
+          "policeGaz": {
+            "type": "string"
+          },
+          "compteurGaz": {
+            "type": "string"
+          },
+          "releveGaz": {
+            "type": "string"
+          },
+          "superficieNette": {
+            "type": "number",
+            "description": "Calculée à la lecture (AreaNet de StkItemView) : surface + Σ sous-articles rattachés ; terrain : surface − surface des équipements."
+          },
+          "superficieTitree": {
+            "type": "number",
+            "description": "Calculée à la lecture (TitledArea de StkItemView) : surface si titré, + Σ sous-articles rattachés titrés."
           }
         }
       },

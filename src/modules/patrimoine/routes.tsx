@@ -19,6 +19,8 @@ const SousArticlesList = lazy(() => import('../../pages/sous-articles/SousArticl
 const TerrainsList = lazy(() => import('../../pages/terrains/TerrainsList'));
 const TerrainDetail = lazy(() => import('../../pages/terrains/TerrainDetail'));
 const TerrainForm = lazy(() => import('../../pages/terrains/TerrainForm'));
+const LotissementDetail = lazy(() => import('../../pages/lotissements/LotissementDetail'));
+const LotissementForm = lazy(() => import('../../pages/lotissements/LotissementForm'));
 const ProspectionsTerrainList = lazy(() => import('../../pages/prospections-terrain/ProspectionsTerrainList'));
 const ProspectionTerrainDetail = lazy(() => import('../../pages/prospections-terrain/ProspectionTerrainDetail'));
 const ProspectionTerrainForm = lazy(() => import('../../pages/prospections-terrain/ProspectionTerrainForm'));
@@ -94,6 +96,9 @@ const patrimoine: ModuleApp = {
     { path: '/terrains-prospection/:id', element: <ProspectionTerrainDetail /> },
     { path: '/terrains-prospection/:id/modifier', element: <ProspectionTerrainForm /> },
     { path: '/lotissements', element: <TerrainsList liste="lotissements" /> },
+    { path: '/lotissements/nouveau', element: <LotissementForm /> },
+    { path: '/lotissements/:id', element: <LotissementDetail /> },
+    { path: '/lotissements/:id/modifier', element: <LotissementForm /> },
     { path: '/entites-juridiques', element: <EntitesJuridiquesList /> },
     { path: '/entites-juridiques/nouveau', element: <EntiteJuridiqueDetail /> },
     { path: '/entites-juridiques/:id', element: <EntiteJuridiqueDetail /> },
