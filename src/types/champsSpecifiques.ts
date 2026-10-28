@@ -7,6 +7,7 @@ export type PorteurChamps =
   | 'entite'
   | 'article'
   | 'terrain'
+  | 'lotissement'
   | 'prospection-terrain'
   | 'etude';
 
