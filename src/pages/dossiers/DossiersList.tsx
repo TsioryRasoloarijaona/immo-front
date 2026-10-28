@@ -1,18 +1,20 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarRange, Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
-import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { FileText, Ruler } from 'lucide-react';
+import { ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
-import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
-import { Button } from '../../components/ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import EtatVideListe from '../../components/liste/EtatVideListe';
+import SelecteurDocumentsEnLot from '../../components/dossier/liste/SelecteurDocumentsEnLot';
 import DossierTable from '../../components/DossierTable';
 import BandeGroupement from '../../components/BandeGroupement';
-import BoutonReajustementSuperficies from '../../components/dossier/BoutonReajustementSuperficies';
-import BoutonExporter from '../../components/BoutonExporter';
+import HoteReajustementSuperficies from '../../components/dossier/HoteReajustementSuperficies';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import OptionsListeDossiers from '../../components/dossier/liste/OptionsListeDossiers';
 import TotauxDossiers from '../../components/dossier/liste/TotauxDossiers';
 import {
@@ -28,7 +30,12 @@ import {
   type DossierBatchDocKind,
   type DossierFilterParams,
 } from '../../lib/api';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
+import { useAuth } from '../../lib/auth';
+import { estAdministrateur } from '../../lib/roles';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
+import { useExportListe } from '../../lib/useExportListe';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
 import EtatColonnes from '../../components/EtatColonnes';
@@ -70,6 +77,10 @@ export default function DossiersList() {
   const navigate = useNavigate();
   const { ouvrirFicheProspection, ouvrirFicheArticle } = usePreview();
   const { commerciaux } = useAppData();
+  const { user } = useAuth();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('dossiers'));
+  const [reajustementOuvert, setReajustementOuvert] = useState(false);
+  const [selecteurDocOuvert, setSelecteurDocOuvert] = useState(false);
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
@@ -246,12 +257,32 @@ export default function DossiersList() {
     !!search || status.length > 0 || trancheIds.length > 0 || champDate !== 'RESERVATION' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || commercial !== 'all' || inclureSortis;
 
   const paramsExport = { ...filtresServeur, colonnes: colonnes.visibles, sort: TRI_LISTE };
+  const exportListe = useExportListe('/api/dossiers/export', paramsExport, 'dossiers');
   const uniteLigne = uniteDeLigne(filtreStatut.lignes);
 
-  const commercialItems = [
-    { label: 'Tous les commerciaux', value: 'all' },
-    ...commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
+  const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
+  const puces = [
+    ...puceSelection('Statut', statusItems, status),
+    ...puceSelection('Tranche', trancheItems, trancheIds),
+    ...puceUnique(commercialItems, commercial === 'all' ? null : commercial),
+    ...(inclureSortis ? ['Annulés inclus'] : []),
+    ...(ordreOmran ? ['Ordre OMRAN'] : []),
+    ...(search ? [`« ${search} »`] : []),
   ];
+  const unite = enGroupes ? 'groupe' : uniteLigne;
+  const decompte = pageAffichee ? pluriel(pageAffichee.totalElements, unite) : undefined;
+
+  function periodeChangee(debut: string, fin: string) {
+    setPage(0);
+    setDateDebut(debut);
+    setDateFin(fin);
+  }
+
+  function fermerSelecteurDoc() {
+    setSelecteurDocOuvert(false);
+    setBatchDocKind(null);
+    clearSelection();
+  }
 
   function toggleSelected(d: DossierListItemDto) {
     setSelectedIds((prev) => {
@@ -293,214 +324,93 @@ export default function DossiersList() {
   }
 
   return (
-    <PageShell
-      title="Dossiers de vente"
-      crumbs={[{ label: 'Ventes' }, { label: 'Dossiers' }]}
-      fullHeight
-      icon={<Folder />}
-      accent="var(--sec-dossier)"
-      accentBg="var(--sec-dossier-bg)"
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <InputGroup className="min-w-55 flex-1">
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              <InputGroupInput
-                placeholder="Recherche — client, CIN, mobile, co-acquéreur, article, code…"
-                value={search}
-                onChange={(e) => resetAndSet(setSearch, e.target.value)}
-              />
-            </InputGroup>
-            <MultiSelectDropdown
-              label="Statut"
-              placeholder="Tous les statuts"
-              value={status}
-              onChange={(v) => resetAndSet(setStatus, v)}
-              items={statusItems}
-            />
-            <MultiSelectDropdown
-              label="Tranche"
-              placeholder="Toutes"
-              value={trancheIds}
-              onChange={(v) => resetAndSet(setTrancheIds, v)}
-              items={trancheItems}
-            />
-            <div className="flex items-center gap-1.5">
-              <Select
-                items={champDateItems}
-                value={champDate}
-                onValueChange={(v) => {
-                  // Date d'annulation : seuls les sortis la portent, on coche « Inclure annulés / désistés ».
-                  setInclureSortis((avant) => avant || exigeLesSortis(v as string));
-                  resetAndSet(setChampDate, v as string);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                {/* Libellés OMRAN longs : la liste déborde la largeur du déclencheur et passe à la ligne au besoin. */}
-                <SelectContent
-                  alignItemWithTrigger={false}
-                  align="start"
-                  className="w-auto min-w-(--anchor-width) max-w-[min(30rem,90vw)]"
-                >
-                  <SelectGroup>
-                    {champDateItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value} className="whitespace-normal">
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <InputGroup className="w-32.5">
-                <InputGroupInput
-                  type="date"
-                  aria-label="Du"
-                  value={dateDebut}
-                  onChange={(e) => resetAndSet(setDateDebut, e.target.value)}
-                />
-              </InputGroup>
-              <InputGroup className="w-32.5">
-                <InputGroupInput
-                  type="date"
-                  aria-label="Au"
-                  value={dateFin}
-                  onChange={(e) => resetAndSet(setDateFin, e.target.value)}
-                />
-              </InputGroup>
-            </div>
-            <Select items={commercialItems} value={commercial} onValueChange={(v) => resetAndSet(setCommercial, v as string)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {commercialItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <OptionsListeDossiers
-              inclureSortis={inclureSortis}
-              onInclureSortis={(v) => resetAndSet(setInclureSortis, v)}
-              ordreOmran={ordreOmran}
-              onOrdreOmran={(v) => resetAndSet(setOrdreOmran, v)}
-            />
-            <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
-              <RotateCcw data-icon="inline-start" /> Réinitialiser
-            </Button>
-            <BoutonExporter chemin="/api/dossiers/export" params={paramsExport} nomListe="dossiers" />
-            <BoutonReajustementSuperficies />
-        </div>
+    <PageListe titre="Dossiers de vente">
+      <EnteteListe titre="Dossiers de vente" lignes={decompte}>
+        {colonnes.catalogueServi.length > 0 && (
+          <ColumnSelector
+            compact
+            catalogue={colonnes.catalogueServi}
+            visibles={colonnes.visibles}
+            onBasculer={colonnes.basculer}
+            onReinitialiser={colonnes.reinitialiser}
+            estDefaut={colonnes.estDefaut}
+          />
+        )}
+      </EnteteListe>
+      <PanneauFiltresCoches
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        puces={puces}
+        champDate={{
+          items: champDateItems,
+          valeur: champDate,
+          onChange: (v) => {
+            // Date d'annulation : seuls les sortis la portent, on coche « Inclure annulés / désistés ».
+            setInclureSortis((avant) => avant || exigeLesSortis(v));
+            resetAndSet(setChampDate, v);
+          },
+        }}
+        periode={{ debut: dateDebut, fin: dateFin, onChange: periodeChangee }}
+        recherche={{
+          valeur: search,
+          onChange: (v) => resetAndSet(setSearch, v),
+          placeholder: 'Client, CIN, mobile, co-acquéreur, article, code…',
+        }}
+        onReinitialiser={resetFilters}
+      >
+        <BoiteFiltre titre="Statut" mode="multiple" items={statusItems} valeur={status} onChange={(v) => resetAndSet(setStatus, v)} />
+        <BoiteFiltre titre="Tranche" mode="multiple" items={trancheItems} valeur={trancheIds} onChange={(v) => resetAndSet(setTrancheIds, v)} />
+        <BoiteFiltre
+          titre="Commercial"
+          mode="unique"
+          items={commercialItems}
+          valeur={commercial === 'all' ? null : commercial}
+          onChange={(v) => resetAndSet(setCommercial, v ?? 'all')}
+        />
+        <OptionsListeDossiers
+          inclureSortis={inclureSortis}
+          onInclureSortis={(v) => resetAndSet(setInclureSortis, v)}
+          ordreOmran={ordreOmran}
+          onOrdreOmran={(v) => resetAndSet(setOrdreOmran, v)}
+        />
+      </PanneauFiltresCoches>
 
-        <Card padded={false} className="shrink-0">
-          <div className="flex flex-wrap items-center gap-2.5 p-3">
-            <Select
-              items={BATCH_DOC_ITEMS}
-              value={batchDocKind}
-              onValueChange={(v) => setBatchDocKind((v) || null)}
-            >
-              <SelectTrigger className="w-65">
-                <SelectValue placeholder="Générer un document…" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {BATCH_DOC_ITEMS.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            {batchDocKind && (
-              <>
-                <span className="text-body text-muted-foreground">
-                  {selectedIds.size === 0 ? (
-                    <>Cochez les dossiers à inclure dans le document.</>
-                  ) : (
-                    <>
-                      {selectedIds.size} dossier{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
-                    </>
-                  )}
-                </span>
-                <Button type="button" variant="outline" size="sm" disabled={selectedIds.size === 0 || !!batchBusy} onClick={() => handleBatchDocument('view')}>
-                  <Eye data-icon="inline-start" /> {batchBusy === 'view' ? 'Ouverture…' : 'Voir'}
-                </Button>
-                <Button type="button" size="sm" disabled={selectedIds.size === 0 || !!batchBusy} onClick={() => handleBatchDocument('download')}>
-                  <Download data-icon="inline-start" /> {batchBusy === 'download' ? 'Téléchargement…' : 'Télécharger'}
-                </Button>
-                {selectedIds.size > 0 && (
-                  <Button type="button" variant="ghost" size="sm" onClick={clearSelection}>
-                    Vider la sélection
-                  </Button>
-                )}
-                {batchError && <span className="text-body text-destructive">{batchError}</span>}
-              </>
-            )}
-          </div>
-          {batchDocKind && selectedIds.size > 0 && (
-            <div className="flex flex-wrap gap-1.5 border-t border-border p-3 pt-2.5">
-              {Array.from(selectedIds).map((id) => (
-                <Badge key={id} tone="info" className="gap-1">
-                  {selectedLabels[id] || id}
-                  <button type="button" aria-label="Retirer de la sélection" onClick={() => removeSelected(id)}>
-                    <X className="size-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          )}
-        </Card>
+      {selecteurDocOuvert && (
+        <SelecteurDocumentsEnLot
+          types={BATCH_DOC_ITEMS}
+          type={batchDocKind}
+          onType={(t) => setBatchDocKind(t as DossierBatchDocKind | null)}
+          ids={selectedIds}
+          libelles={selectedLabels}
+          occupe={batchBusy}
+          erreur={batchError}
+          onVoir={() => void handleBatchDocument('view')}
+          onTelecharger={() => void handleBatchDocument('download')}
+          onRetirer={removeSelected}
+          onViderSelection={clearSelection}
+          onFermer={fermerSelecteurDoc}
+        />
+      )}
 
-        {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul, le
-            chargement plein écran se rallumerait par-dessus les groupes. */}
+      {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul, le
+          chargement plein écran se rallumerait par-dessus les groupes. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {loading && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
-            <div className="flex shrink-0 items-center justify-between gap-3">
-              <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
-                <span className="text-body text-muted-foreground">
-                  {pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : uniteLigne)}
-                </span>
-                <TotauxDossiers totaux={totaux.data} montants={totauxNature.data} colonnes={colonnes.colonnes} />
-              </div>
-              {colonnes.catalogueServi.length > 0 && (
-                <ColumnSelector
-                  catalogue={colonnes.catalogueServi}
-                  visibles={colonnes.visibles}
-                  onBasculer={colonnes.basculer}
-                  onReinitialiser={colonnes.reinitialiser}
-                  estDefaut={colonnes.estDefaut}
-                />
-              )}
-            </div>
+            <TotauxDossiers totaux={totaux.data} montants={totauxNature.data} colonnes={colonnes.colonnes} />
             {/* `min-w-0` : sans lui la largeur de la table remonte la chaîne flex et
                 élargit la page. La bande reste hors du test « vide » : sinon sans issue. */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} bloque={groupementBloque} />
               {vide ? (
-                <EmptyState
-                  title={hasActiveFilters ? 'Aucun résultat' : 'Rien ce mois-ci'}
-                  message={
-                    hasActiveFilters
-                      ? 'Aucun dossier de vente ne correspond aux filtres actifs.'
-                      : 'Aucun dossier de vente réservé sur le mois en cours.'
-                  }
-                  action={
-                    hasActiveFilters ? (
-                      <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
-                        <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                      </Button>
-                    ) : (
-                      <Button type="button" variant="outline" size="sm" onClick={toutesLesPeriodes}>
-                        <CalendarRange data-icon="inline-start" /> Toutes les périodes
-                      </Button>
-                    )
-                  }
+                <EtatVideListe
+                  filtresActifs={hasActiveFilters}
+                  sujet="dossier de vente"
+                  surMois="Aucun dossier de vente réservé sur le mois en cours."
+                  onReinitialiser={resetFilters}
+                  onToutesPeriodes={toutesLesPeriodes}
                 />
               ) : (
                 <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
@@ -553,6 +463,26 @@ export default function DossiersList() {
           </ResultsRegion>
         )}
       </div>
-    </PageShell>
+      <BarreEtatListe
+        lignes={decompte ?? '—'}
+        selection={selectedIds.size > 0 ? pluriel(selectedIds.size, 'dossier coché', 'dossiers cochés') : 'aucune'}
+        alerte={exportListe.erreur}
+      />
+      <BarreOutilsFlottante
+        cle="dossiers"
+        ligneSelectionnee={selectedIds.size > 0}
+        actions={[
+          { id: 'rafraichir', onClick: refetchAllApis },
+          { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
+        ]}
+        propres={[
+          { id: 'generer', libelle: 'Générer un document…', icone: FileText, onClick: () => setSelecteurDocOuvert(true) },
+          ...(estAdministrateur(user)
+            ? [{ id: 'superficies', libelle: 'Réajuster les superficies', icone: Ruler, onClick: () => setReajustementOuvert(true) }]
+            : []),
+        ]}
+      />
+      <HoteReajustementSuperficies ouvert={reajustementOuvert} onFermer={() => setReajustementOuvert(false)} />
+    </PageListe>
   );
 }

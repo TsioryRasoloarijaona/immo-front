@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { ChevronDown, FileSpreadsheet } from 'lucide-react';
 import { Button, buttonVariants } from './ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { exporterListe } from '../lib/export';
+import { useExportListe } from '../lib/useExportListe';
 import type { QueryValue } from '../lib/api';
-import type { FormatExport } from '../types';
 
 /**
  * Export de la liste courante (filtres, colonnes visibles et tri compris). Générique : toute liste.
@@ -23,20 +21,7 @@ export default function BoutonExporter({
   disabled?: boolean;
   pdf?: boolean;
 }>) {
-  const [enCours, setEnCours] = useState(false);
-  const [erreur, setErreur] = useState<string | null>(null);
-
-  async function exporter(format: FormatExport) {
-    setEnCours(true);
-    setErreur(null);
-    try {
-      await exporterListe(chemin, params, nomListe, format);
-    } catch (err) {
-      setErreur(err instanceof Error ? err.message : "L'export a échoué.");
-    } finally {
-      setEnCours(false);
-    }
-  }
+  const { exporter, enCours, erreur } = useExportListe(chemin, params, nomListe);
 
   const inactif = disabled || enCours;
   const libelle = enCours ? 'Export…' : 'Exporter';

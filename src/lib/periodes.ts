@@ -59,3 +59,48 @@ export function raccourciCourant(debut: string, fin: string): RaccourciPeriode |
     return p.debut === debut && p.fin === fin;
   })?.value;
 }
+
+/* Période des filtres cochés des listes (lot B1) : Toutes, Aujourd'hui, Cette semaine, Ce mois, Cette année, Personnalisée. */
+
+export type CodePeriode = 'toutes' | 'aujourdhui' | 'semaine' | 'mois' | 'annee' | 'perso';
+
+export const PERIODES: { code: CodePeriode; libelle: string }[] = [
+  { code: 'toutes', libelle: 'Toutes' },
+  { code: 'aujourdhui', libelle: "Aujourd'hui" },
+  { code: 'semaine', libelle: 'Cette semaine' },
+  { code: 'mois', libelle: 'Ce mois' },
+  { code: 'annee', libelle: 'Cette année' },
+  { code: 'perso', libelle: 'Personnalisée' },
+];
+
+/** Bornes ISO (jour) d'une période ; `null` pour « Personnalisée » : les dates saisies restent. Semaine : lundi à dimanche. */
+export function bornesPeriode(code: CodePeriode, ref: Date = new Date()): { debut: string; fin: string } | null {
+  switch (code) {
+    case 'toutes':
+      return { debut: '', fin: '' };
+    case 'aujourdhui':
+      return plagePeriode('aujourdhui', ref);
+    case 'semaine': {
+      const lundi = ref.getDate() - ((ref.getDay() + 6) % 7);
+      return {
+        debut: jourISO(new Date(ref.getFullYear(), ref.getMonth(), lundi)),
+        fin: jourISO(new Date(ref.getFullYear(), ref.getMonth(), lundi + 6)),
+      };
+    }
+    case 'mois':
+      return mois(ref, 0);
+    case 'annee':
+      return annee(ref, 0);
+    case 'perso':
+      return null;
+  }
+}
+
+/** Période dont les bornes sont exactement `debut`/`fin`, sinon « Personnalisée ». */
+export function periodeDepuis(debut: string, fin: string, ref: Date = new Date()): CodePeriode {
+  const trouvee = PERIODES.find((p) => {
+    const b = bornesPeriode(p.code, ref);
+    return b?.debut === debut && b.fin === fin;
+  });
+  return trouvee?.code ?? 'perso';
+}
