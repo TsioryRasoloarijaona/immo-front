@@ -1,16 +1,14 @@
 import type { FiltresSuiviAffectations } from './api';
 import { ENCAISSEMENT_ETAT_LABELS } from './domain';
 import { canonicalStatusLabel } from './dossierStatus';
+import { CASCADE_VIDE, type SelectionCascade } from './cascadeTranches';
 
 type Item = { label: string; value: string };
 
 export type SensAffectation = NonNullable<FiltresSuiviAffectations['sens']>;
 
 /** État des filtres de la liste ; `search` est débouncé par la page avant l'appel. */
-export type FiltresListeAffectations = {
-  entiteId: string[];
-  projetId: string | null;
-  trancheId: string[];
+export type FiltresListeAffectations = SelectionCascade & {
   categorieId: string[];
   typeId: string[];
   statut: string[];
@@ -25,9 +23,7 @@ export type FiltresListeAffectations = {
 export function filtresAffectationsDefaut(): FiltresListeAffectations {
   const annee = new Date().getFullYear();
   return {
-    entiteId: [],
-    projetId: null,
-    trancheId: [],
+    ...CASCADE_VIDE,
     categorieId: [],
     typeId: [],
     statut: [],
@@ -68,12 +64,13 @@ function liste(valeurs: string[]): string[] | undefined {
   return valeurs.length > 0 ? valeurs : undefined;
 }
 
-/** Mêmes paramètres pour la liste, les groupes, les totaux et l'export. */
-export function paramsAffectations(f: FiltresListeAffectations): FiltresSuiviAffectations {
+/** Mêmes paramètres pour la liste, les groupes, les totaux et l'export ; `cascade` = `useCascadeTranches(f).params(true)`. */
+export function paramsAffectations(
+  f: FiltresListeAffectations,
+  cascade: Pick<FiltresSuiviAffectations, 'entiteId' | 'trancheId'>,
+): FiltresSuiviAffectations {
   return {
-    entiteId: liste(f.entiteId),
-    projetId: f.projetId ?? undefined,
-    trancheId: liste(f.trancheId),
+    ...cascade,
     categorieId: liste(f.categorieId),
     typeId: liste(f.typeId),
     statut: liste(f.statut),

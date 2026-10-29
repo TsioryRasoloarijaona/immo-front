@@ -6,6 +6,7 @@ import SelectFiltre from '../SelectFiltre';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { InputGroup, InputGroupInput } from '../ui/input-group';
+import ChampTranchesCascade from './ChampTranchesCascade';
 import { plagePeriode, raccourciCourant, RACCOURCIS_PERIODE, type RaccourciPeriode } from '../../lib/periodes';
 import type { ValeursRapport } from '../../lib/apiRapports';
 import { valeursDe } from '../../lib/rapports';
@@ -126,6 +127,7 @@ function ChampBooleen({ parametre: p, valeurs, changer }: Readonly<{ parametre: 
 function ChampParametre(props: Readonly<{ parametre: ParametreRapportDto; valeurs: ValeursRapport; changer: Changer }>) {
   const { parametre: p } = props;
   if (p.type === 'BOOLEEN') return <ChampBooleen {...props} />;
+  if (p.nom === 'trancheId') return <ChampTranchesCascade valeurs={props.valeurs} changer={props.changer} />;
   let champ: ReactNode;
   if (TYPES_A_OPTIONS.has(p.type)) champ = <ChampListe {...props} />;
   else if (p.type === 'DATE') champ = <ChampDate {...props} />;

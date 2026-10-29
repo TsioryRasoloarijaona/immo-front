@@ -14,6 +14,7 @@ import { voisinsDe } from '../../lib/fenetreFiche';
 import PageListe from '../../components/liste/PageListe';
 import EnteteListe from '../../components/liste/EnteteListe';
 import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
+import FiltreEntiteProjetTranche from '../../components/liste/FiltreEntiteProjetTranche';
 import BoiteFiltre from '../../components/liste/BoiteFiltre';
 import BarreEtatListe from '../../components/liste/BarreEtatListe';
 import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
@@ -42,7 +43,8 @@ import { useColonnesVisibles } from '../../lib/colonnes';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
 import EtatColonnes from '../../components/EtatColonnes';
 import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
-import { useColonnesDossiers, useTranchesFiltre } from '../../lib/referentiels';
+import { useColonnesDossiers } from '../../lib/referentiels';
+import { CASCADE_VIDE, pucesCascade, useCascadeTranches, type SelectionCascade } from '../../lib/cascadeTranches';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { usePreview } from '../../lib/previewContext';
 import { debutMoisISO, finMoisISO, pluriel } from '../../lib/format';
@@ -90,7 +92,9 @@ export default function DossiersList() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [status, setStatus] = useState<string[]>([]);
-  const [trancheIds, setTrancheIds] = useState<string[]>([]);
+  const [selection, setSelection] = useState<SelectionCascade>(CASCADE_VIDE);
+  const cascade = useCascadeTranches(selection);
+  const trancheId = cascade.params().trancheId;
   const [champDate, setChampDate] = useState('RESERVATION');
   const [dateDebut, setDateDebut] = useState(debutMoisISO);
   const [dateFin, setDateFin] = useState(finMoisISO);
@@ -129,7 +133,7 @@ export default function DossiersList() {
      égaler le total de la liste. Le statut est filtré par le serveur, sur les codes `StrStatus`. */
   const filtresServeur: DossierFilterParams = {
     search: debouncedSearch || undefined,
-    trancheId: trancheIds.length > 0 ? trancheIds : undefined,
+    trancheId,
     commercial: commercial !== 'all' ? commercial : undefined,
     champDate: dateDebut || dateFin ? champDate : undefined,
     dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
@@ -143,7 +147,7 @@ export default function DossiersList() {
   const clesFiltres = [
     debouncedSearch,
     status.join(','),
-    trancheIds.join(','),
+    trancheId?.join(',') ?? '',
     champDate,
     dateDebut,
     dateFin,
@@ -242,12 +246,6 @@ export default function DossiersList() {
     (id) => ouvrirChemin(`/dossiers/${id}`),
   );
 
-  const tranches = useTranchesFiltre();
-  const trancheItems = tranches.data.map((t) => ({
-    label: t.description || t.code || t.id,
-    value: t.id,
-  }));
-
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
     setPage(0);
     setter(v);
@@ -258,7 +256,7 @@ export default function DossiersList() {
     groupement.reinitialiser();
     setSearch('');
     setStatus([]);
-    setTrancheIds([]);
+    setSelection(CASCADE_VIDE);
     setChampDate('RESERVATION');
     setDateDebut(debutMoisISO());
     setDateFin(finMoisISO());
@@ -275,7 +273,7 @@ export default function DossiersList() {
 
   // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
-    !!search || status.length > 0 || trancheIds.length > 0 || champDate !== 'RESERVATION' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || commercial !== 'all' || inclureSortis;
+    !!search || status.length > 0 || trancheId !== undefined || champDate !== 'RESERVATION' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || commercial !== 'all' || inclureSortis;
 
   const paramsExport = { ...filtresServeur, colonnes: colonnes.visibles, sort: TRI_LISTE };
   const exportListe = useExportListe('/api/dossiers/export', paramsExport, 'dossiers');
@@ -284,7 +282,7 @@ export default function DossiersList() {
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
   const puces = [
     ...puceSelection('Statut', statusItems, status),
-    ...puceSelection('Tranche', trancheItems, trancheIds),
+    ...pucesCascade(cascade, selection),
     ...puceUnique(commercialItems, commercial === 'all' ? null : commercial),
     ...(inclureSortis ? ['Annulés inclus'] : []),
     ...(ordreOmran ? ['Ordre OMRAN'] : []),
@@ -380,7 +378,7 @@ export default function DossiersList() {
         onReinitialiser={resetFilters}
       >
         <BoiteFiltre titre="Statut" mode="multiple" items={statusItems} valeur={status} onChange={(v) => resetAndSet(setStatus, v)} />
-        <BoiteFiltre titre="Tranche" mode="multiple" items={trancheItems} valeur={trancheIds} onChange={(v) => resetAndSet(setTrancheIds, v)} />
+        <FiltreEntiteProjetTranche valeur={selection} onChange={(sel) => resetAndSet(setSelection, sel)} cascade={cascade} />
         <BoiteFiltre
           titre="Commercial"
           mode="unique"

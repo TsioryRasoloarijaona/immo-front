@@ -23,25 +23,19 @@ import { pluriel } from '../../lib/format';
 import { useAuth } from '../../lib/auth';
 import { usePreview } from '../../lib/previewContext';
 import { commercialLabel, useAppData } from '../../lib/appData';
-import {
-  referentielItems,
-  useCategoriesEcheance,
-  useColonnesImpayes,
-  useProjetsReferentiel,
-  useTranchesFiltre,
-} from '../../lib/referentiels';
+import { referentielItems, useCategoriesEcheance, useColonnesImpayes } from '../../lib/referentiels';
+import { useCascadeTranches } from '../../lib/cascadeTranches';
 
 export default function ImpayesList() {
   const { ouvrirFicheDossier } = usePreview();
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const { commerciaux } = useAppData();
-  const projets = useProjetsReferentiel();
-  const tranches = useTranchesFiltre();
   const categories = useCategoriesEcheance();
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('impayes'));
 
   const [filtres, setFiltres] = useState<FiltresImpayes>(FILTRES_IMPAYES_DEFAUT);
+  const cascade = useCascadeTranches(filtres);
   const [page, setPage] = useState(0);
   const q = useDebouncedValue(filtres.q);
   const client = useDebouncedValue(filtres.client);
@@ -61,7 +55,7 @@ export default function ImpayesList() {
   const colonnes = useColonnesVisibles('impayes', catalogue.data, DISPOSITION_IMPAYES);
 
   // Textes débouncés : une frappe ne relance pas la liste à chaque caractère.
-  const params = paramsImpayes({ ...filtres, q, client, article });
+  const params = paramsImpayes({ ...filtres, q, client, article }, cascade.params().trancheId);
   const liste = useApi(
     () => listImpayes(params, { page, size: DEFAULT_PAGE_SIZE }),
     [JSON.stringify(params), page],
@@ -95,8 +89,7 @@ export default function ImpayesList() {
         reinitialiser={reinitialiser}
         ferme={filtresFermes}
         onBasculer={basculerFiltres}
-        projets={referentielItems(projets.data)}
-        tranches={tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }))}
+        cascade={cascade}
         commerciaux={commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }))}
         categories={referentielItems(categories.data)}
       />

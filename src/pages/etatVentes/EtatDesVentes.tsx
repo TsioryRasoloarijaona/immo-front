@@ -18,11 +18,12 @@ import {
   type FiltresListeEtatVentes,
   type FiltresSyntheseEtatVentes,
 } from '../../lib/etatVentes';
+import { useCascadeTranches } from '../../lib/cascadeTranches';
 import { useApi } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { usePreview } from '../../lib/previewContext';
 
-const SYNTHESE_DEFAUT: FiltresSyntheseEtatVentes = { entiteId: [], trancheId: [], projetId: null, categorieId: [] };
+const SYNTHESE_DEFAUT: FiltresSyntheseEtatVentes = { entiteId: [], trancheId: [], projetId: [], categorieId: [] };
 
 export default function EtatDesVentes() {
   const { ouvrirFicheArticle, ouvrirFicheDossier } = usePreview();
@@ -33,10 +34,12 @@ export default function EtatDesVentes() {
 
   const [filtresSynthese, setFiltresSynthese] = useState(SYNTHESE_DEFAUT);
   const [filtres, setFiltres] = useState<FiltresListeEtatVentes>(FILTRES_ETAT_VENTES_DEFAUT);
+  const cascadeSynthese = useCascadeTranches(filtresSynthese);
+  const paramsSynthese = paramsEtatVentes({ ...FILTRES_ETAT_VENTES_DEFAUT, ...filtresSynthese }, cascadeSynthese.params(true));
   // Les statuts viennent de la synthèse : la liste en a besoin pour son filtre et ses libellés.
   const synthese = useApi(
-    () => getSyntheseEtatVentes(paramsEtatVentes({ ...FILTRES_ETAT_VENTES_DEFAUT, ...filtresSynthese })),
-    [JSON.stringify(filtresSynthese)],
+    () => getSyntheseEtatVentes(paramsSynthese),
+    [JSON.stringify(paramsSynthese)],
     'etat-des-ventes-synthese',
   );
 
@@ -67,6 +70,7 @@ export default function EtatDesVentes() {
               <PanneauSyntheseEtatVentes
                 filtres={filtresSynthese}
                 setFiltres={setFiltresSynthese}
+                cascade={cascadeSynthese}
                 synthese={synthese}
                 onChoisir={choisir}
               />

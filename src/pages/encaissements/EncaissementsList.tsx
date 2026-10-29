@@ -14,6 +14,7 @@ import PageListe from '../../components/liste/PageListe';
 import EnteteListe from '../../components/liste/EnteteListe';
 import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
 import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import FiltreEntiteProjetTranche from '../../components/liste/FiltreEntiteProjetTranche';
 import BarreEtatListe from '../../components/liste/BarreEtatListe';
 import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import FiltreTiers, { type TiersChoisi } from '../../components/encaissements/FiltreTiers';
@@ -40,10 +41,9 @@ import {
   useColonnesEncaissements,
   useComptesReferentiel,
   useDepotsReferentiel,
-  useEntitesReferentiel,
-  useTranchesFiltre,
   useTypesReglement,
 } from '../../lib/referentiels';
+import { CASCADE_VIDE, pucesCascade, useCascadeTranches, type SelectionCascade } from '../../lib/cascadeTranches';
 import { ENCAISSEMENT_ETAT_LABELS, encaissementEtatLabel } from '../../lib/domain';
 import { debutMoisISO, finMoisISO, pluriel } from '../../lib/format';
 import type { EncaissementDto } from '../../types';
@@ -71,7 +71,6 @@ export default function EncaissementsList() {
   const { id: idOuvert } = useParams();
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
-  const entites = useEntitesReferentiel();
   const types = useTypesReglement();
   const comptes = useComptesReferentiel();
   const depots = useDepotsReferentiel();
@@ -80,12 +79,12 @@ export default function EncaissementsList() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [reference, setReference] = useState('');
-  const [entiteId, setEntiteId] = useState<string[]>([]);
+  const [selection, setSelection] = useState<SelectionCascade>(CASCADE_VIDE);
+  const cascade = useCascadeTranches(selection);
   const [typeId, setTypeId] = useState<string[]>([]);
   const [etat, setEtat] = useState<string[]>([]);
   const [compteId, setCompteId] = useState<string | null>(null);
   const [depotId, setDepotId] = useState<string | null>(null);
-  const [trancheId, setTrancheId] = useState<string[]>([]);
   const [tiers, setTiers] = useState<TiersChoisi | null>(null);
   const [comptabilise, setComptabilise] = useState<ComptabiliseFilter>('all');
   const [champDate, setChampDate] = useState<ChampDate>('DATE_PIECE');
@@ -116,12 +115,11 @@ export default function EncaissementsList() {
     setPage(0);
     setSearch('');
     setReference('');
-    setEntiteId([]);
+    setSelection(CASCADE_VIDE);
     setTypeId([]);
     setEtat([]);
     setCompteId(null);
     setDepotId(null);
-    setTrancheId([]);
     setTiers(null);
     groupement.reinitialiser();
     setComptabilise('all');
@@ -140,16 +138,15 @@ export default function EncaissementsList() {
 
   // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
-    !!search || !!reference || entiteId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || trancheId.length > 0 || !!tiers || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || !!montantDe || !!montantA;
+    !!search || !!reference || selection.entiteId.length + selection.projetId.length + selection.trancheId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || !!tiers || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || !!montantDe || !!montantA;
 
   // Mêmes filtres pour la liste et les groupes : la somme des effectifs doit égaler le total.
   const filtresServeur = {
           search: debouncedSearch || undefined,
           reference: reference || undefined,
-          entiteId: entiteId.length > 0 ? entiteId : undefined,
+          ...cascade.params(true),
           typeId: typeId.length > 0 ? typeId : undefined,
           etat: etat.length > 0 ? etat : undefined,
-          trancheId: trancheId.length > 0 ? trancheId : undefined,
           tierId: tiers?.id,
           compteId: compteId || undefined,
           depotId: depotId || undefined,
@@ -166,12 +163,12 @@ export default function EncaissementsList() {
   const clesFiltres = [
     debouncedSearch,
     reference,
-    entiteId.join(','),
+    filtresServeur.entiteId?.join(','),
     typeId.join(','),
     etat.join(','),
     compteId,
     depotId,
-    trancheId.join(','),
+    filtresServeur.trancheId?.join(','),
     tiers?.id,
     comptabilise,
     champDate,
@@ -230,23 +227,15 @@ export default function EncaissementsList() {
   const ouvrir = (id: string) => void navigate(`/encaissements/${id}`);
   const voisins = voisinsDe(rows.map((r) => r.id), idOuvert, ouvrir);
 
-  const tranches = useTranchesFiltre();
-  const trancheItems = tranches.data.map((t) => ({
-    label: t.description || t.code || t.id,
-    value: t.id,
-  }));
-
-  const entiteItems = referentielItems(entites.data);
   const typeItems = referentielItems(types.data);
   const compteItems = referentielItems(comptes.data);
   const depotItems = referentielItems(depots.data);
 
   const exportListe = useExportListe('/api/encaissements/export', { ...filtresServeur, colonnes: colonnes.visibles }, 'encaissements');
   const puces = [
-    ...puceSelection('Entité', entiteItems, entiteId),
+    ...pucesCascade(cascade, selection),
     ...puceSelection('Type', typeItems, typeId),
     ...puceSelection('État', ETAT_ITEMS, etat),
-    ...puceSelection('Tranche', trancheItems, trancheId),
     ...puceUnique(compteItems, compteId),
     ...puceUnique(depotItems, depotId),
     ...puceUnique(COMPTABILISE_ITEMS, comptabilise === 'all' ? null : comptabilise),
@@ -299,12 +288,11 @@ export default function EncaissementsList() {
           </>
         }
       >
-        <BoiteFiltre titre="Entité" mode="multiple" items={entiteItems} valeur={entiteId} onChange={(v) => resetAndSet(setEntiteId, v)} />
-        <BoiteFiltre titre="Type" mode="multiple" items={typeItems} valeur={typeId} onChange={(v) => resetAndSet(setTypeId, v)} />
-        <BoiteFiltre titre="État" mode="multiple" items={ETAT_ITEMS} valeur={etat} onChange={(v) => resetAndSet(setEtat, v)} />
         {/* Un règlement remonte dès qu'une de ses échéances porte sur un lot de
             la tranche : à cheval sur deux tranches, il remonte pour les deux. */}
-        <BoiteFiltre titre="Tranche" mode="multiple" items={trancheItems} valeur={trancheId} onChange={(v) => resetAndSet(setTrancheId, v)} />
+        <FiltreEntiteProjetTranche valeur={selection} onChange={(sel) => resetAndSet(setSelection, sel)} cascade={cascade} />
+        <BoiteFiltre titre="Type" mode="multiple" items={typeItems} valeur={typeId} onChange={(v) => resetAndSet(setTypeId, v)} />
+        <BoiteFiltre titre="État" mode="multiple" items={ETAT_ITEMS} valeur={etat} onChange={(v) => resetAndSet(setEtat, v)} />
         <BoiteFiltre titre="Compte" mode="unique" items={compteItems} valeur={compteId} onChange={(v) => resetAndSet(setCompteId, v)} />
         <BoiteFiltre titre="Dépôt" mode="unique" items={depotItems} valeur={depotId} onChange={(v) => resetAndSet(setDepotId, v)} />
         <BoiteFiltre

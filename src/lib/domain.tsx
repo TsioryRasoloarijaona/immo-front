@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { IconPhoneIn, IconPhoneOut } from '../components/icons';
+import { CASCADE_VIDE } from './cascadeTranches';
 import { debutMoisISO, finMoisISO, isPastOrToday } from './format';
 import type {
   BadgeTone,
@@ -164,6 +165,9 @@ export interface ProspectionFilterBarState {
   etape: string[];
   origine: string[];
   commercial: string[];
+  /** Cascade Entité → Projet → Tranche : seules les tranches effectives partent au serveur. */
+  entiteId: string[];
+  projetId: string[];
   trancheId: string[];
   dateDebut: string;
   dateFin: string;
@@ -192,7 +196,7 @@ export function emptyProspectionFilters(
     etape: [],
     origine: [],
     commercial: commercialParDefaut ? [commercialParDefaut] : [],
-    trancheId: [],
+    ...CASCADE_VIDE,
     dateDebut: debutMoisISO(),
     dateFin: finMoisISO(),
     archive,
@@ -226,14 +230,14 @@ export function filtresServeurProspection(
 }
 
 /** Paramètres serveur de la barre communs aux deux listes ; dates seules, la fin vaut le jour entier. */
-export function paramsBarre(state: ProspectionFilterBarState, search: string) {
+export function paramsBarre(state: ProspectionFilterBarState, search: string, trancheId: string[] | undefined) {
   const liste = (v: string[]) => (v.length > 0 ? v : undefined);
   return {
     search: search || undefined,
     etape: liste(state.etape),
     origine: liste(state.origine),
     commercial: liste(state.commercial),
-    trancheId: liste(state.trancheId),
+    trancheId,
     dateDebut: state.dateDebut || undefined,
     dateFin: state.dateFin || undefined,
     ouvertes: ouvertesDepuisArchive(state.archive),
@@ -268,8 +272,6 @@ type FiltreTernaire = 'all' | 'oui' | 'non';
 /** État d'écran, distinct du contrat réseau : nombres et dates en chaînes (champ vidé = pas de filtre, pas `NaN`),
  * booléens ternaires car `avecAlerteActive: false` veut dire « uniquement sans relance », pas « indifférent ». */
 export interface FiltresAvancesState {
-  projetId: string[];
-  societeId: string[];
   vocationId: string[];
   typeContactId: string[];
   raisonFermetureId: string[];
@@ -288,8 +290,6 @@ export interface FiltresAvancesState {
 
 export function emptyFiltresAvances(): FiltresAvancesState {
   return {
-    projetId: [],
-    societeId: [],
     vocationId: [],
     typeContactId: [],
     raisonFermetureId: [],
@@ -323,8 +323,6 @@ function toFiltresAvances(state: FiltresAvancesState): FiltresAvancesProspection
   const ternaire = (v: 'all' | 'oui' | 'non') => (v === 'all' ? undefined : v === 'oui');
   const liste = (v: string[]) => (v.length > 0 ? v : undefined);
   return {
-    projetId: liste(state.projetId),
-    societeId: liste(state.societeId),
     vocationId: liste(state.vocationId),
     typeContactId: liste(state.typeContactId),
     raisonFermetureId: liste(state.raisonFermetureId),

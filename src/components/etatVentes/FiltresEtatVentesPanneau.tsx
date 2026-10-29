@@ -1,5 +1,7 @@
 import BoiteFiltre from '../liste/BoiteFiltre';
 import PanneauFiltresCoches from '../liste/PanneauFiltresCoches';
+import FiltreEntiteProjetTranche from '../liste/FiltreEntiteProjetTranche';
+import { pucesCascade, type CascadeTranches, type SelectionCascade } from '../../lib/cascadeTranches';
 import {
   CHAMP_DATE_ITEMS,
   NATURE_ITEMS,
@@ -18,23 +20,18 @@ const NATURES_FILTRANTES = NATURE_ITEMS.filter((n) => n.value !== 'TOUS');
 export default function FiltresEtatVentesPanneau({
   filtres,
   changer,
-  changerEntites,
+  changerCascade,
+  cascade,
   reinitialiser,
-  entites,
-  projets,
-  tranches,
   categories,
   statuts,
   types,
 }: Readonly<{
   filtres: FiltresListeEtatVentes;
   changer: <K extends keyof FiltresListeEtatVentes>(cle: K, valeur: FiltresListeEtatVentes[K]) => void;
-  changerEntites: (entiteId: string[]) => void;
+  changerCascade: (sel: SelectionCascade) => void;
+  cascade: CascadeTranches;
   reinitialiser: () => void;
-  entites: Item[];
-  projets: Item[];
-  /** Déjà limitées aux entités cochées. */
-  tranches: Item[];
   categories: Item[];
   statuts: Item[];
   types: Item[];
@@ -42,12 +39,10 @@ export default function FiltresEtatVentesPanneau({
   const [ferme, basculer] = useBooleenMemorise(cleFiltresFermes('etat-des-ventes'));
   const nature = filtres.nature === 'TOUS' ? null : filtres.nature;
   const puces = [
-    ...puceSelection('Entité', entites, filtres.entiteId),
-    ...puceSelection('Tranche', tranches, filtres.trancheId),
+    ...pucesCascade(cascade, filtres),
     ...puceSelection('Statut', statuts, filtres.statut),
     ...puceSelection('Catégorie', categories, filtres.categorieId),
     ...puceSelection('Type', types, filtres.typeId),
-    ...puceUnique(projets, filtres.projetId),
     ...puceUnique(NATURES_FILTRANTES, nature),
     ...(filtres.search ? [`« ${filtres.search} »`] : []),
   ];
@@ -77,9 +72,7 @@ export default function FiltresEtatVentesPanneau({
       }}
       onReinitialiser={reinitialiser}
     >
-      <BoiteFiltre titre="Entité" mode="multiple" items={entites} valeur={filtres.entiteId} onChange={changerEntites} />
-      <BoiteFiltre titre="Projet" mode="unique" items={projets} valeur={filtres.projetId} onChange={(v) => changer('projetId', v)} />
-      <BoiteFiltre titre="Tranche" mode="multiple" items={tranches} valeur={filtres.trancheId} onChange={(v) => changer('trancheId', v)} />
+      <FiltreEntiteProjetTranche valeur={filtres} onChange={changerCascade} cascade={cascade} />
       <BoiteFiltre titre="Statut" mode="multiple" items={statuts} valeur={filtres.statut} onChange={(v) => changer('statut', v)} />
       <BoiteFiltre titre="Catégorie" mode="multiple" items={categories} valeur={filtres.categorieId} onChange={(v) => changer('categorieId', v)} />
       <BoiteFiltre titre="Type" mode="multiple" items={types} valeur={filtres.typeId} onChange={(v) => changer('typeId', v)} />

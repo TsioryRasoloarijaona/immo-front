@@ -10,7 +10,6 @@ import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
 import PageListe from '../../components/liste/PageListe';
 import EnteteListe from '../../components/liste/EnteteListe';
-import BoiteFiltre from '../../components/liste/BoiteFiltre';
 import EtatVideListe from '../../components/liste/EtatVideListe';
 import BarreEtatListe from '../../components/liste/BarreEtatListe';
 import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
@@ -31,15 +30,9 @@ import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
-import { puceSelection } from '../../lib/pucesFiltres';
 import { useExportListe } from '../../lib/useExportListe';
-import {
-  referentielItems,
-  useColonnesProspections,
-  useOriginesProspection,
-  useProjetsReferentiel,
-  useTranchesFiltre,
-} from '../../lib/referentiels';
+import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
+import { useCascadeTranches } from '../../lib/cascadeTranches';
 import {
   PIPELINE_STAGES,
   emptyProspectionFilters,
@@ -68,11 +61,10 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
   // Archivé : Tous par défaut, comme OMRAN qui ne filtre pas IsClosed sur cette liste.
   const defauts = emptyProspectionFilters(undefined, 'tous');
   const [filters, setFilters] = useState<ProspectionFilterBarState>(defauts);
-  const [projetIds, setProjetIds] = useState<string[]>([]);
-  const projets = useProjetsReferentiel();
+  const cascade = useCascadeTranches(filters);
   const debouncedSearch = useDebouncedValue(filters.search);
   const [page, setPage] = useState(0);
-  const filtresActifs = hasActiveProspectionFilters(filters, defauts) || projetIds.length > 0;
+  const filtresActifs = hasActiveProspectionFilters(filters, defauts);
   // `GET /api/pre-prospections` n'accepte pas `?colonnes=`. ACTIVITE et CONVERSION viennent d'une vue
   // légataire qui exclut les pré-prospections (colonnes vides, refusées au groupement) : écartées ici,
   // pas dans la disposition partagée avec les prospections.
@@ -93,9 +85,8 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
 
   // Mêmes filtres pour la liste et les groupes : la somme des effectifs doit égaler le total.
   const filtresServeur = {
-    ...paramsBarre(filters, debouncedSearch),
+    ...paramsBarre(filters, debouncedSearch, cascade.params().trancheId),
     inclureSansTranche: filters.sansTranche || undefined,
-    projetId: projetIds.length > 0 ? projetIds : undefined,
   };
 
   const enGroupes = groupement.actif;
@@ -105,9 +96,8 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
     filters.etape.join(','),
     filters.origine.join(','),
     filters.commercial.join(','),
-    filters.trancheId.join(','),
+    filtresServeur.trancheId?.join(',') ?? '',
     filters.sansTranche,
-    projetIds.join(','),
     filters.dateDebut,
     filters.dateFin,
     filters.archive,
@@ -170,8 +160,6 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
   const error = enGroupes ? groupes.error : liste.error;
   const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : rows.length === 0;
 
-  const tranches = useTranchesFiltre();
-  const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   // `origine` porte le code du référentiel : filtrer sur `code`, pas `description`.
   const origineItems = origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.code || o.id }));
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
@@ -180,7 +168,6 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
     setPage(0);
     groupement.reinitialiser();
     setFilters(defauts);
-    setProjetIds([]);
   }
 
   function toutesLesPeriodes() {
@@ -188,7 +175,6 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
     setFilters((f) => ({ ...f, dateDebut: '', dateFin: '' }));
   }
 
-  const projetItems = referentielItems(projets.data);
   const exportListe = useExportListe('/api/pre-prospections/export', { ...filtresServeur, colonnes: colonnes.visibles }, 'pre-prospections');
   const ouvrirChemin = (chemin: string) => void navigate(`${chemin}${rechercheUrl}`);
   // ‹ › : lignes de la page affichée seulement ; en groupes ils restent inactifs.
@@ -216,24 +202,11 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
         etapeItems={ETAPE_ITEMS}
         origineItems={origineItems}
         commercialItems={commercialItems}
-        trancheItems={trancheItems}
+        cascade={cascade}
         mode="pre-prospections"
         ferme={filtresFermes}
         onBasculer={basculerFiltres}
         onReinitialiser={resetFilters}
-        pucesSup={puceSelection('Projet', projetItems, projetIds)}
-        boitesSup={
-          <BoiteFiltre
-            titre="Projet"
-            mode="multiple"
-            items={projetItems}
-            valeur={projetIds}
-            onChange={(v) => {
-              setPage(0);
-              setProjetIds(v);
-            }}
-          />
-        }
       />
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
