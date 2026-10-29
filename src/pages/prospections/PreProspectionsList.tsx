@@ -1,5 +1,7 @@
 import { Suspense, lazy, useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { FicheProspection } from './ProspectionDetail';
+import { voisinsDe } from '../../lib/fenetreFiche';
 import { ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
 import Pagination from '../../components/Pagination';
@@ -56,6 +58,9 @@ const NouvellePreProspectionDialog = lazy(() => import('./NewPreProspection'));
 
 export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: boolean }> = {}) {
   const navigate = useNavigate();
+  // `/pre-prospections/:id` rend cette même page : la liste (filtres, page) reste montée sous la fenêtre.
+  const { id: idOuvert } = useParams();
+  const { search: rechercheUrl } = useLocation();
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('pre-prospections'));
@@ -185,6 +190,9 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
 
   const projetItems = referentielItems(projets.data);
   const exportListe = useExportListe('/api/pre-prospections/export', { ...filtresServeur, colonnes: colonnes.visibles }, 'pre-prospections');
+  const ouvrirChemin = (chemin: string) => void navigate(`${chemin}${rechercheUrl}`);
+  // ‹ › : lignes de la page affichée seulement ; en groupes ils restent inactifs.
+  const voisins = voisinsDe(enGroupes ? [] : rows.map((r) => r.id), idOuvert, (id) => ouvrirChemin(`/pre-prospections/${id}`));
   const unite = enGroupes ? 'groupe' : 'pré-prospection';
   const decompte = pageAffichee ? pluriel(pageAffichee.totalElements, unite) : undefined;
 
@@ -254,7 +262,7 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
                     rows={enGroupes ? [] : rows}
                     colonnes={colonnes.colonnes}
                     entite="pré-prospection"
-                    onOuvrir={(prospectionId) => navigate(`/pre-prospections/${prospectionId}`)}
+                    onOuvrir={(prospectionId) => ouvrirChemin(`/pre-prospections/${prospectionId}`)}
                     bandeauRegroupement={false}
                     actions={actionsLigne.rendu}
                     groupes={groupesGrille(groupement, groupes.data, lignesGroupes)}
@@ -290,6 +298,8 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
       )}
 
       {actionsLigne.boites}
+
+      {idOuvert && <FicheProspection key={idOuvert} id={idOuvert} pre voisins={voisins} onFermer={() => ouvrirChemin('/pre-prospections')} />}
 
       <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
       <BarreOutilsFlottante
