@@ -27,6 +27,7 @@ export function ongletEtatVentes(valeur: string | null): OngletEtatVentes {
 
 /** État des filtres de la liste ; `search` est débouncé par la page avant l'appel. */
 export type FiltresListeEtatVentes = {
+  entiteId: string[];
   trancheId: string[];
   projetId: string | null;
   categorieId: string[];
@@ -40,6 +41,7 @@ export type FiltresListeEtatVentes = {
 };
 
 export const FILTRES_ETAT_VENTES_DEFAUT: FiltresListeEtatVentes = {
+  entiteId: [],
   trancheId: [],
   projetId: null,
   categorieId: [],
@@ -72,6 +74,7 @@ function liste(valeurs: string[]): string[] | undefined {
 export function paramsEtatVentes(f: FiltresListeEtatVentes): FiltresEtatVentes {
   const periode = f.du !== '' || f.au !== '';
   return {
+    entiteId: liste(f.entiteId),
     trancheId: liste(f.trancheId),
     projetId: f.projetId ?? undefined,
     categorieId: liste(f.categorieId),
@@ -151,12 +154,13 @@ export function lignesSynthese(s: SyntheseEtatVentesDto): LigneSyntheseAffichee[
   return sortie;
 }
 
-export type FiltresSyntheseEtatVentes = Pick<FiltresListeEtatVentes, 'trancheId' | 'projetId' | 'categorieId'>;
+export type FiltresSyntheseEtatVentes = Pick<FiltresListeEtatVentes, 'entiteId' | 'trancheId' | 'projetId' | 'categorieId'>;
 
 /** Les autres filtres de la liste sont remis à zéro : la liste compte alors exactement la cellule cliquée (R5). */
 export function filtresDepuisChoix(choix: ChoixSynthese, base: FiltresSyntheseEtatVentes): FiltresListeEtatVentes {
   return {
     ...FILTRES_ETAT_VENTES_DEFAUT,
+    entiteId: base.entiteId,
     projetId: base.projetId,
     trancheId: choix.trancheId ? [choix.trancheId] : base.trancheId,
     categorieId: choix.categorieId ? [choix.categorieId] : base.categorieId,

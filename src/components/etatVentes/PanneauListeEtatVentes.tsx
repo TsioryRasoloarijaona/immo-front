@@ -1,12 +1,13 @@
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
-import { RotateCcw } from 'lucide-react';
-import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../ui';
+import { ErrorState, LoadingState, ResultsRegion } from '../ui';
 import Pagination from '../Pagination';
-import { Button } from '../ui/button';
 import ColumnSelector from '../ColumnSelector';
 import BandeGroupement from '../BandeGroupement';
-import BoutonExporter from '../BoutonExporter';
 import EtatColonnes from '../EtatColonnes';
+import EnteteListe from '../liste/EnteteListe';
+import EtatVideListe from '../liste/EtatVideListe';
+import BarreEtatListe from '../liste/BarreEtatListe';
+import BarreOutilsFlottante from '../liste/BarreOutilsFlottante';
 import FiltresEtatVentesPanneau from './FiltresEtatVentesPanneau';
 import EtatVentesTable, { type LigneEtatVentes } from './EtatVentesTable';
 import { DEFAULT_PAGE_SIZE, listEtatVentes, listEtatVentesGroupes, totauxColonnes } from '../../lib/api';
@@ -22,20 +23,29 @@ import {
 } from '../../lib/etatVentes';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { useTotauxServeur } from '../../lib/totauxServeur';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
+import { useExportListe } from '../../lib/useExportListe';
 import { pluriel } from '../../lib/format';
 import {
   referentielItems,
   useCategoriesBien,
   useColonnesEtatVentes,
+  useEntitesReferentiel,
   useProjetsReferentiel,
   useTranchesFiltre,
   useTypesBienReferentiel,
 } from '../../lib/referentiels';
-import type { LigneEtatVentesDto, PageDto, StatutSynthese } from '../../types';
+import type { LigneEtatVentesDto, PageDto, StatutSynthese, TrancheDetailDto } from '../../types';
+
+const CLE = 'etat-des-ventes-omran';
 
 function avecId(p: PageDto<LigneEtatVentesDto>): PageDto<LigneEtatVentes> {
   return { ...p, content: p.content.map((l) => ({ ...l, id: l.articleId })) };
+}
+
+/** Aucune entité cochée = toutes les tranches. La liste des tranches ne sert que `entiteCode`, pas `entiteId`. */
+function appartientAuxEntites(t: Pick<TrancheDetailDto, 'entiteCode'>, codes: string[] | null): boolean {
+  return codes === null || (!!t.entiteCode && codes.includes(t.entiteCode));
 }
 
 /** Onglet « Liste des articles » ; les filtres vivent dans la page pour survivre au changement d'onglet. */
@@ -48,10 +58,16 @@ export default function PanneauListeEtatVentes({
   filtres: FiltresListeEtatVentes;
   setFiltres: Dispatch<SetStateAction<FiltresListeEtatVentes>>;
   statuts: StatutSynthese[];
-  onOuvrir: (id: string) => void;
+  onOuvrir: (ligne: LigneEtatVentes) => void;
 }>) {
+  const entites = useEntitesReferentiel().data;
+  const entiteItems = referentielItems(entites);
+  const codesEntites = (ids: string[]) => (ids.length === 0 ? null : entites.flatMap((e) => (ids.includes(e.id) && e.code ? [e.code] : [])));
   const projetItems = referentielItems(useProjetsReferentiel().data);
-  const trancheItems = useTranchesFiltre().data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  const toutesTranches = useTranchesFiltre().data;
+  const trancheItems = toutesTranches
+    .filter((t) => appartientAuxEntites(t, codesEntites(filtres.entiteId)))
+    .map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const categorieItems = referentielItems(useCategoriesBien().data);
   const typeItems = referentielItems(useTypesBienReferentiel().data);
 
@@ -65,15 +81,25 @@ export default function PanneauListeEtatVentes({
     setFiltres((f) => ({ ...f, [c]: valeur }));
   }
 
+  function changerEntites(entiteId: string[]) {
+    const codes = codesEntites(entiteId);
+    setPage(0);
+    setFiltres((f) => ({
+      ...f,
+      entiteId,
+      trancheId: f.trancheId.filter((id) => toutesTranches.some((t) => t.id === id && appartientAuxEntites(t, codes))),
+    }));
+  }
+
   function reinitialiser() {
     setPage(0);
     setFiltres(FILTRES_ETAT_VENTES_DEFAUT);
   }
 
   const catalogue = useColonnesEtatVentes();
-  const colonnes = useColonnesVisibles('etat-des-ventes', catalogue.data, DISPOSITION_ETAT_VENTES);
+  const colonnes = useColonnesVisibles(CLE, catalogue.data, DISPOSITION_ETAT_VENTES);
   const demandees = colonnes.demandees;
-  const groupement = useGroupement('etat-des-ventes', catalogue.data, useCallback(() => setPage(0), []));
+  const groupement = useGroupement(CLE, catalogue.data, useCallback(() => setPage(0), []));
   const enGroupes = groupement.actif;
 
   const totauxServeur = useTotauxServeur(
@@ -109,82 +135,86 @@ export default function PanneauListeEtatVentes({
   const chargement = enGroupes ? groupes.loading : liste.loading;
   const erreur = enGroupes ? groupes.error : liste.error;
   const vide = (pageAffichee?.content.length ?? 0) === 0;
-  const actifs = filtresEtatVentesActifs(filtres);
   const statutItems = statuts.map((s) => ({ label: libelleStatutVente(statuts, s.code), value: s.code }));
+  const unite = enGroupes ? 'groupe' : 'article';
+  const decompte = pageAffichee ? pluriel(pageAffichee.totalElements, unite) : undefined;
+  const exportListe = useExportListe('/api/etat-des-ventes/export', { ...params, colonnes: colonnes.visibles }, 'etat-des-ventes');
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <EnteteListe titre="État des ventes" lignes={decompte}>
+        {colonnes.catalogueServi.length > 0 && (
+          <ColumnSelector
+            compact
+            catalogue={colonnes.catalogueServi}
+            visibles={colonnes.visibles}
+            onBasculer={colonnes.basculer}
+            onReinitialiser={colonnes.reinitialiser}
+            estDefaut={colonnes.estDefaut}
+          />
+        )}
+      </EnteteListe>
       <FiltresEtatVentesPanneau
         filtres={filtres}
         changer={changer}
+        changerEntites={changerEntites}
         reinitialiser={reinitialiser}
+        entites={entiteItems}
         projets={projetItems}
         tranches={trancheItems}
         categories={categorieItems}
         statuts={statutItems}
         types={typeItems}
       />
-      {chargement && !pageAffichee && <LoadingState />}
-      {erreur && <ErrorState message={erreur} />}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span className="text-body text-muted-foreground">
-          {!erreur && pageAffichee && pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : 'article')}
-        </span>
-        <div className="flex items-center gap-2">
-          {colonnes.catalogueServi.length > 0 && (
-            <ColumnSelector
-              catalogue={colonnes.catalogueServi}
-              visibles={colonnes.visibles}
-              onBasculer={colonnes.basculer}
-              onReinitialiser={colonnes.reinitialiser}
-              estDefaut={colonnes.estDefaut}
-            />
-          )}
-          <BoutonExporter
-            chemin="/api/etat-des-ventes/export"
-            params={{ ...params, colonnes: colonnes.visibles }}
-            nomListe="etat-des-ventes"
-            disabled={chargement || !!erreur || vide}
-          />
-        </div>
-      </div>
-      {!erreur && pageAffichee && (
-        <ResultsRegion loading={chargement}>
-          <div className="flex h-[70vh] min-w-0 flex-col overflow-auto rounded-xl border border-border bg-card">
-            <BandeGroupement etat={groupement} />
-            {vide ? (
-              <EmptyState
-                title={VIDE_ETAT_VENTES}
-                action={
-                  actifs ? (
-                    <Button type="button" variant="outline" size="sm" onClick={reinitialiser}>
-                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                    </Button>
-                  ) : undefined
-                }
-              />
-            ) : (
-              <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
-                <EtatVentesTable
-                  rows={enGroupes ? [] : (liste.data?.content ?? [])}
-                  colonnes={colonnes.colonnes}
-                  onOuvrir={onOuvrir}
-                  groupes={groupesGrille(groupement, groupes.data, lignesGroupes, {
-                    statutCode: (brut) => libelleStatutVente(statuts, brut),
-                  })}
-                  totauxServeur={totauxServeur}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
+        {chargement && !pageAffichee && <LoadingState />}
+        {erreur && <ErrorState message={erreur} />}
+        {!erreur && pageAffichee && (
+          <ResultsRegion loading={chargement}>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
+              <BandeGroupement etat={groupement} />
+              {vide ? (
+                <EtatVideListe
+                  filtresActifs={filtresEtatVentesActifs(filtres)}
+                  sujet="article"
+                  surMois={VIDE_ETAT_VENTES}
+                  onReinitialiser={reinitialiser}
+                  onToutesPeriodes={reinitialiser}
                 />
-              </EtatColonnes>
-            )}
-          </div>
-          <Pagination
-            page={pageAffichee.page}
-            totalPages={pageAffichee.totalPages}
-            totalElements={pageAffichee.totalElements}
-            onPageChange={setPage}
-          />
-        </ResultsRegion>
-      )}
+              ) : (
+                <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
+                  <EtatVentesTable
+                    rows={enGroupes ? [] : (liste.data?.content ?? [])}
+                    colonnes={colonnes.colonnes}
+                    onOuvrir={onOuvrir}
+                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes, {
+                      statutCode: (brut) => libelleStatutVente(statuts, brut),
+                    })}
+                    totauxServeur={totauxServeur}
+                  />
+                </EtatColonnes>
+              )}
+            </div>
+            <div className="shrink-0">
+              <Pagination
+                page={pageAffichee.page}
+                totalPages={pageAffichee.totalPages}
+                totalElements={pageAffichee.totalElements}
+                onPageChange={setPage}
+              />
+            </div>
+          </ResultsRegion>
+        )}
+      </div>
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
+      <BarreOutilsFlottante
+        cle="etat-des-ventes"
+        ligneSelectionnee={false}
+        actions={[
+          { id: 'rafraichir', onClick: refetchAllApis },
+          { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
+        ]}
+      />
     </div>
   );
 }

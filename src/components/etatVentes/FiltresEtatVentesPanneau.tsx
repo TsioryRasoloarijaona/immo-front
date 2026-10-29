@@ -1,8 +1,5 @@
-import { RotateCcw, Search } from 'lucide-react';
-import ChoixUnique from '../ChoixUnique';
-import MultiSelectDropdown from '../MultiSelectDropdown';
-import { Button } from '../ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
+import BoiteFiltre from '../liste/BoiteFiltre';
+import PanneauFiltresCoches from '../liste/PanneauFiltresCoches';
 import {
   CHAMP_DATE_ITEMS,
   NATURE_ITEMS,
@@ -10,14 +7,20 @@ import {
   type FiltresListeEtatVentes,
   type NatureEtatVentes,
 } from '../../lib/etatVentes';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
 
 type Item = { label: string; value: string };
 
-/** Filtres serveur de la liste de l'état des ventes ; `changer` remet la pagination à zéro côté page. */
+const NATURES_FILTRANTES = NATURE_ITEMS.filter((n) => n.value !== 'TOUS');
+
+/** Panneau « Filtres » de la liste ; `changer` remet la pagination à zéro côté page. */
 export default function FiltresEtatVentesPanneau({
   filtres,
   changer,
+  changerEntites,
   reinitialiser,
+  entites,
   projets,
   tranches,
   categories,
@@ -26,64 +29,67 @@ export default function FiltresEtatVentesPanneau({
 }: Readonly<{
   filtres: FiltresListeEtatVentes;
   changer: <K extends keyof FiltresListeEtatVentes>(cle: K, valeur: FiltresListeEtatVentes[K]) => void;
+  changerEntites: (entiteId: string[]) => void;
   reinitialiser: () => void;
+  entites: Item[];
   projets: Item[];
+  /** Déjà limitées aux entités cochées. */
   tranches: Item[];
   categories: Item[];
   statuts: Item[];
   types: Item[];
 }>) {
+  const [ferme, basculer] = useBooleenMemorise(cleFiltresFermes('etat-des-ventes'));
+  const nature = filtres.nature === 'TOUS' ? null : filtres.nature;
+  const puces = [
+    ...puceSelection('Entité', entites, filtres.entiteId),
+    ...puceSelection('Tranche', tranches, filtres.trancheId),
+    ...puceSelection('Statut', statuts, filtres.statut),
+    ...puceSelection('Catégorie', categories, filtres.categorieId),
+    ...puceSelection('Type', types, filtres.typeId),
+    ...puceUnique(projets, filtres.projetId),
+    ...puceUnique(NATURES_FILTRANTES, nature),
+    ...(filtres.search ? [`« ${filtres.search} »`] : []),
+  ];
+
   return (
-    <div className="flex shrink-0 flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <InputGroup className="min-w-55 flex-1">
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder="Recherche — article, catégorie, type, client, dossier, téléphone, CIN…"
-            value={filtres.search}
-            onChange={(e) => changer('search', e.target.value)}
-          />
-        </InputGroup>
-        <ChoixUnique
-          items={projets}
-          tous="Tous les projets"
-          value={filtres.projetId}
-          placeholder="Projet…"
-          largeur="w-44"
-          onChange={(v) => changer('projetId', v)}
-        />
-        <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={filtres.trancheId} onChange={(v) => changer('trancheId', v)} items={tranches} />
-        <MultiSelectDropdown label="Catégorie" placeholder="Toutes" value={filtres.categorieId} onChange={(v) => changer('categorieId', v)} items={categories} />
-        <MultiSelectDropdown label="Statut" placeholder="Tous" value={filtres.statut} onChange={(v) => changer('statut', v)} items={statuts} />
-        <Button type="button" variant="outline" size="sm" onClick={reinitialiser}>
-          <RotateCcw data-icon="inline-start" /> Réinitialiser
-        </Button>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <MultiSelectDropdown label="Type" placeholder="Tous" value={filtres.typeId} onChange={(v) => changer('typeId', v)} items={types} />
-        <ChoixUnique
-          items={NATURE_ITEMS}
-          value={filtres.nature}
-          largeur="w-52"
-          onChange={(v) => changer('nature', (v ?? 'TOUS') as NatureEtatVentes)}
-        />
-        <ChoixUnique
-          items={CHAMP_DATE_ITEMS}
-          value={filtres.champDate}
-          largeur="w-44"
-          onChange={(v) => changer('champDate', (v ?? 'RESERVATION') as ChampDateEtatVentes)}
-        />
-        <div className="flex items-center gap-1.5">
-          <InputGroup className="w-32.5">
-            <InputGroupInput type="date" aria-label="Du" value={filtres.du} onChange={(e) => changer('du', e.target.value)} />
-          </InputGroup>
-          <InputGroup className="w-32.5">
-            <InputGroupInput type="date" aria-label="Au" value={filtres.au} onChange={(e) => changer('au', e.target.value)} />
-          </InputGroup>
-        </div>
-      </div>
-    </div>
+    <PanneauFiltresCoches
+      ferme={ferme}
+      onBasculer={basculer}
+      puces={puces}
+      champDate={{
+        items: CHAMP_DATE_ITEMS,
+        valeur: filtres.champDate,
+        onChange: (v) => changer('champDate', v as ChampDateEtatVentes),
+      }}
+      periode={{
+        debut: filtres.du,
+        fin: filtres.au,
+        onChange: (debut, fin) => {
+          changer('du', debut);
+          changer('au', fin);
+        },
+      }}
+      recherche={{
+        valeur: filtres.search,
+        onChange: (v) => changer('search', v),
+        placeholder: 'Article, client, dossier, téléphone, CIN…',
+      }}
+      onReinitialiser={reinitialiser}
+    >
+      <BoiteFiltre titre="Entité" mode="multiple" items={entites} valeur={filtres.entiteId} onChange={changerEntites} />
+      <BoiteFiltre titre="Projet" mode="unique" items={projets} valeur={filtres.projetId} onChange={(v) => changer('projetId', v)} />
+      <BoiteFiltre titre="Tranche" mode="multiple" items={tranches} valeur={filtres.trancheId} onChange={(v) => changer('trancheId', v)} />
+      <BoiteFiltre titre="Statut" mode="multiple" items={statuts} valeur={filtres.statut} onChange={(v) => changer('statut', v)} />
+      <BoiteFiltre titre="Catégorie" mode="multiple" items={categories} valeur={filtres.categorieId} onChange={(v) => changer('categorieId', v)} />
+      <BoiteFiltre titre="Type" mode="multiple" items={types} valeur={filtres.typeId} onChange={(v) => changer('typeId', v)} />
+      <BoiteFiltre
+        titre="Nature"
+        mode="unique"
+        items={NATURES_FILTRANTES}
+        valeur={nature}
+        onChange={(v) => changer('nature', (v ?? 'TOUS') as NatureEtatVentes)}
+      />
+    </PanneauFiltresCoches>
   );
 }

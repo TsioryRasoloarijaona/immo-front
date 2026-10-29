@@ -3887,6 +3887,10 @@ export interface LigneEtatVentesDto extends Omit<MontantsNatureDossier, 'prixReg
   /** Prix au m² (comme la liste des dossiers) : jamais sommés. */
   prixVenteM2Ttc?: number | null;
   prixVenteM2Ht?: number | null;
+  /** Alerte active du dossier, comme `alerte` de `GET /api/dossiers` ; null si libre. Ni triable ni groupable. */
+  alerte?: string | null;
+  /** Codes des articles du dossier (`sousArticlesCodes` de `GET /api/dossiers`) ; null si libre. */
+  sousArticles?: string | null;
 }
 
 export interface StatutSynthese {

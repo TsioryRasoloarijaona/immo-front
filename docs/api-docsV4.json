@@ -152,6 +152,10 @@
       "description": "Configuration des statuts (`StkFeasibilityStudyStatus`) et des transitions (`StkFeasibilityStudyWorkFlow`) des études de\nfaisabilité (aide OMRAN « STATUTS », « TRANSITIONS »). Lecture Administrateur + Direction Générale, écriture\nAdministrateur ; aucune clé d'API (403 `HORS_PORTEE`). Rôles : `GET /api/referentiels/roles` ; types de document :\n`GET /api/referentiels/types-piece-jointe`. Un changement de rôle ou de champ obligatoire change qui peut faire passer\nune étude d'un statut à l'autre."
     },
     {
+      "name": "État des ventes",
+      "description": "État des ventes (écran OMRAN « Suivi des dossiers de vente ») : une ligne par article racine en vente — `StkItem.ParentId` vide, vocation `VENTE`, tranche `IsForSale = 1` ; les parkings autonomes (`IsUnderItem = 1` sans parent) comptent s'ils portent un dossier non annulé ni désisté (libres : absents de toutes les sorties), les sous-articles rattachés non. `entiteId` (société du projet) ne fait que restreindre le périmètre du compte. Synthèse, liste, groupes, totaux et export partagent exactement les mêmes filtres et la même visibilité (entités actives et périmètre commercial) : la somme des lignes de la liste filtrée égale la cellule de la synthèse."
+    },
+    {
       "name": "Sous-articles",
       "description": "Écran OMRAN « SOUS ARTICLES » : sous-articles d'origine (`IsUnderItem = 1 AND IsUnderItemOrigin = 1`), libres ou\nrattachés à un article. Le détail d'un sous-article est `GET /api/articles/{id}`. Un sous-article **rattaché** est en\nlecture seule sur cet écran : la fiche de son article parent le modifie par `PATCH /api/articles/{id}`, le détache par\n`POST /api/articles/{id}/sous-articles/{sousArticleId}/desaffecter`. Changer de parent = désaffecter puis rattacher\n(`PATCH /api/sous-articles/{id}` avec `parentId`)."
     },
@@ -214,10 +218,6 @@
     {
       "name": "Onglets de la tranche",
       "description": "Terrains, Étages, Plancher couvert et Frais de vente de la fiche tranche ; lecture ouverte, écriture Administrateur par liste complète."
-    },
-    {
-      "name": "État des ventes",
-      "description": "État des ventes (écran OMRAN « Suivi des dossiers de vente ») : une ligne par article racine en vente — `StkItem.ParentId` vide, vocation `VENTE`, tranche `IsForSale = 1` ; les parkings autonomes (`IsUnderItem = 1` sans parent) comptent, les sous-articles rattachés non. Synthèse, liste, groupes, totaux et export partagent exactement les mêmes filtres et la même visibilité (entités actives et périmètre commercial) : la somme des lignes de la liste filtrée égale la cellule de la synthèse."
     },
     {
       "name": "Règles de vente de la tranche",
@@ -27277,9 +27277,22 @@
           "État des ventes"
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
-        "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
+        "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier (frais syndic compris), `alerte` et `sousArticles` : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
         "operationId": "lister_21",
         "parameters": [
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id(s) d'entité (société du projet, CfgCompany.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
           {
             "name": "trancheId",
             "in": "query",
@@ -27538,6 +27551,19 @@
             "example": "surface,prixVenteTTC,montantRegle,resteARegler"
           },
           {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id(s) d'entité (société du projet, CfgCompany.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
             "name": "trancheId",
             "in": "query",
             "description": "Id(s) de tranche (CfgTranche.id), répétable.",
@@ -27731,6 +27757,19 @@
         "operationId": "synthese_1",
         "parameters": [
           {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id(s) d'entité (société du projet, CfgCompany.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
             "name": "trancheId",
             "in": "query",
             "description": "Id(s) de tranche (CfgTranche.id), répétable.",
@@ -27851,6 +27890,19 @@
               "default": false
             },
             "example": false
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id(s) d'entité (société du projet, CfgCompany.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
           },
           {
             "name": "trancheId",
@@ -28061,6 +28113,19 @@
               "default": "xlsx"
             },
             "example": "xlsx"
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id(s) d'entité (société du projet, CfgCompany.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
           },
           {
             "name": "trancheId",
@@ -55079,6 +55144,18 @@
             "type": "number",
             "description": "`frais − fraisRegles`. Null sur une ligne libre."
           },
+          "fraisSyndic": {
+            "type": "number",
+            "description": "Σ des échéances de la catégorie syndic (`AdmParamsGuid.DefaultSyndicFeeDocumentType`) : même valeur que `fraisSyndic` de `GET /api/dossiers`. 0 sans échéance syndic ; null sur une ligne libre. Aussi compris dans `frais`."
+          },
+          "fraisSyndicRegles": {
+            "type": "number",
+            "description": "Réglé de l'échéance syndic, comme `fraisSyndicRegles` de `GET /api/dossiers`. Null sur une ligne libre."
+          },
+          "fraisSyndicReste": {
+            "type": "number",
+            "description": "`fraisSyndic − fraisSyndicRegles`, comme `fraisSyndicReste` de `GET /api/dossiers`. Null sur une ligne libre."
+          },
           "modifications": {
             "type": "number",
             "description": "`ComFolder.ModificationsAmount` (0 si absent). Null sur une ligne libre."
@@ -55130,6 +55207,15 @@
           "tauxAvanceReel": {
             "type": "number",
             "description": "Avance réglée en % de l'avance, 0 sans avance. Null sur une ligne libre. Jamais sommé."
+          },
+          "alerte": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'alerte active du dossier (`AdmAlertData` liée à sa prospection) : même valeur que `alerte` de `GET /api/dossiers`, même requête. Null sur une ligne libre ou sans alerte active. Ni triable, ni groupable."
+          },
+          "sousArticles": {
+            "type": "string",
+            "description": "Codes des articles du dossier (`ComFolderItem.Code`, séparés par des virgules) : même valeur que `sousArticlesCodes` de `GET /api/dossiers`. Null sur une ligne libre. Ni triable, ni groupable."
           }
         }
       },
