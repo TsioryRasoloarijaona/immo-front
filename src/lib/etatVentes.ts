@@ -29,7 +29,7 @@ export function ongletEtatVentes(valeur: string | null): OngletEtatVentes {
 export type FiltresListeEtatVentes = {
   entiteId: string[];
   trancheId: string[];
-  projetId: string | null;
+  projetId: string[];
   categorieId: string[];
   statut: string[];
   typeId: string[];
@@ -43,7 +43,7 @@ export type FiltresListeEtatVentes = {
 export const FILTRES_ETAT_VENTES_DEFAUT: FiltresListeEtatVentes = {
   entiteId: [],
   trancheId: [],
-  projetId: null,
+  projetId: [],
   categorieId: [],
   statut: [],
   typeId: [],
@@ -70,13 +70,11 @@ function liste(valeurs: string[]): string[] | undefined {
   return valeurs.length > 0 ? valeurs : undefined;
 }
 
-/** Mêmes paramètres pour la liste, les groupes, les totaux et l'export. */
-export function paramsEtatVentes(f: FiltresListeEtatVentes): FiltresEtatVentes {
+/** Mêmes paramètres pour la liste, les groupes, les totaux et l'export ; `cascade` = `useCascadeTranches(f).params(true)`. */
+export function paramsEtatVentes(f: FiltresListeEtatVentes, cascade: Pick<FiltresEtatVentes, 'entiteId' | 'trancheId'>): FiltresEtatVentes {
   const periode = f.du !== '' || f.au !== '';
   return {
-    entiteId: liste(f.entiteId),
-    trancheId: liste(f.trancheId),
-    projetId: f.projetId ?? undefined,
+    ...cascade,
     categorieId: liste(f.categorieId),
     statut: liste(f.statut),
     typeId: liste(f.typeId),

@@ -28,7 +28,9 @@ import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
 import { useExportListe } from '../../lib/useExportListe';
 import { useAuth } from '../../lib/auth';
 import { estAdministrateur } from '../../lib/roles';
-import { referentielItems, useColonnesSuiviActions, useTranchesFiltre, useTypesContactProspection } from '../../lib/referentiels';
+import { referentielItems, useColonnesSuiviActions, useTypesContactProspection } from '../../lib/referentiels';
+import { CASCADE_VIDE, pucesCascade, useCascadeTranches, type SelectionCascade } from '../../lib/cascadeTranches';
+import FiltreEntiteProjetTranche from '../../components/liste/FiltreEntiteProjetTranche';
 import { debutMoisISO as premierDuMois, pluriel, todayISO } from '../../lib/format';
 import type { SuiviActionDto } from '../../types';
 
@@ -61,7 +63,9 @@ export default function SuiviActionsList() {
   const [dateFin, setDateFin] = useState(todayISO);
   const [utilisateur, setUtilisateur] = useState<string[]>([]);
   const [typeId, setTypeId] = useState<string[]>([]);
-  const [trancheId, setTrancheId] = useState<string[]>([]);
+  const [selection, setSelection] = useState<SelectionCascade>(CASCADE_VIDE);
+  const cascade = useCascadeTranches(selection);
+  const trancheId = cascade.params().trancheId;
   const [systeme, setSysteme] = useState<SystemeFilter>('all');
   const [page, setPage] = useState(0);
 
@@ -81,7 +85,7 @@ export default function SuiviActionsList() {
   const groupement = useGroupement(
     'suivi-actions',
     catalogue.data,
-    useCallback(() => setPage(0), []),
+    useCallback(() => setPage(0), [setPage]),
   );
 
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
@@ -95,13 +99,13 @@ export default function SuiviActionsList() {
     setDateFin(todayISO());
     setUtilisateur([]);
     setTypeId([]);
-    setTrancheId([]);
+    setSelection(CASCADE_VIDE);
     setSysteme('all');
     groupement.reinitialiser();
   }
 
   const hasActiveFilters =
-    dateDebut !== premierDuMois() || dateFin !== todayISO() || utilisateur.length > 0 || typeId.length > 0 || trancheId.length > 0 || systeme !== 'all';
+    dateDebut !== premierDuMois() || dateFin !== todayISO() || utilisateur.length > 0 || typeId.length > 0 || trancheId !== undefined || systeme !== 'all';
 
   function poserPeriode(debut: string, fin: string) {
     setPage(0);
@@ -115,13 +119,13 @@ export default function SuiviActionsList() {
     dateFin: dateFin ? `${lendemain(dateFin)}T00:00:00` : undefined,
     utilisateur: utilisateur.length > 0 ? utilisateur : undefined,
     typeId: typeId.length > 0 ? typeId : undefined,
-    trancheId: trancheId.length > 0 ? trancheId : undefined,
+    trancheId,
     systeme: SYSTEME_PARAM[systeme],
   };
 
   const enGroupes = groupement.actif;
 
-  const clesFiltres = [dateDebut, dateFin, utilisateur.join(','), typeId.join(','), trancheId.join(','), systeme, page];
+  const clesFiltres = [dateDebut, dateFin, utilisateur.join(','), typeId.join(','), trancheId?.join(',') ?? '', systeme, page];
 
   const liste = useApi(
     () =>
@@ -187,8 +191,6 @@ export default function SuiviActionsList() {
     .filter((g) => g.cle != null)
     .map((g) => ({ label: `${g.libelle ?? String(g.cle)} (${g.nombre})`, value: String(g.cle) }));
 
-  const tranches = useTranchesFiltre();
-  const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const typeItems = referentielItems(typesAction.data);
 
   const surMois = isAdmin ? "Aucune action n'a été saisie ce mois-ci." : "Vous n'avez saisi aucune action ce mois-ci.";
@@ -199,7 +201,7 @@ export default function SuiviActionsList() {
   const puces = [
     ...(isAdmin ? puceSelection('Utilisateur', utilisateurItems, utilisateur) : []),
     ...puceSelection('Action', typeItems, typeId),
-    ...puceSelection('Tranche', trancheItems, trancheId),
+    ...pucesCascade(cascade, selection),
     ...puceUnique(SYSTEME_ITEMS, systeme === 'all' ? null : systeme),
   ];
 
@@ -229,7 +231,7 @@ export default function SuiviActionsList() {
           <BoiteFiltre titre="Utilisateur" mode="multiple" items={utilisateurItems} valeur={utilisateur} onChange={(v) => resetAndSet(setUtilisateur, v)} />
         )}
         <BoiteFiltre titre="Action" mode="multiple" items={typeItems} valeur={typeId} onChange={(v) => resetAndSet(setTypeId, v)} />
-        <BoiteFiltre titre="Tranche" mode="multiple" items={trancheItems} valeur={trancheId} onChange={(v) => resetAndSet(setTrancheId, v)} />
+        <FiltreEntiteProjetTranche valeur={selection} onChange={(sel) => resetAndSet(setSelection, sel)} cascade={cascade} />
         <BoiteFiltre
           titre="Saisie"
           mode="unique"

@@ -32,12 +32,10 @@ import {
   referentielItems,
   useCategoriesEcheance,
   useColonnesSuiviAffectations,
-  useEntitesReferentiel,
-  useProjetsReferentiel,
   useStatutsSuiviAffectations,
-  useTranchesFiltre,
   useTypesReglement,
 } from '../../lib/referentiels';
+import { useCascadeTranches, type SelectionCascade } from '../../lib/cascadeTranches';
 import { useTotauxServeur } from '../../lib/totauxServeur';
 import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
@@ -54,13 +52,9 @@ export default function SuiviAffectations() {
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes(CLE));
 
   const [filtres, setFiltres] = useState<FiltresListeAffectations>(filtresAffectationsDefaut);
-  const toutesTranches = useTranchesFiltre().data;
-  const tranchesDuProjet = (projetId: string | null) => toutesTranches.filter((t) => !projetId || t.projetId === projetId);
+  const cascade = useCascadeTranches(filtres);
 
   const choix = {
-    entites: referentielItems(useEntitesReferentiel().data),
-    projets: referentielItems(useProjetsReferentiel().data),
-    tranches: tranchesDuProjet(filtres.projetId).map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
     categories: [...referentielItems(useCategoriesEcheance().data), SANS_CATEGORIE],
     types: useTypesReglement().data.map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
     statuts: [
@@ -71,18 +65,17 @@ export default function SuiviAffectations() {
 
   const [page, setPage] = useState(0);
   const search = useDebouncedValue(filtres.search);
-  const params = paramsAffectations({ ...filtres, search });
+  const params = paramsAffectations({ ...filtres, search }, cascade.params(true));
   const cle = JSON.stringify(params);
 
   function changer<K extends keyof FiltresListeAffectations>(c: K, valeur: FiltresListeAffectations[K]) {
     setPage(0);
-    setFiltres((f) => {
-      const suivant = { ...f, [c]: valeur };
-      if (c !== 'projetId') return suivant;
-      // Un autre projet : les tranches cochées qui n'en font pas partie sortiraient le résultat à vide.
-      const permises = new Set(tranchesDuProjet(suivant.projetId).map((t) => t.id));
-      return { ...suivant, trancheId: f.trancheId.filter((id) => permises.has(id)) };
-    });
+    setFiltres((f) => ({ ...f, [c]: valeur }));
+  }
+
+  function changerCascade(sel: SelectionCascade) {
+    setPage(0);
+    setFiltres((f) => ({ ...f, ...sel }));
   }
 
   function reinitialiser() {
@@ -159,6 +152,8 @@ export default function SuiviAffectations() {
       <FiltresAffectationsPanneau
         filtres={filtres}
         changer={changer}
+        changerCascade={changerCascade}
+        cascade={cascade}
         reinitialiser={reinitialiser}
         ferme={filtresFermes}
         onBasculer={basculerFiltres}

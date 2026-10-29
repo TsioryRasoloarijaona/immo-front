@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import PanneauFiltresCoches from './liste/PanneauFiltresCoches';
 import BoiteFiltre from './liste/BoiteFiltre';
+import FiltreEntiteProjetTranche from './liste/FiltreEntiteProjetTranche';
+import { pucesCascade, type CascadeTranches, type SelectionCascade } from '../lib/cascadeTranches';
 import { puceSelection, puceUnique } from '../lib/pucesFiltres';
 import type { FiltreTriple, ProspectionFilterBarState } from '../lib/domain';
 import type { PeriodeSur } from '../types';
@@ -35,14 +37,12 @@ export default function ProspectionFilterBar({
   etapeItems,
   origineItems,
   commercialItems,
-  trancheItems,
+  cascade,
   mode = 'prospections',
   ferme,
   onBasculer,
   onReinitialiser,
   champs,
-  boitesSup,
-  pucesSup = [],
 }: Readonly<{
   state: ProspectionFilterBarState;
   /** Le parent remet lui-même la page à 0 (via `set`). */
@@ -50,7 +50,7 @@ export default function ProspectionFilterBar({
   etapeItems: { label: string; value: string }[];
   origineItems: { label: string; value: string }[];
   commercialItems: { label: string; value: string }[];
-  trancheItems: { label: string; value: string }[];
+  cascade: CascadeTranches;
   /** Aboutie et date visée : prospections ; « Non affectés » : pré-prospections. */
   mode?: 'prospections' | 'pre-prospections';
   ferme: boolean;
@@ -58,21 +58,26 @@ export default function ProspectionFilterBar({
   onReinitialiser: () => void;
   /** Champs libres propres à la page (filtres avancés). */
   champs?: ReactNode;
-  /** Boîtes propres à la page (projet). */
-  boitesSup?: ReactNode;
-  pucesSup?: string[];
 }>) {
   const prospections = mode === 'prospections';
+  const cascadeActive = state.entiteId.length + state.projetId.length > 0;
+
+  function changerCascade(sel: SelectionCascade) {
+    onChange('entiteId', sel.entiteId);
+    onChange('projetId', sel.projetId);
+    onChange('trancheId', sel.trancheId);
+    // Règle 8 : « Non affectés » (sans tranche) n'a pas de sens sous une entité ou un projet.
+    if (sel.entiteId.length + sel.projetId.length > 0) onChange('sansTranche', false);
+  }
 
   const puces = [
     ...puceSelection('Étape', etapeItems, state.etape),
     ...puceSelection('Origine', origineItems, state.origine),
-    ...puceSelection('Tranche', trancheItems, state.trancheId),
+    ...pucesCascade(cascade, state),
     ...(state.sansTranche ? ['Non affectés'] : []),
     ...puceSelection('Commercial', commercialItems, state.commercial),
     ...(state.archive === 'tous' ? [] : [`Archivé : ${puceUnique(ARCHIVE_ITEMS, state.archive)[0]}`]),
     ...(prospections && state.aboutie !== 'tous' ? [`Aboutie : ${puceUnique(ABOUTIE_ITEMS, state.aboutie)[0]}`] : []),
-    ...pucesSup,
     ...(state.search ? [`« ${state.search} »`] : []),
   ];
 
@@ -104,8 +109,8 @@ export default function ProspectionFilterBar({
     >
       <BoiteFiltre titre="Étape" mode="multiple" items={etapeItems} valeur={state.etape} onChange={(v) => onChange('etape', v)} />
       <BoiteFiltre titre="Origine" mode="multiple" items={origineItems} valeur={state.origine} onChange={(v) => onChange('origine', v)} />
-      <BoiteFiltre titre="Tranche" mode="multiple" items={trancheItems} valeur={state.trancheId} onChange={(v) => onChange('trancheId', v)} />
-      {!prospections && (
+      <FiltreEntiteProjetTranche valeur={state} onChange={changerCascade} cascade={cascade} />
+      {!prospections && !cascadeActive && (
         // « Non affectés » d'OMRAN : avec des tranches cochées, les ajoute ; seule, ne garde que les lignes sans tranche.
         <BoiteFiltre
           titre="Affectation"
@@ -115,7 +120,6 @@ export default function ProspectionFilterBar({
           onChange={(v) => onChange('sansTranche', v === 'sans')}
         />
       )}
-      {boitesSup}
       <BoiteFiltre titre="Commercial" mode="multiple" items={commercialItems} valeur={state.commercial} onChange={(v) => onChange('commercial', v)} />
       <BoiteFiltre
         titre="Archivé"

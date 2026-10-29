@@ -28,7 +28,8 @@ import { useExportListe } from '../../lib/useExportListe';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { DISPOSITION_HISTORIQUE_VENTES } from '../../lib/dispositions';
-import { useColonnesDossiers, useEntitesReferentiel, useTranchesFiltre } from '../../lib/referentiels';
+import { useColonnesDossiers } from '../../lib/referentiels';
+import { useCascadeTranches } from '../../lib/cascadeTranches';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { pluriel } from '../../lib/format';
 import { usePreview } from '../../lib/previewContext';
@@ -39,8 +40,6 @@ import {
   FILTRES_DEFAUT,
   catalogueHistorique,
   estModifie,
-  optionsProjets,
-  optionsSocietes,
   optionsStatutsHistorique,
   versParams,
   type FiltresHistorique,
@@ -60,13 +59,12 @@ export default function HistoriqueVentes() {
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes(CLE));
   const [filtres, setFiltres] = useState<FiltresHistorique>(FILTRES_DEFAUT);
   const [page, setPage] = useState(0);
-  const filtresServeur = versParams(useDebouncedValue(filtres));
+  const cascade = useCascadeTranches(filtres);
+  const filtresServeur = versParams(useDebouncedValue(filtres), cascade.params().trancheId);
   const cle = JSON.stringify(filtresServeur);
 
   const statuts = useApi(() => listStatutsDossiers(), [], 'dossiers-statuts');
   const champsDate = useApi(() => listChampsDateDossiers(), [], 'dossiers-champs-date');
-  const tranches = useTranchesFiltre();
-  const entites = useEntitesReferentiel();
 
   const catalogueBrut = useColonnesDossiers();
   const catalogue = useMemo(() => catalogueHistorique(catalogueBrut.data), [catalogueBrut.data]);
@@ -117,9 +115,6 @@ export default function HistoriqueVentes() {
   }
 
   const options = {
-    societes: optionsSocietes(tranches.data, entites.data),
-    projets: optionsProjets(tranches.data),
-    tranches: tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
     statuts: optionsStatutsHistorique(statuts.data ?? []),
     champsDate: champsDate.data?.map((c) => ({ label: c.libelle, value: c.code })) ?? [{ label: 'Date réservation', value: 'RESERVATION' }],
     commerciaux: commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
@@ -154,6 +149,7 @@ export default function HistoriqueVentes() {
         ferme={filtresFermes}
         onBasculer={basculerFiltres}
         options={options}
+        cascade={cascade}
       />
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">

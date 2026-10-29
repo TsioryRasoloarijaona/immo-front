@@ -37,7 +37,8 @@ import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
 import { useExportListe } from '../../lib/useExportListe';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { useColonnesProspections, useOriginesProspection, useTranchesFiltre } from '../../lib/referentiels';
+import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
+import { useCascadeTranches } from '../../lib/cascadeTranches';
 import {
   PIPELINE_STAGES,
   countActiveFiltresAvances,
@@ -119,7 +120,8 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
 
   /* Mêmes filtres pour la liste et les groupes, volet avancé compris : la somme
      des effectifs doit égaler le total de la liste. */
-  const filtresServeur = paramsBarre(filters, debouncedSearch);
+  const cascade = useCascadeTranches(filters);
+  const filtresServeur = paramsBarre(filters, debouncedSearch, cascade.params().trancheId);
 
   const enGroupes = groupement.actif;
 
@@ -128,7 +130,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
     filters.etape.join(','),
     filters.origine.join(','),
     filters.commercial.join(','),
-    filters.trancheId.join(','),
+    filtresServeur.trancheId?.join(',') ?? '',
     filters.dateDebut,
     filters.dateFin,
     filters.archive,
@@ -200,8 +202,6 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
   const error = enGroupes ? groupes.error : liste.error;
   const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : rows.length === 0;
 
-  const tranches = useTranchesFiltre();
-  const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   // `origine` porte le *code* du référentiel, pas forcément sa `description` : filtrer sur `code`.
   const origineItems = origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.code || o.id }));
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
@@ -278,7 +278,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
         etapeItems={ETAPE_ITEMS}
         origineItems={origineItems}
         commercialItems={commercialItems}
-        trancheItems={trancheItems}
+        cascade={cascade}
         ferme={filtresFermes}
         onBasculer={basculerFiltres}
         onReinitialiser={resetFilters}

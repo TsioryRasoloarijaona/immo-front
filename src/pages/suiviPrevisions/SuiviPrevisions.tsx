@@ -8,6 +8,7 @@ import BoiteFiltre from '../../components/liste/BoiteFiltre';
 import BarreEtatListe from '../../components/liste/BarreEtatListe';
 import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import SectionRapport from '../../components/rapports/SectionRapport';
+import ChampTranchesCascade from '../../components/rapports/ChampTranchesCascade';
 import DetailMoisPrevisions from '../../components/suiviPrevisions/DetailMoisPrevisions';
 import { ResultsRegion, EmptyState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -53,6 +54,7 @@ function BoitesParametres({
   return parametres
     .filter((p) => TYPES_A_OPTIONS.has(p.type))
     .map((p) => {
+      if (p.nom === 'trancheId') return <ChampTranchesCascade key={p.nom} valeurs={saisie} changer={changer} />;
       const items = p.options.map((o) => ({ label: o.libelle, value: o.valeur }));
       const choisies = valeursDe(saisie, p.nom);
       if (p.multiple) {

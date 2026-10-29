@@ -1,45 +1,33 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../ui';
-import ChoixUnique from '../ChoixUnique';
 import MultiSelectDropdown from '../MultiSelectDropdown';
+import FiltreEntiteProjetTranche from '../liste/FiltreEntiteProjetTranche';
 import SyntheseEtatVentes from './SyntheseEtatVentes';
 import { VIDE_ETAT_VENTES, type ChoixSynthese, type FiltresSyntheseEtatVentes } from '../../lib/etatVentes';
+import type { CascadeTranches } from '../../lib/cascadeTranches';
 import type { ApiState } from '../../lib/useApi';
-import {
-  referentielItems,
-  useCategoriesBien,
-  useProjetsReferentiel,
-  useTranchesFiltre,
-} from '../../lib/referentiels';
+import { referentielItems, useCategoriesBien } from '../../lib/referentiels';
 import type { SyntheseEtatVentesDto } from '../../types';
 
-/** Onglet « Synthèse par statut » : filtres projet / tranche / catégorie, puis le tableau cliquable. */
+/** Onglet « Synthèse par statut » : filtres entité / projet / tranche / catégorie, puis le tableau cliquable. */
 export default function PanneauSyntheseEtatVentes({
   filtres,
   setFiltres,
+  cascade,
   synthese,
   onChoisir,
 }: Readonly<{
   filtres: FiltresSyntheseEtatVentes;
   setFiltres: Dispatch<SetStateAction<FiltresSyntheseEtatVentes>>;
+  cascade: CascadeTranches;
   synthese: ApiState<SyntheseEtatVentesDto>;
   onChoisir: (choix: ChoixSynthese) => void;
 }>) {
-  const projetItems = referentielItems(useProjetsReferentiel().data);
-  const trancheItems = useTranchesFiltre().data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const categorieItems = referentielItems(useCategoriesBien().data);
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <ChoixUnique
-          items={projetItems}
-          tous="Tous les projets"
-          value={filtres.projetId}
-          placeholder="Projet…"
-          largeur="w-44"
-          onChange={(v) => setFiltres((f) => ({ ...f, projetId: v }))}
-        />
-        <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={filtres.trancheId} onChange={(v) => setFiltres((f) => ({ ...f, trancheId: v }))} items={trancheItems} />
+      <div className="flex flex-wrap items-start gap-2">
+        <FiltreEntiteProjetTranche valeur={filtres} onChange={(sel) => setFiltres((f) => ({ ...f, ...sel }))} cascade={cascade} />
         <MultiSelectDropdown label="Catégorie" placeholder="Toutes" value={filtres.categorieId} onChange={(v) => setFiltres((f) => ({ ...f, categorieId: v }))} items={categorieItems} />
       </div>
       {synthese.loading && !synthese.data && <LoadingState />}
