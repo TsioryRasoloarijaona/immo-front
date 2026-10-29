@@ -7,7 +7,8 @@ const UtilisateursList = lazy(() => import('../../pages/utilisateurs/Utilisateur
 const ReinitialiserMotDePasse = lazy(() => import('../../pages/utilisateurs/ReinitialiserMotDePasse'));
 const ClesApiList = lazy(() => import('../../pages/utilisateurs/ClesApiList'));
 const ModelesDocumentsList = lazy(() => import('../../pages/modeles/ModelesDocumentsList'));
-const EditeurModele = lazy(() => import('../../pages/modeles/EditeurModele'));
+const EcranMaquette = lazy(() => import('./maquette/EcranMaquette'));
+const EditeurModele =lazy(() => import('../../pages/modeles/EditeurModele'));
 
 const administration: ModuleApp = {
   slug: 'administration',
@@ -16,9 +17,10 @@ const administration: ModuleApp = {
   ordre: 9,
   path: '/utilisateurs',
   reserveAdmin: true,
-  prefixes: ['/utilisateurs', '/cles-api', '/modeles-documents'],
+  prefixes: ['/administration', '/utilisateurs', '/cles-api', '/modeles-documents'],
   arbre: arbreAdministration,
   routes: [
+    { path: '/administration/:ecran/:id?', element: <EcranMaquette /> },
     { path: '/utilisateurs', element: <UtilisateursList /> },
     { path: '/utilisateurs/reinitialiser-mot-de-passe', element: <ReinitialiserMotDePasse /> },
     { path: '/cles-api', element: <ClesApiList /> },
