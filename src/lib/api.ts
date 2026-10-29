@@ -1550,6 +1550,8 @@ export function listEncaissementsGroupes(
 /** Filtres communs à la liste, aux groupes, aux totaux et à l'export ; la synthèse n'en lit que
  * `trancheId`, `projetId` et `categorieId`. Statut ou nature inconnus → 400. */
 export type FiltresEtatVentes = {
+  /** Société du projet (`CfgCompany.id`), répétable ; ne fait que restreindre le périmètre. */
+  entiteId?: UUID[];
   trancheId?: UUID[];
   projetId?: UUID;
   /** `LIBRE`, `SANS_STATUT` ou `StrStatus.Code`. */
@@ -1567,7 +1569,7 @@ export type FiltresEtatVentes = {
 };
 
 export function getSyntheseEtatVentes(
-  params: Pick<FiltresEtatVentes, 'trancheId' | 'projetId' | 'categorieId'>,
+  params: Pick<FiltresEtatVentes, 'entiteId' | 'trancheId' | 'projetId' | 'categorieId'>,
 ): Promise<SyntheseEtatVentesDto> {
   return request('GET', '/api/etat-des-ventes/synthese', { query: { ...params } });
 }
