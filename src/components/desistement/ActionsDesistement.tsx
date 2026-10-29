@@ -10,7 +10,7 @@ import { useAuth } from '../../lib/auth';
 import { useConfirm } from '../../lib/confirmContext';
 import { estChefOuExempte } from '../../lib/roles';
 import { useToast } from '../../lib/toastContext';
-import { errorMessage } from '../../lib/useApi';
+import { errorMessage, refetchAllApis } from '../../lib/useApi';
 import type { DesistementDto } from '../../types';
 
 type Dialogue = 'modifier' | 'valider' | 'rembourser';
@@ -47,6 +47,7 @@ export default function ActionsDesistement({
       await supprimerDesistement(d.id);
       showToast('Désistement supprimé.');
       void navigate('/desistements');
+      refetchAllApis();
     } catch (err) {
       showToast(errorMessage(err));
     }
