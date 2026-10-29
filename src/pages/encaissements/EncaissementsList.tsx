@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Info } from 'lucide-react';
+import FicheEncaissementFenetre from '../../components/encaissements/fiche/FicheEncaissementFenetre';
+import { voisinsDe } from '../../lib/fenetreFiche';
 import { ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import EtatVideListe from '../../components/liste/EtatVideListe';
@@ -66,6 +68,7 @@ const COMPTABILISE_ITEMS: { label: string; value: ComptabiliseFilter }[] = [
 
 export default function EncaissementsList() {
   const navigate = useNavigate();
+  const { id: idOuvert } = useParams();
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const entites = useEntitesReferentiel();
@@ -224,6 +227,8 @@ export default function EncaissementsList() {
   const loading = enGroupes ? groupes.loading : liste.loading;
   const error = enGroupes ? groupes.error : liste.error;
   const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : rows.length === 0;
+  const ouvrir = (id: string) => void navigate(`/encaissements/${id}`);
+  const voisins = voisinsDe(rows.map((r) => r.id), idOuvert, ouvrir);
 
   const tranches = useTranchesFiltre();
   const trancheItems = tranches.data.map((t) => ({
@@ -345,7 +350,7 @@ export default function EncaissementsList() {
                     cleOrdre="encaissements"
                     rows={enGroupes ? [] : rows}
                     colonnes={colonnes.colonnes}
-                    onOuvrir={(id) => navigate(`/encaissements/${id}`)}
+                    onOuvrir={ouvrir}
                     bandeauRegroupement={false}
                     groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { etat: encaissementEtatLabel })}
                     totauxServeur={totauxServeur}
@@ -374,6 +379,7 @@ export default function EncaissementsList() {
           { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
         ]}
       />
+      {idOuvert && <FicheEncaissementFenetre key={idOuvert} id={idOuvert} voisins={voisins} onFermer={() => void navigate('/encaissements')} />}
     </PageListe>
   );
 }

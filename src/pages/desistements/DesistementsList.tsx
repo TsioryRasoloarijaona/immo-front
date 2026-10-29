@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import FicheDesistementFenetre from '../../components/desistement/fiche/FicheDesistementFenetre';
+import { voisinsDe } from '../../lib/fenetreFiche';
 import { RotateCcw } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -25,6 +27,7 @@ import { pluriel } from '../../lib/format';
 
 export default function DesistementsList() {
   const navigate = useNavigate();
+  const { id: idOuvert } = useParams();
   const tranches = useTranchesFiltre();
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('desistements'));
   const [filtres, setFiltres] = useState<FiltresDesistements>(FILTRES_DESISTEMENTS_DEFAUT);
@@ -51,6 +54,8 @@ export default function DesistementsList() {
   const actifs = filtresDesistementsActifs(filtres);
 
   const decompte = data ? pluriel(data.total, 'désistement') : undefined;
+  const ouvrir = (id: string) => void navigate(`/desistements/${id}`);
+  const voisins = voisinsDe((data?.lignes ?? []).map((l) => l.id), idOuvert, ouvrir);
 
   return (
     <PageListe titre="Désistements">
@@ -91,7 +96,7 @@ export default function DesistementsList() {
                   }
                 />
               ) : (
-                <DesistementTable rows={data.lignes} onOuvrir={(id) => navigate(`/desistements/${id}`)} />
+                <DesistementTable rows={data.lignes} onOuvrir={ouvrir} />
               )}
             </div>
             <div className="shrink-0">
@@ -102,6 +107,7 @@ export default function DesistementsList() {
       </div>
       <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" />
       <BarreOutilsFlottante cle="desistements" ligneSelectionnee={false} actions={[{ id: 'rafraichir', onClick: refetchAllApis }]} />
+      {idOuvert && <FicheDesistementFenetre key={idOuvert} id={idOuvert} voisins={voisins} onFermer={() => void navigate('/desistements')} />}
     </PageListe>
   );
 }
