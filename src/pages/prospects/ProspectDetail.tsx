@@ -543,6 +543,7 @@ export function FicheProspect({
       badge={badges}
       voisins={voisins}
       onFermer={onFermer}
+      enEdition={editing}
       pied={<PiedAudit creePar={person.creePar} creeLe={person.creeLe} modifiePar={person.modifiePar} modifieLe={person.modifieLe} />}
     >
       {corps}

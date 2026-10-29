@@ -101,6 +101,7 @@ export default function FicheEtudeFenetre({ id, voisins, onFermer }: Readonly<{ 
       }
       voisins={voisins}
       onFermer={onFermer}
+      enEdition={modifiable}
       trace={fiche ? { creePar: fiche.userCreate, creeLe: fiche.userCreateDateTime, modifiePar: fiche.userUpdate, modifieLe: fiche.userUpdateDateTime } : undefined}
       etat={{ chargement: !fiche, erreur: fiche ? null : error, pret: !!fiche, introuvable: "Cette étude n'existe pas." }}
       erreur={erreurAction ?? suppression.erreur}

@@ -1386,6 +1386,7 @@ export function FicheProspection({
       badge={badges}
       voisins={voisins}
       onFermer={onFermer}
+      enEdition={form.estModifie}
       pied={<PiedAudit creePar={p.creePar} creeLe={p.creeLe} modifiePar={p.modifiePar} modifieLe={p.modifieLe} />}
     >
       {corps}

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { useConfirm } from '../../lib/confirmContext';
 import { ecrirePosition, lirePosition, useAgrandieMemorisee, type PositionFenetre, type VoisinsFiche } from '../../lib/fenetreFiche';
 
 const BOUTON =
@@ -24,6 +25,7 @@ export default function FenetreFiche({
   voisins,
   onFermer,
   pied,
+  enEdition,
   children,
 }: Readonly<{
   nature: string;
@@ -32,8 +34,28 @@ export default function FenetreFiche({
   voisins?: VoisinsFiche;
   onFermer: () => void;
   pied?: ReactNode;
+  /** Fiche en saisie : toute sortie (fermer, ‹ ›) demande d'abord confirmation. */
+  enEdition?: boolean;
   children: ReactNode;
 }>) {
+  const confirmer = useConfirm();
+  const apresConfirmation = useCallback(
+    (action: () => void) => {
+      if (!enEdition) {
+        action();
+        return;
+      }
+      void confirmer({
+        title: 'Abandonner la saisie ?',
+        message: 'Les modifications non enregistrées de cette fiche seront perdues.',
+        confirmLabel: 'Abandonner',
+        cancelLabel: 'Continuer la saisie',
+      }).then((ok) => {
+        if (ok) action();
+      });
+    },
+    [enEdition, confirmer],
+  );
   const fenetre = useRef<HTMLDivElement>(null);
   const croix = useRef<HTMLButtonElement>(null);
   const [position, setPosition] = useState<PositionFenetre | null>(lirePosition);
@@ -55,19 +77,22 @@ export default function FenetreFiche({
     function surTouche(e: KeyboardEvent) {
       if (e.defaultPrevented) return;
       if (e.key === 'Escape') {
-        if (!autreCoucheOuverte(fenetre.current)) onFermer();
+        if (autreCoucheOuverte(fenetre.current)) return;
+        // Sinon la boîte de confirmation, montée pendant cet événement, se refermerait sur le même Échap.
+        e.stopPropagation();
+        apresConfirmation(onFermer);
       } else if (e.altKey && e.key === 'ArrowLeft') {
         e.preventDefault();
-        precedent?.();
+        if (precedent) apresConfirmation(precedent);
       } else if (e.altKey && e.key === 'ArrowRight') {
         e.preventDefault();
-        suivant?.();
+        if (suivant) apresConfirmation(suivant);
       }
     }
     // Capture : le DOM d'un menu ou d'une boîte ouverts est encore intact avant qu'elle ne se referme sur le même Échap.
     window.addEventListener('keydown', surTouche, true);
     return () => window.removeEventListener('keydown', surTouche, true);
-  }, [onFermer, precedent, suivant]);
+  }, [apresConfirmation, onFermer, precedent, suivant]);
 
   function debutDeplacement(e: ReactPointerEvent<HTMLDivElement>) {
     if (agrandie || !fenetre.current || (e.target as HTMLElement).closest('button')) return;
@@ -96,7 +121,7 @@ export default function FenetreFiche({
 
   return (
     <>
-      <div aria-hidden className="fixed inset-0 z-40 bg-black/20" onClick={onFermer} />
+      <div aria-hidden className="fixed inset-0 z-40 bg-black/20" onClick={() => apresConfirmation(onFermer)} />
       <div
         ref={fenetre}
         role="dialog"
@@ -127,7 +152,7 @@ export default function FenetreFiche({
             aria-label="Ligne précédente"
             title={precedent ? 'Ligne précédente · Alt+←' : 'Début de la page'}
             disabled={!precedent}
-            onClick={precedent}
+            onClick={() => precedent && apresConfirmation(precedent)}
           >
             <ChevronLeft aria-hidden className="size-4" />
           </button>
@@ -137,7 +162,7 @@ export default function FenetreFiche({
             aria-label="Ligne suivante"
             title={suivant ? 'Ligne suivante · Alt+→' : 'Fin de la page'}
             disabled={!suivant}
-            onClick={suivant}
+            onClick={() => suivant && apresConfirmation(suivant)}
           >
             <ChevronRight aria-hidden className="size-4" />
           </button>
@@ -150,7 +175,7 @@ export default function FenetreFiche({
           >
             {agrandie ? <Minimize2 aria-hidden className="size-4" /> : <Maximize2 aria-hidden className="size-4" />}
           </button>
-          <button ref={croix} type="button" className={BOUTON} aria-label="Fermer" title="Fermer · Échap" onClick={onFermer}>
+          <button ref={croix} type="button" className={BOUTON} aria-label="Fermer" title="Fermer · Échap" onClick={() => apresConfirmation(onFermer)}>
             <X aria-hidden className="size-4" />
           </button>
         </div>
