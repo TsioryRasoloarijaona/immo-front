@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { FicheProspect } from '../prospects/ProspectDetail';
+import { voisinsDe } from '../../lib/fenetreFiche';
 import { RotateCcw } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -31,6 +33,9 @@ const COLONNES: ColonneGrille<ClientListItemDto>[] = [
 
 export default function ClientsList() {
   const navigate = useNavigate();
+  // `/clients/:id` rend cette même page : la liste (filtres, page) reste montée sous la fenêtre.
+  const { id: idOuvert } = useParams();
+  const { search: rechercheUrl } = useLocation();
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('clients'));
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
@@ -54,6 +59,9 @@ export default function ClientsList() {
   }
 
   const decompte = data ? pluriel(data.totalElements, 'client') : undefined;
+  const ouvrirChemin = (chemin: string) => void navigate(`${chemin}${rechercheUrl}`);
+  // ‹ › : lignes de la page affichée seulement.
+  const voisins = voisinsDe(rows.map((r) => r.id), idOuvert, (id) => ouvrirChemin(`/clients/${id}`));
 
   return (
     <PageListe titre="Clients">
@@ -97,7 +105,7 @@ export default function ClientsList() {
                   cleOrdre="clients"
                   rows={rows}
                   colonnes={COLONNES}
-                  onOuvrir={(id) => navigate(`/clients/${id}`)}
+                  onOuvrir={(id) => ouvrirChemin(`/clients/${id}`)}
                   libelleLigne={(r) => `Ouvrir la fiche de ${r.nomAffiche || r.code}`}
                 />
               </div>
@@ -108,6 +116,7 @@ export default function ClientsList() {
           </ResultsRegion>
         )}
       </div>
+      {idOuvert && <FicheProspect key={idOuvert} id={idOuvert} client voisins={voisins} onFermer={() => ouvrirChemin('/clients')} />}
       <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" />
       <BarreOutilsFlottante cle="clients" ligneSelectionnee={false} actions={[{ id: 'rafraichir', onClick: refetchAllApis }]} />
     </PageListe>

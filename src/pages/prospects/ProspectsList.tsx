@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { FicheProspect } from './ProspectDetail';
+import { voisinsDe } from '../../lib/fenetreFiche';
 import { RotateCcw } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
@@ -25,6 +27,9 @@ import { pluriel } from '../../lib/format';
 
 export default function ProspectsList() {
   const navigate = useNavigate();
+  // `/prospects/:id` rend cette même page : la liste (filtres, page) reste montée sous la fenêtre.
+  const { id: idOuvert } = useParams();
+  const { search: rechercheUrl } = useLocation();
   const tierTypes = useTierTypes();
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('prospects'));
 
@@ -72,13 +77,17 @@ export default function ProspectsList() {
   const puces = [...puceSelection('Type', typeItems, type), ...(search ? [`« ${search} »`] : [])];
   const decompte = data ? pluriel(data.totalElements, 'prospect') : undefined;
 
+  const ouvrirChemin = (chemin: string) => void navigate(`${chemin}${rechercheUrl}`);
+  // ‹ › : lignes de la page affichée seulement.
+  const voisins = voisinsDe(rows.map((r) => r.id), idOuvert, (id) => ouvrirChemin(`/prospects/${id}`));
+
   const grille = (
     <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
       <ProspectTable
         rows={rows}
         colonnes={colonnes.colonnes}
         cleOrdre="prospects"
-        onOuvrir={(id) => navigate(`/prospects/${id}`)}
+        onOuvrir={(id) => ouvrirChemin(`/prospects/${id}`)}
       />
     </EtatColonnes>
   );
@@ -145,6 +154,7 @@ export default function ProspectsList() {
           </ResultsRegion>
         )}
       </div>
+      {idOuvert && <FicheProspect key={idOuvert} id={idOuvert} client={false} voisins={voisins} onFermer={() => ouvrirChemin('/prospects')} />}
       <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
       <BarreOutilsFlottante
         cle="prospects"

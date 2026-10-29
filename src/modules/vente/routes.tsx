@@ -21,14 +21,12 @@ const SuiviCommerciaux = lazy(() => import('../../pages/suiviCommerciaux/SuiviCo
 const ProspectionsList = lazy(() => import('../../pages/prospections/ProspectionsList'));
 const PreProspectionsList = lazy(() => import('../../pages/prospections/PreProspectionsList'));
 const ImportPreProspections = lazy(() => import('../../pages/prospections/ImportPreProspections'));
-const ProspectionDetail = lazy(() => import('../../pages/prospections/ProspectionDetail'));
 const OffresList = lazy(() => import('../../pages/prospections/OffresList'));
 const EncaissementsList = lazy(() => import('../../pages/encaissements/EncaissementsList'));
 const ImpayesList = lazy(() => import('../../pages/impayes/ImpayesList'));
 const DesistementsList = lazy(() => import('../../pages/desistements/DesistementsList'));
 const ProspectsList = lazy(() => import('../../pages/prospects/ProspectsList'));
 const NewProspect = lazy(() => import('../../pages/prospects/NewProspect'));
-const ProspectDetail = lazy(() => import('../../pages/prospects/ProspectDetail'));
 const ClientsList = lazy(() => import('../../pages/clients/ClientsList'));
 const NewDossier = lazy(() => import('../../pages/dossiers/NewDossier'));
 const DossiersList = lazy(() => import('../../pages/dossiers/DossiersList'));
@@ -71,24 +69,21 @@ const vente: ModuleApp = {
     { path: '/suivi-affectations', element: <SuiviAffectations /> },
     { path: '/historique-ventes', element: <HistoriqueVentes /> },
     { path: '/suivi-previsions', element: <SuiviPrevisions /> },
-    { path: '/prospections', element: <ProspectionsList /> },
+    // Une seule route par liste : `/prospections/:id` garde la liste montée avec la fiche ouverte en fenêtre.
+    { path: '/prospections/:id?', element: <ProspectionsList /> },
     // La saisie est une boîte, pas une page : la route rend la liste avec la boîte ouverte.
     { path: '/prospections/nouveau', element: <ProspectionsList nouveau /> },
-    { path: '/pre-prospections', element: <PreProspectionsList /> },
+    { path: '/pre-prospections/:id?', element: <PreProspectionsList /> },
     { path: '/pre-prospections/nouveau', element: <PreProspectionsList nouveau /> },
     { path: '/pre-prospections/import', element: <ImportPreProspections /> },
-    { path: '/pre-prospections/:id', element: <ProspectionDetail /> },
-    { path: '/prospections/:id', element: <ProspectionDetail /> },
     { path: '/prospections/:id/nouveau-dossier', element: <NewDossier /> },
     { path: '/offres/:id?', element: <OffresList /> },
     { path: '/encaissements/:id?', element: <EncaissementsList /> },
     { path: '/impayes', element: <ImpayesList /> },
     { path: '/desistements/:id?', element: <DesistementsList /> },
-    { path: '/prospects', element: <ProspectsList /> },
+    { path: '/prospects/:id?', element: <ProspectsList /> },
     { path: '/prospects/nouveau', element: <NewProspect /> },
-    { path: '/prospects/:id', element: <ProspectDetail /> },
-    { path: '/clients', element: <ClientsList /> },
-    { path: '/clients/:id', element: <ProspectDetail /> },
+    { path: '/clients/:id?', element: <ClientsList /> },
     // Une seule route : `/dossiers/:id` garde la liste montée (filtres, page) avec la fiche ouverte en fenêtre.
     { path: '/dossiers/:id?', element: <DossiersList /> },
     { path: '/commissions/:trancheId?', element: <CommissionsList /> },
