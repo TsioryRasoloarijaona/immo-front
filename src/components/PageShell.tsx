@@ -44,7 +44,10 @@ export default function PageShell({
     <div className={cn(fullHeight && 'flex h-[calc(100svh-var(--hauteur-barre-haut,0px))] flex-col overflow-hidden md:h-[calc(100svh-1rem-var(--hauteur-barre-haut,0px))]')}>
       <header
         className={cn(
-          'sticky top-(--hauteur-barre-haut,0px) z-5 flex shrink-0 items-center justify-between gap-x-4 gap-y-2 border-b border-border/70 bg-background/88 px-4 py-2 backdrop-blur-sm md:px-7',
+          'z-5 flex shrink-0 items-center justify-between gap-x-4 gap-y-2 border-b border-border/70 bg-background/88 px-4 py-2 backdrop-blur-sm md:px-7',
+          // En pleine hauteur, le parent `overflow-hidden` devient le repère du `sticky` : le décalage de la barre du
+          // haut y serait compté deux fois et l'en-tête recouvrirait la première ligne de la page.
+          !fullHeight && 'sticky top-(--hauteur-barre-haut,0px)',
           entete && 'flex-wrap',
         )}
       >
