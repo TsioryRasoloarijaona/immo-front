@@ -14,7 +14,10 @@ export interface RangeeActionnaire {
 export type LigneFil ={ actionnaireId: UUID; actionnaireCode?: string | null; actionnaireLibelle?: string | null }
   & Partial<Record<ChampLigne, number>>;
 
-const facteur = (champ: ChampLigne) => (champ === 'pourcentage' ? 100 : 1);
+/** Lignes d'actionnaires d'une fiche (`repartition` ou `lignes`). */
+export const lignesDe = (source: object | undefined, cle: string) => (source as Record<string, LigneFil[] | null> | undefined)?.[cle];
+
+const facteur =(champ: ChampLigne) => (champ === 'pourcentage' ? 100 : 1);
 
 export function rangeesDepuis(lignes: LigneFil[] | null | undefined, champ: ChampLigne): RangeeActionnaire[] {
   return (lignes ?? []).map((l, i) => ({

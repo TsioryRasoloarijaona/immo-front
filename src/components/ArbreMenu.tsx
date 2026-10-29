@@ -6,32 +6,30 @@ import { useAuth } from '../lib/auth';
 import { cn } from '../lib/utils';
 import { estEntreeActive, type EntreeArbre, type GroupeArbre } from '../modules/arbre';
 
-const cleReplies = (slug: string) => `arpent.arbre.v2.${slug}.replies`;
+const cleOuverts = (slug: string) => `arpent.arbre.v3.${slug}.ouverts`;
 
-function lireReplies(slug: string): Set<string> {
+function lireOuverts(slug: string): Set<string> {
   try {
-    const v: unknown = JSON.parse(localStorage.getItem(cleReplies(slug)) ?? '[]');
+    const v: unknown = JSON.parse(localStorage.getItem(cleOuverts(slug)) ?? '[]');
     return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
   } catch {
     return new Set();
   }
 }
 
-function ecrireReplies(slug: string, replies: ReadonlySet<string>) {
+function ecrireOuverts(slug: string, ouverts: ReadonlySet<string>) {
   try {
-    localStorage.setItem(cleReplies(slug), JSON.stringify([...replies]));
+    localStorage.setItem(cleOuverts(slug), JSON.stringify([...ouverts]));
   } catch {
     // Stockage indisponible (navigation privée) : l'état reste en mémoire.
   }
 }
 
-/** `replies` sans le groupe de la page courante, ou `null` s'il n'y était pas. */
-function rouvrirGroupeActif(replies: ReadonlySet<string>, groupes: readonly GroupeArbre[], pathname: string): Set<string> | null {
+/** `ouverts` plus le groupe de la page courante, ou `null` s'il y était déjà. */
+function ouvrirGroupeActif(ouverts: ReadonlySet<string>, groupes: readonly GroupeArbre[], pathname: string): Set<string> | null {
   const actif = groupes.find((g) => g.entrees.some((e) => estEntreeActive(pathname, e)));
-  if (!actif || !replies.has(actif.cle)) return null;
-  const suivant = new Set(replies);
-  suivant.delete(actif.cle);
-  return suivant;
+  if (!actif || ouverts.has(actif.cle)) return null;
+  return new Set(ouverts).add(actif.cle);
 }
 
 function LienArbre({ entree, pathname, guide }: Readonly<{ entree: EntreeArbre; pathname: string; guide: boolean }>) {
@@ -57,8 +55,8 @@ function LienArbre({ entree, pathname, guide }: Readonly<{ entree: EntreeArbre; 
 }
 
 /**
- * Arbre du module actif : groupes ouverts par défaut, repliables et mémorisés par module ; le groupe de la page
- * courante se rouvre à chaque navigation. En barre réduite (icônes), tout reste visible.
+ * Arbre du module actif : groupes à sous-entrées fermés par défaut, dépliés à la demande et mémorisés par module ;
+ * le groupe de la page courante s'ouvre à chaque navigation. En barre réduite (icônes), tout reste visible.
  */
 export default function ArbreMenu({ slug, groupes, pathname }: Readonly<{ slug: string; groupes: readonly GroupeArbre[]; pathname: string }>) {
   const { user } = useAuth();
@@ -66,28 +64,28 @@ export default function ArbreMenu({ slug, groupes, pathname }: Readonly<{ slug: 
   const visibles = groupes
     .map((g) => ({ ...g, entrees: g.entrees.filter((e) => !e.visible || e.visible(user)) }))
     .filter((g) => g.entrees.length > 0);
-  const [replies, setReplies] = useState(() => {
-    const lues = lireReplies(slug);
-    return rouvrirGroupeActif(lues, visibles, pathname) ?? lues;
+  const [ouverts, setOuverts] = useState(() => {
+    const lus = lireOuverts(slug);
+    return ouvrirGroupeActif(lus, visibles, pathname) ?? lus;
   });
   const [cheminVu, setCheminVu] = useState(pathname);
 
-  // Ajustement pendant le rendu (pas d'effet) : à chaque navigation, rouvrir le groupe de la page.
+  // Ajustement pendant le rendu (pas d'effet) : à chaque navigation, ouvrir le groupe de la page.
   if (cheminVu !== pathname) {
     setCheminVu(pathname);
-    const suivant = rouvrirGroupeActif(replies, visibles, pathname);
+    const suivant = ouvrirGroupeActif(ouverts, visibles, pathname);
     if (suivant) {
-      setReplies(suivant);
-      ecrireReplies(slug, suivant);
+      setOuverts(suivant);
+      ecrireOuverts(slug, suivant);
     }
   }
 
   function basculer(cle: string) {
-    const suivant = new Set(replies);
+    const suivant = new Set(ouverts);
     if (suivant.has(cle)) suivant.delete(cle);
     else suivant.add(cle);
-    setReplies(suivant);
-    ecrireReplies(slug, suivant);
+    setOuverts(suivant);
+    ecrireOuverts(slug, suivant);
   }
 
   const icones = state === 'collapsed' && !isMobile;
@@ -95,7 +93,7 @@ export default function ArbreMenu({ slug, groupes, pathname }: Readonly<{ slug: 
   return (
     <>
       {visibles.map((g) => {
-        const ouvert = icones || !replies.has(g.cle);
+        const ouvert = icones || !g.titre || ouverts.has(g.cle);
         return (
           <SidebarGroup key={g.cle} className="px-2 py-0.5">
             {g.titre && (

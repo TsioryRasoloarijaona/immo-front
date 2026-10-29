@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import ColumnSelector from '../../components/ColumnSelector';
 import ListeAdmin from '../../components/entites/ListeAdmin';
+import { FicheEntiteFenetre } from '../../components/entites/fiche/fichesEntites';
 import BoiteFiltre from '../../components/liste/BoiteFiltre';
 import { listEntitesJuridiques } from '../../lib/apiEntites';
 import { colonneLocale as colonne, grilleDepuisCatalogue, useColonnesVisibles, type DispositionColonnes } from '../../lib/colonnes';
@@ -90,6 +91,7 @@ export default function EntitesJuridiquesList() {
       aucun="Aucune entité juridique"
       importer="/articles/import?type=entites-juridiques"
       etat={etat}
+      Fiche={FicheEntiteFenetre}
       colonnes={grille}
       filtre={recherche !== '' || actif !== 'tous'}
       selecteur={

@@ -1,15 +1,20 @@
 import { Suspense, lazy, useState } from 'react';
-import { useLocation, useParams } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Contact, Plus, UserCheck } from 'lucide-react';
-import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/CadreFiche';
-import { LigneActivite, OngletsLigne } from '../../components/FicheShell';
-import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
+import { ChevronDown, ChevronRight, Pencil, Plus, X } from 'lucide-react';
+import CadreFiche, { EnteteFiche } from '../../components/CadreFiche';
+import CoqueFiche, { type VarianteCoque } from '../../components/CoqueFiche';
+import ChampFiche, { BandeFiche } from '../../components/fiche/ChampFiche';
+import ClasseurBas from '../../components/fiche/ClasseurBas';
+import ClasseurEntete from '../../components/fiche/ClasseurEntete';
+import FenetreFiche from '../../components/fiche/FenetreFiche';
+import PiedAudit from '../../components/fiche/PiedAudit';
+import RubanFiche from '../../components/fiche/RubanFiche';
+import { LigneActivite } from '../../components/FicheShell';
+import { Badge, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import HistoriqueStatuts from '../../components/HistoriqueStatuts';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
-import { Tabs, TabsContent } from '../../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import {
   addProspectContact,
@@ -26,6 +31,7 @@ import {
   updateProspect,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import type { VoisinsFiche } from '../../lib/fenetreFiche';
 import { usePreview, type FicheCible } from '../../lib/previewContext';
 import { useToast } from '../../lib/toastContext';
 import { CODE_PRE_PROSPECTION } from '../../lib/parcours';
@@ -35,36 +41,173 @@ import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import { formatCurrency, formatDate, formatFourchetteMontant, formatFourchetteSurface, formatPercent, formatPercentValue, formatTelephone } from '../../lib/format';
 import TelephoneField from '../../components/TelephoneField';
 import ContactsProspect from '../../components/ContactsProspect';
-import type { DossierListItemDto, ModifierProspectRequest, ProspectionDetailDto, ProspectionListItemDto } from '../../types';
+import type { DossierListItemDto, ModifierProspectRequest, ProspectDetailDto, ProspectionDetailDto, ProspectionListItemDto } from '../../types';
 
 const NouvelleProspectionDialog = lazy(() => import('../prospections/NewProspection'));
 
-type ProspectTab = 'general' | 'contacts' | 'prospections' | 'dossiers' | 'reglements' | 'historique';
+type ProspectTab = 'contacts' | 'prospections' | 'dossiers' | 'reglements' | 'historique';
 
-// Sert `/prospects/:id` et `/clients/:id` : `GET /api/clients/{id}` renvoie le même `ProspectDetailDto`.
-export default function ProspectDetail() {
-  // Les deux routes `:id` garantissent le paramètre.
-  const { id = '' } = useParams();
-  const location = useLocation();
-  return <FicheProspect key={id} id={id} client={location.pathname.startsWith('/clients')} />;
+function FormulaireCoordonnees({
+  form,
+  onChange,
+  erreur,
+}: Readonly<{ form: ModifierProspectRequest; onChange: (f: ModifierProspectRequest) => void; erreur: string | null }>) {
+  return (
+    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+      <FormField>
+        <FieldLabel htmlFor="e-prenom">Prénom</FieldLabel>
+        <Input id="e-prenom" value={form.prenom ?? ''} onChange={(e) => onChange({ ...form, prenom: e.target.value })} />
+      </FormField>
+      <FormField>
+        <FieldLabel htmlFor="e-nom">Nom</FieldLabel>
+        <Input id="e-nom" value={form.nom ?? ''} onChange={(e) => onChange({ ...form, nom: e.target.value })} />
+      </FormField>
+      <TelephoneField
+        id="e-telephone"
+        label="Téléphone"
+        numero={form.telephone ?? ''}
+        indicatif={form.indicatifTelephone ?? null}
+        onNumeroChange={(v) => onChange({ ...form, telephone: v })}
+        onIndicatifChange={(v) => onChange({ ...form, indicatifTelephone: v ?? undefined })}
+      />
+      <TelephoneField
+        id="e-mobile"
+        label="Mobile"
+        numero={form.mobile ?? ''}
+        indicatif={form.indicatifMobile ?? null}
+        onNumeroChange={(v) => onChange({ ...form, mobile: v })}
+        onIndicatifChange={(v) => onChange({ ...form, indicatifMobile: v ?? undefined })}
+      />
+      <FormField>
+        <FieldLabel htmlFor="e-email">Email</FieldLabel>
+        <Input id="e-email" type="email" value={form.email ?? ''} onChange={(e) => onChange({ ...form, email: e.target.value })} />
+      </FormField>
+      <FormField>
+        <FieldLabel htmlFor="e-ville">Ville</FieldLabel>
+        <Input id="e-ville" value={form.ville ?? ''} onChange={(e) => onChange({ ...form, ville: e.target.value })} />
+      </FormField>
+      <FormField className="sm:col-span-2">
+        <FieldLabel htmlFor="e-adresse">Adresse</FieldLabel>
+        <Input id="e-adresse" value={form.adresse ?? ''} onChange={(e) => onChange({ ...form, adresse: e.target.value })} />
+      </FormField>
+      <FormField>
+        <FieldLabel htmlFor="e-codePostal">Code postal</FieldLabel>
+        <Input id="e-codePostal" value={form.codePostal ?? ''} onChange={(e) => onChange({ ...form, codePostal: e.target.value })} />
+      </FormField>
+      {erreur && <p className="text-body text-destructive sm:col-span-2">{erreur}</p>}
+    </div>
+  );
 }
 
+function BandeProspect({ person }: Readonly<{ person: ProspectDetailDto }>) {
+  return (
+    <BandeFiche>
+      <ChampFiche libelle="Code" valeur={person.code} />
+      <ChampFiche libelle="Type" type="liste" valeur={person.type} />
+      <ChampFiche libelle="Commercial" valeur={person.commercialNom} />
+      <ChampFiche libelle="Titre" valeur={person.titre} />
+      <ChampFiche libelle="Sexe" valeur={person.sexe} />
+      <ChampFiche libelle="Ancien client" type="case" valeur={!!person.estAncienClient} />
+      {person.notes && <ChampFiche libelle="Notes" large valeur={person.notes} />}
+    </BandeFiche>
+  );
+}
+
+function EnteteProspect({ person, client }: Readonly<{ person: ProspectDetailDto; client: boolean }>) {
+  const piece = person.pieceIdentite;
+  const aPiece = !!piece && !!(piece.numero || piece.type);
+  return (
+    <ClasseurEntete
+      type={client ? 'client' : 'prospect'}
+      onglets={[
+        {
+          id: 'coordonnees',
+          titre: 'Coordonnées',
+          contenu: (
+            <BandeFiche>
+              <ChampFiche libelle="Téléphone" valeur={formatTelephone(person.telephone, person.indicatifTelephone)} />
+              <ChampFiche libelle="Téléphone 2" valeur={person.telephone2} />
+              <ChampFiche libelle="Mobile" valeur={formatTelephone(person.mobile, person.indicatifMobile)} />
+              <ChampFiche libelle="Email" valeur={person.email} />
+              <ChampFiche libelle="Ville" valeur={person.ville} />
+              <ChampFiche libelle="Adresse" valeur={person.adresse} />
+              <ChampFiche libelle="Code postal" valeur={person.codePostal} />
+              <ChampFiche libelle="Pays" valeur={person.pays} />
+              <ChampFiche libelle="Pays de résidence" valeur={person.paysResidence} />
+            </BandeFiche>
+          ),
+        },
+        {
+          id: 'identite',
+          titre: 'Identité (suite)',
+          contenu: (
+            <BandeFiche>
+              <ChampFiche libelle="Nationalité" valeur={person.nationalite} />
+              <ChampFiche libelle="Date de naissance" valeur={person.dateNaissance ? formatDate(person.dateNaissance) : undefined} />
+              <ChampFiche libelle="Lieu de naissance" valeur={person.lieuNaissance} />
+              <ChampFiche libelle="Situation familiale" valeur={person.situationFamiliale} />
+              <ChampFiche libelle="Enfants" valeur={person.nombreEnfants ? String(person.nombreEnfants) : undefined} />
+              <ChampFiche libelle="Type de résidence" valeur={person.typeResidence} />
+              <ChampFiche libelle="Régime matrimonial" valeur={person.regimeMatrimonial} />
+              <ChampFiche libelle="Fils de" valeur={person.filsDe} />
+              <ChampFiche libelle="Et de" valeur={person.etDe} />
+            </BandeFiche>
+          ),
+        },
+        ...(piece && aPiece
+          ? [
+              {
+                id: 'piece',
+                titre: "Pièce d'identité",
+                contenu: (
+                  <BandeFiche>
+                    <ChampFiche libelle="Type" valeur={piece.type} />
+                    <ChampFiche libelle="Numéro" valeur={piece.numero} />
+                    <ChampFiche libelle="Délivrée le" valeur={piece.delivreeLe ? formatDate(piece.delivreeLe) : undefined} />
+                    <ChampFiche libelle="Lieu de délivrance" valeur={piece.lieuDelivrance} />
+                    <ChampFiche libelle="Valide jusqu'au" valeur={piece.valideJusquau ? formatDate(piece.valideJusquau) : undefined} />
+                    <ChampFiche libelle="Lieu de validité" valeur={piece.lieuValidite} />
+                  </BandeFiche>
+                ),
+              },
+            ]
+          : []),
+        {
+          id: 'professionnelle',
+          titre: 'Situation professionnelle',
+          contenu: (
+            <BandeFiche>
+              <ChampFiche libelle="Profession" valeur={person.profession} />
+              <ChampFiche libelle="Salaire" valeur={person.salaire} />
+              <ChampFiche libelle="Employeur" valeur={person.employeur} />
+              <ChampFiche libelle="Ancienneté" valeur={person.anciennete ? `${person.anciennete} ans` : undefined} />
+            </BandeFiche>
+          ),
+        },
+      ]}
+    />
+  );
+}
+
+// Sert `/prospects/:id` et `/clients/:id` : `GET /api/clients/{id}` renvoie le même `ProspectDetailDto`.
 export function FicheProspect({
   id,
   client: isClientContext,
-  variante = 'page',
+  variante = 'fenetre',
+  voisins,
+  onFermer = () => undefined,
 }: Readonly<{
   id: string;
   client: boolean;
-  variante?: VarianteFiche;
+  variante?: VarianteCoque;
+  voisins?: VoisinsFiche;
+  onFermer?: () => void;
 }>) {
-  const listPath = isClientContext ? '/clients' : '/prospects';
-  const listLabel = isClientContext ? 'Clients' : 'Prospects';
   const { data: person, loading, error, refetch } = useApi(
     () => (isClientContext ? getClient(id) : getProspect(id)),
     [id, isClientContext],
   );
-  const [tab, setTab] = useState<ProspectTab>('general');
+  const [tab, setTab] = useState<ProspectTab>('contacts');
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<ModifierProspectRequest | null>(null);
   const [saving, setSaving] = useState(false);
@@ -96,13 +239,15 @@ export function FicheProspect({
     });
   }
 
-  if (loading) return <CadreFiche variante={variante} title={isClientContext ? 'Client' : 'Prospect'}><LoadingState /></CadreFiche>;
-  if (error) return <CadreFiche variante={variante} title={isClientContext ? 'Client' : 'Prospect'}><ErrorState message={error} /></CadreFiche>;
+  const nature = isClientContext ? 'Client' : 'Prospect';
+  const coque = { variante, nature, voisins, onFermer };
+  if (loading && !person) return <CoqueFiche {...coque} titre={nature}><LoadingState /></CoqueFiche>;
+  if (error) return <CoqueFiche {...coque} titre={nature}><ErrorState message={error} /></CoqueFiche>;
   if (!person) {
     return (
-      <CadreFiche variante={variante} title={`${isClientContext ? 'Client' : 'Prospect'} introuvable`} crumbs={[{ label: listLabel, to: listPath }]}>
-        <p>Ce {isClientContext ? 'client' : 'prospect'} n'existe pas.</p>
-      </CadreFiche>
+      <CoqueFiche {...coque} titre={`${nature} introuvable`}>
+        <p className="p-4">Ce {isClientContext ? 'client' : 'prospect'} n'existe pas.</p>
+      </CoqueFiche>
     );
   }
 
@@ -142,27 +287,19 @@ export function FicheProspect({
     }
   }
 
-  return (
-    <CadreFiche
-      variante={variante}
-      title={personDisplayName(person)}
-      crumbs={[{ label: listLabel, to: listPath }]}
-      typeFiche={isClientContext ? 'Client' : 'Prospect'}
-      icon={isClientContext ? <UserCheck /> : <Contact />}
-      accent={isClientContext ? 'var(--sec-client)' : 'var(--sec-prospect)'}
-      accentBg={isClientContext ? 'var(--sec-client-bg)' : 'var(--sec-prospect-bg)'}
-      fullHeight
-      entete={
-        <EnteteFiche code={person.code} nom={personDisplayName(person)}>
-          <span className="text-body text-muted-foreground">
-            {person.type || 'Prospect'}
-            {person.commercialNom && <> · commercial {person.commercialNom}</>}
-          </span>
-          {person.estAncienClient && <Badge tone="info">Ancien client</Badge>}
-        </EnteteFiche>
-      }
-    >
+  const nom = personDisplayName(person);
+  const badges = (
+    <>
+      <span className="text-body text-muted-foreground">
+        {person.type || 'Prospect'}
+        {person.commercialNom && <> · commercial {person.commercialNom}</>}
+      </span>
+      {person.estAncienClient && <Badge tone="info">Ancien client</Badge>}
+    </>
+  );
 
+  const corps = (
+    <>
       {nouvelleProspection && (
         <Suspense fallback={null}>
           <NouvelleProspectionDialog
@@ -184,283 +321,232 @@ export function FicheProspect({
         </Suspense>
       )}
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as ProspectTab)} className="flex min-h-0 flex-1 flex-col gap-2.5">
-        <OngletsLigne
-          onglets={[
-            { id: 'general', libelle: 'Général' },
-            { id: 'contacts', libelle: 'Contacts', compteur: contacts.data?.length },
-            { id: 'prospections', libelle: 'Prospections', compteur: prospections.data?.totalElements },
-            { id: 'dossiers', libelle: 'Dossiers', compteur: dossiers.data?.totalElements },
-            { id: 'reglements', libelle: 'Règlements', compteur: reglements.data?.totalElements },
-            { id: 'historique', libelle: 'Historique', compteur: historique.data?.totalElements },
-          ]}
-        />
+      <RubanFiche
+        enregistrer={{ onClick: () => void save(), disabled: !editing || saving, aide: 'Enregistre les coordonnées modifiées.' }}
+        propres={
+          editing
+            ? [{ id: 'annuler', libelle: 'Annuler', icone: X, onClick: () => setEditing(false), disabled: saving }]
+            : [{ id: 'modifier', libelle: 'Modifier', icone: Pencil, onClick: startEdit }]
+        }
+      />
 
-        <TabsContent value="general" className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-3">
-            <Card
-              title="Coordonnées"
-              accent={isClientContext ? 'var(--sec-client)' : 'var(--sec-prospect)'}
-              action={
-                editing ? (
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setEditing(false)}>Annuler</Button>
-                    <Button size="sm" onClick={save} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Button>
+      <div className="max-h-[52%] shrink-0 overflow-auto border-b border-border px-4 py-3">
+        {editing && form ? (
+          <FormulaireCoordonnees form={form} onChange={setForm} erreur={saveError} />
+        ) : (
+          <div className="grid grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-4">
+            <BandeProspect person={person} />
+            <EnteteProspect person={person} client={isClientContext} />
+          </div>
+        )}
+      </div>
+
+      <ClasseurBas
+        actif={tab}
+        onChange={(v) => setTab(v as ProspectTab)}
+        onglets={[
+          {
+            id: 'contacts',
+            libelle: 'Contacts',
+            compteur: contacts.data?.length,
+            contenu: (
+              <div className="p-3">
+                <ContactsProspect
+                  contacts={contacts}
+                  onAdd={async (body) => {
+                    await addProspectContact(person.id, body);
+                    await contacts.refetch();
+                  }}
+                  onRemove={async (linkId) => {
+                    await removeProspectContact(person.id, linkId);
+                    void contacts.refetch();
+                  }}
+                />
+              </div>
+            ),
+          },
+          {
+            id: 'prospections',
+            libelle: 'Prospections',
+            compteur: prospections.data?.totalElements,
+            contenu: (
+              <div className="flex flex-col gap-2.5 p-3">
+                <LigneActivite
+                  action={
+                    <Button size="sm" onClick={() => setNouvelleProspection(true)}>
+                      <Plus data-icon="inline-start" /> Nouvelle prospection
+                    </Button>
+                  }
+                />
+                {prospections.loading && <LoadingState />}
+                {prospections.error && <ErrorState message={prospections.error} />}
+                {prospections.data && prospections.data.content.length === 0 && <EmptyState title="Aucune prospection" />}
+                {prospections.data && prospections.data.content.length > 0 && (
+                  <div>
+                    <Table containerClassName="overflow-visible">
+                      <TableHeader className="sticky top-0 z-1">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="w-8" />
+                          <TableHead>Code</TableHead>
+                          <TableHead>Étape</TableHead>
+                          <TableHead>Origine</TableHead>
+                          <TableHead className="text-right">Prix</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead className="w-20"><span className="sr-only">Ouvrir</span></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {prospections.data.content.map((p) => (
+                          <ProspectionRow
+                            key={p.id}
+                            prospection={p}
+                            expanded={expandedProspectionId === p.id}
+                            onToggle={() => setExpandedProspectionId(expandedProspectionId === p.id ? null : p.id)}
+                          />
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={startEdit}>Modifier</Button>
-                )
-              }
-            >
-              {editing && form ? (
-                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                  <FormField>
-                    <FieldLabel htmlFor="e-prenom">Prénom</FieldLabel>
-                    <Input id="e-prenom" value={form.prenom ?? ''} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
-                  </FormField>
-                  <FormField>
-                    <FieldLabel htmlFor="e-nom">Nom</FieldLabel>
-                    <Input id="e-nom" value={form.nom ?? ''} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
-                  </FormField>
-                  <TelephoneField
-                    id="e-telephone"
-                    label="Téléphone"
-                    numero={form.telephone ?? ''}
-                    indicatif={form.indicatifTelephone ?? null}
-                    onNumeroChange={(v) => setForm({ ...form, telephone: v })}
-                    onIndicatifChange={(v) => setForm({ ...form, indicatifTelephone: v ?? undefined })}
-                  />
-                  <TelephoneField
-                    id="e-mobile"
-                    label="Mobile"
-                    numero={form.mobile ?? ''}
-                    indicatif={form.indicatifMobile ?? null}
-                    onNumeroChange={(v) => setForm({ ...form, mobile: v })}
-                    onIndicatifChange={(v) => setForm({ ...form, indicatifMobile: v ?? undefined })}
-                  />
-                  <FormField>
-                    <FieldLabel htmlFor="e-email">Email</FieldLabel>
-                    <Input id="e-email" type="email" value={form.email ?? ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                  </FormField>
-                  <FormField>
-                    <FieldLabel htmlFor="e-ville">Ville</FieldLabel>
-                    <Input id="e-ville" value={form.ville ?? ''} onChange={(e) => setForm({ ...form, ville: e.target.value })} />
-                  </FormField>
-                  <FormField className="sm:col-span-2">
-                    <FieldLabel htmlFor="e-adresse">Adresse</FieldLabel>
-                    <Input id="e-adresse" value={form.adresse ?? ''} onChange={(e) => setForm({ ...form, adresse: e.target.value })} />
-                  </FormField>
-                  <FormField>
-                    <FieldLabel htmlFor="e-codePostal">Code postal</FieldLabel>
-                    <Input id="e-codePostal" value={form.codePostal ?? ''} onChange={(e) => setForm({ ...form, codePostal: e.target.value })} />
-                  </FormField>
-                  {saveError && <p className="text-body text-destructive sm:col-span-2">{saveError}</p>}
-                </div>
-              ) : (
-                <FieldGrid>
-                  <Field label="Titre" value={person.titre} />
-                  <Field label="Sexe" value={person.sexe} />
-                  <Field label="Téléphone" value={formatTelephone(person.telephone, person.indicatifTelephone)} />
-                  <Field label="Téléphone 2" value={person.telephone2} />
-                  <Field label="Mobile" value={formatTelephone(person.mobile, person.indicatifMobile)} />
-                  <Field label="Email" value={person.email} />
-                  <Field label="Ville" value={person.ville} />
-                  <Field label="Adresse" value={person.adresse} />
-                  <Field label="Code postal" value={person.codePostal} />
-                  <Field label="Pays" value={person.pays} />
-                  <Field label="Pays de résidence" value={person.paysResidence} />
-                  <Field label="Nationalité" value={person.nationalite} />
-                  <Field label="Date de naissance" value={person.dateNaissance ? formatDate(person.dateNaissance) : undefined} />
-                  <Field label="Lieu de naissance" value={person.lieuNaissance} />
-                  <Field label="Situation familiale" value={person.situationFamiliale} />
-                  <Field label="Enfants" value={person.nombreEnfants ? String(person.nombreEnfants) : undefined} />
-                  <Field label="Type de résidence" value={person.typeResidence} />
-                  <Field label="Régime matrimonial" value={person.regimeMatrimonial} />
-                  <Field label="Profession" value={person.profession} />
-                  <Field label="Salaire" value={person.salaire} />
-                  <Field label="Employeur" value={person.employeur} />
-                  <Field label="Ancienneté" value={person.anciennete ? `${person.anciennete} ans` : undefined} />
-                  <Field label="Fils de" value={person.filsDe} />
-                  <Field label="Et de" value={person.etDe} />
-                  <Field label="Ancien client" value={person.estAncienClient ? 'Oui' : 'Non'} />
-                </FieldGrid>
-              )}
-            </Card>
-
-            {person.pieceIdentite && (person.pieceIdentite.numero || person.pieceIdentite.type) && (
-              <Card title="Pièce d'identité">
-                <FieldGrid>
-                  <Field label="Type" value={person.pieceIdentite.type} />
-                  <Field label="Numéro" value={person.pieceIdentite.numero} />
-                  <Field label="Délivrée le" value={person.pieceIdentite.delivreeLe ? formatDate(person.pieceIdentite.delivreeLe) : undefined} />
-                  <Field label="Lieu de délivrance" value={person.pieceIdentite.lieuDelivrance} />
-                  <Field label="Valide jusqu'au" value={person.pieceIdentite.valideJusquau ? formatDate(person.pieceIdentite.valideJusquau) : undefined} />
-                  <Field label="Lieu de validité" value={person.pieceIdentite.lieuValidite} />
-                </FieldGrid>
-              </Card>
-            )}
-
-            {person.notes && (
-              <Card title="Notes">
-                <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-label leading-relaxed text-foreground">
-                  {person.notes}
-                </div>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="contacts" className="min-h-0 flex-1 overflow-y-auto">
-          <Card title="Contacts liés">
-            <ContactsProspect
-              contacts={contacts}
-              onAdd={async (body) => {
-                await addProspectContact(person.id, body);
-                await contacts.refetch();
-              }}
-              onRemove={async (linkId) => {
-                await removeProspectContact(person.id, linkId);
-                void contacts.refetch();
-              }}
-            />
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="prospections" className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-          <div className="flex flex-col gap-2.5 p-3">
-            <LigneActivite
-              action={
-                <Button size="sm" onClick={() => setNouvelleProspection(true)}>
-                  <Plus data-icon="inline-start" /> Nouvelle prospection
-                </Button>
-              }
-            />
-            {prospections.loading && <LoadingState />}
-            {prospections.error && <ErrorState message={prospections.error} />}
-            {prospections.data && prospections.data.content.length === 0 && <EmptyState title="Aucune prospection" />}
-            {prospections.data && prospections.data.content.length > 0 && (
-              <div>
-                <Table containerClassName="overflow-visible">
-                  <TableHeader className="sticky top-0 z-1">
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-8" />
-                      <TableHead>Code</TableHead>
-                      <TableHead>Étape</TableHead>
-                      <TableHead>Origine</TableHead>
-                      <TableHead className="text-right">Prix</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="w-20"><span className="sr-only">Ouvrir</span></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {prospections.data.content.map((p) => (
-                      <ProspectionRow
-                        key={p.id}
-                        prospection={p}
-                        expanded={expandedProspectionId === p.id}
-                        onToggle={() => setExpandedProspectionId(expandedProspectionId === p.id ? null : p.id)}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
+                )}
+                {prospections.data && (
+                  <Pagination page={prospections.data.page} totalPages={prospections.data.totalPages} totalElements={prospections.data.totalElements} onPageChange={setProspectionsPage} />
+                )}
               </div>
-            )}
-            {prospections.data && (
-              <Pagination page={prospections.data.page} totalPages={prospections.data.totalPages} totalElements={prospections.data.totalElements} onPageChange={setProspectionsPage} />
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="dossiers" className="min-h-0 flex-1 overflow-y-auto">
-          <Card title={`Dossiers (${dossiers.data?.totalElements ?? 0})`}>
-            {dossiers.loading && <LoadingState />}
-            {dossiers.error && <ErrorState message={dossiers.error} />}
-            {dossiers.data && dossiers.data.content.length === 0 && <EmptyState title="Aucun dossier" />}
-            {dossiers.data && dossiers.data.content.length > 0 && (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="w-8" />
-                      <TableHead>Code</TableHead>
-                      <TableHead>Statut</TableHead>
-                      <TableHead className="text-right">Prix</TableHead>
-                      <TableHead className="text-right">Total à payer</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="w-20"><span className="sr-only">Ouvrir</span></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dossiers.data.content.map((d) => (
-                      <DossierRow
-                        key={d.id}
-                        dossier={d}
-                        expanded={expandedDossierId === d.id}
-                        onToggle={() => setExpandedDossierId(expandedDossierId === d.id ? null : d.id)}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
+            ),
+          },
+          {
+            id: 'dossiers',
+            libelle: 'Dossiers',
+            compteur: dossiers.data?.totalElements,
+            contenu: (
+              <div className="flex flex-col gap-2.5 p-3">
+                {dossiers.loading && <LoadingState />}
+                {dossiers.error && <ErrorState message={dossiers.error} />}
+                {dossiers.data && dossiers.data.content.length === 0 && <EmptyState title="Aucun dossier" />}
+                {dossiers.data && dossiers.data.content.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="w-8" />
+                          <TableHead>Code</TableHead>
+                          <TableHead>Statut</TableHead>
+                          <TableHead className="text-right">Prix</TableHead>
+                          <TableHead className="text-right">Total à payer</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead className="w-20"><span className="sr-only">Ouvrir</span></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {dossiers.data.content.map((d) => (
+                          <DossierRow
+                            key={d.id}
+                            dossier={d}
+                            expanded={expandedDossierId === d.id}
+                            onToggle={() => setExpandedDossierId(expandedDossierId === d.id ? null : d.id)}
+                          />
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                {dossiers.data && (
+                  <Pagination page={dossiers.data.page} totalPages={dossiers.data.totalPages} totalElements={dossiers.data.totalElements} onPageChange={setDossiersPage} />
+                )}
               </div>
-            )}
-            {dossiers.data && (
-              <Pagination page={dossiers.data.page} totalPages={dossiers.data.totalPages} totalElements={dossiers.data.totalElements} onPageChange={setDossiersPage} />
-            )}
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reglements" className="min-h-0 flex-1 overflow-y-auto">
-          <Card title={`Règlements (${reglements.data?.totalElements ?? 0})`}>
-            {reglements.loading && <LoadingState />}
-            {reglements.error && <ErrorState message={reglements.error} />}
-            {reglements.data && reglements.data.content.length === 0 && <EmptyState title="Aucun règlement" />}
-            {reglements.data && reglements.data.content.length > 0 && (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>Code</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Dossier</TableHead>
-                      <TableHead className="text-right">Montant</TableHead>
-                      <TableHead>Date de règlement</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reglements.data.content.map((r) => (
-                      <TableRow key={r.id} className={r.dossierId ? 'cursor-pointer' : ''} onClick={() => r.dossierId && ouvrirFicheDossier(r.dossierId)}>
-                        <TableCell className="font-medium text-foreground">{r.code}</TableCell>
-                        <TableCell className="text-muted-foreground">{r.type}</TableCell>
-                        <TableCell className="text-muted-foreground">{r.dossierCode || '—'}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(r.montant)}</TableCell>
-                        <TableCell className="text-muted-foreground">{formatDate(r.dateReglement)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+            ),
+          },
+          {
+            id: 'reglements',
+            libelle: 'Règlements',
+            compteur: reglements.data?.totalElements,
+            contenu: (
+              <div className="flex flex-col gap-2.5 p-3">
+                {reglements.loading && <LoadingState />}
+                {reglements.error && <ErrorState message={reglements.error} />}
+                {reglements.data && reglements.data.content.length === 0 && <EmptyState title="Aucun règlement" />}
+                {reglements.data && reglements.data.content.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead>Code</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Dossier</TableHead>
+                          <TableHead className="text-right">Montant</TableHead>
+                          <TableHead>Date de règlement</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {reglements.data.content.map((r) => (
+                          <TableRow key={r.id} className={r.dossierId ? 'cursor-pointer' : ''} onClick={() => r.dossierId && ouvrirFicheDossier(r.dossierId)}>
+                            <TableCell className="font-medium text-foreground">{r.code}</TableCell>
+                            <TableCell className="text-muted-foreground">{r.type}</TableCell>
+                            <TableCell className="text-muted-foreground">{r.dossierCode || '—'}</TableCell>
+                            <TableCell className="text-right tabular-nums">{formatCurrency(r.montant)}</TableCell>
+                            <TableCell className="text-muted-foreground">{formatDate(r.dateReglement)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                {reglements.data && (
+                  <Pagination page={reglements.data.page} totalPages={reglements.data.totalPages} totalElements={reglements.data.totalElements} onPageChange={setReglementsPage} />
+                )}
               </div>
-            )}
-            {reglements.data && (
-              <Pagination page={reglements.data.page} totalPages={reglements.data.totalPages} totalElements={reglements.data.totalElements} onPageChange={setReglementsPage} />
-            )}
-          </Card>
-        </TabsContent>
+            ),
+          },
+          {
+            id: 'historique',
+            libelle: 'Historique',
+            compteur: historique.data?.totalElements,
+            contenu: (
+              <div className="flex flex-col gap-2.5 p-3">
+                {historique.loading && <LoadingState />}
+                {historique.error && <ErrorState message={historique.error} />}
+                {historique.data && historique.data.content.length === 0 && <EmptyState title="Aucun historique" />}
+                {historique.data && historique.data.content.length > 0 && (
+                  <HistoriqueStatuts lignes={historique.data.content} />
+                )}
+                {historique.data && (
+                  <Pagination page={historique.data.page} totalPages={historique.data.totalPages} totalElements={historique.data.totalElements} onPageChange={setHistoriquePage} />
+                )}
+              </div>
+            ),
+          },
+        ]}
+      />
+    </>
+  );
 
-        <TabsContent value="historique" className="min-h-0 flex-1 overflow-y-auto">
-          <Card title="Historique">
-            {historique.loading && <LoadingState />}
-            {historique.error && <ErrorState message={historique.error} />}
-            {historique.data && historique.data.content.length === 0 && <EmptyState title="Aucun historique" />}
-            {historique.data && historique.data.content.length > 0 && (
-              <HistoriqueStatuts lignes={historique.data.content} />
-            )}
-            {historique.data && (
-              <Pagination page={historique.data.page} totalPages={historique.data.totalPages} totalElements={historique.data.totalElements} onPageChange={setHistoriquePage} />
-            )}
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </CadreFiche>
+  if (variante === 'dialogue') {
+    return (
+      <CadreFiche
+        variante="dialogue"
+        title={nom}
+        typeFiche={nature}
+        entete={
+          <EnteteFiche code={person.code} nom={nom}>
+            {badges}
+          </EnteteFiche>
+        }
+      >
+        {corps}
+      </CadreFiche>
+    );
+  }
+  return (
+    <FenetreFiche
+      nature={nature}
+      titre={nom}
+      badge={badges}
+      voisins={voisins}
+      onFermer={onFermer}
+      pied={<PiedAudit creePar={person.creePar} creeLe={person.creeLe} modifiePar={person.modifiePar} modifieLe={person.modifieLe} />}
+    >
+      {corps}
+    </FenetreFiche>
   );
 }
 

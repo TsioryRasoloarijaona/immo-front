@@ -145,13 +145,14 @@ export const SECTIONS_TRANCHE: SectionSaisie[] = [
   {
     titre: 'Visibilité par module',
     champs: [
-      { nom: 'estEnVente', libelle: 'Visible dans le module Vente', type: 'booleen' },
-      { nom: 'estEnLocation', libelle: 'Visible dans le module Location', type: 'booleen' },
-      { nom: 'visibleProjet', libelle: 'Visible dans le module Projet', type: 'booleen' },
-      { nom: 'visibleAchat', libelle: 'Visible dans le module Achat', type: 'booleen' },
-      { nom: 'visibleSav', libelle: 'Visible dans le module SAV', type: 'booleen' },
-      { nom: 'visibleRom', libelle: 'Visible dans le module ROM', type: 'booleen' },
-      { nom: 'visiblePrm', libelle: 'Visible dans le module PRM', type: 'booleen' },
+      // Libellé court : le titre de section dit déjà « Visibilité par module ».
+      { nom: 'estEnVente', libelle: 'Vente', type: 'booleen' },
+      { nom: 'estEnLocation', libelle: 'Location', type: 'booleen' },
+      { nom: 'visibleProjet', libelle: 'Projet', type: 'booleen' },
+      { nom: 'visibleAchat', libelle: 'Achat', type: 'booleen' },
+      { nom: 'visibleSav', libelle: 'SAV', type: 'booleen' },
+      { nom: 'visibleRom', libelle: 'ROM', type: 'booleen' },
+      { nom: 'visiblePrm', libelle: 'PRM', type: 'booleen' },
     ],
   },
 ];

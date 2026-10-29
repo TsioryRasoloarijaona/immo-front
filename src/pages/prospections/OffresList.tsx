@@ -1,5 +1,8 @@
 import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
+import FicheOffreFenetre from '../../components/offre/fiche/FicheOffreFenetre';
+import { voisinsDe } from '../../lib/fenetreFiche';
 import { Badge, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
 import DevisFormSection from '../../components/DevisFormSection';
@@ -40,7 +43,8 @@ export default function OffresList() {
   const [dateDebut, setDateDebut] = useState(debutMoisISO);
   const [dateFin, setDateFin] = useState(finMoisISO);
   const [page, setPage] = useState(0);
-  // Pas de `onOuvrir` : la ligne déplie les montants ; le code de l'offre ouvre sa fiche.
+  const navigate = useNavigate();
+  const { id: idOuvert } = useParams();
   const [showCreate, setShowCreate] = useState(false);
 
   const { data, loading, error, refetch } = useApi(
@@ -108,6 +112,8 @@ export default function OffresList() {
     ...(search ? [`« ${search} »`] : []),
   ];
   const decompte = data ? pluriel(data.totalElements, 'offre') : undefined;
+  const ouvrir = (id: string) => void navigate(`/offres/${id}`);
+  const voisins = voisinsDe(offres.map((o) => o.id), idOuvert, ouvrir);
 
   return (
     <PageListe titre="Offres">
@@ -162,6 +168,7 @@ export default function OffresList() {
                   cleOrdre="offres"
                   rows={offres}
                   colonnes={grille}
+                  onOuvrir={ouvrir}
                   libelleLigne={(o) => `Offre ${o.code ?? ''}`.trim()}
                   rendreDetail={detailOffre}
                 />
@@ -180,6 +187,7 @@ export default function OffresList() {
         nouveau={{ libelle: 'Nouvelle offre', onClick: () => setShowCreate(true) }}
         actions={[{ id: 'rafraichir', onClick: refetchAllApis }]}
       />
+      {idOuvert && <FicheOffreFenetre key={idOuvert} id={idOuvert} voisins={voisins} onFermer={() => void navigate('/offres')} />}
     </PageListe>
   );
 }

@@ -4,6 +4,8 @@ import ColumnSelector from '../../components/ColumnSelector';
 import DataGrid from '../../components/DataGrid';
 import BoiteFiltre from '../../components/liste/BoiteFiltre';
 import CadreListe from '../../components/patrimoine/CadreListe';
+import FicheProspectionTerrainFenetre from '../../components/terrain/fiche/FicheProspectionTerrainFenetre';
+import useFenetreListe from '../../lib/useFenetreListe';
 import { DEFAULT_PAGE_SIZE } from '../../lib/api';
 import { listProspectionsTerrain } from '../../lib/apiProspectionsTerrain';
 import { listLignesReferentiel } from '../../lib/apiReferentielsAdmin';
@@ -57,6 +59,7 @@ export default function ProspectionsTerrainList() {
     [recherche, archivee, statutId, vocationId, niveauId, page],
   );
   const rows = data?.content ?? [];
+  const fenetre = useFenetreListe('/terrains-prospection', rows.map((p) => p.id));
   const filtre = !!recherche || archivee !== 'tous' || !!statutId || !!vocationId || !!niveauId;
   const apresFiltre = <T,>(set: (v: T) => void) => (v: T) => {
     setPage(0);
@@ -112,12 +115,17 @@ export default function ProspectionsTerrainList() {
         actions: [{ id: 'importer', onClick: () => void navigate('/articles/import?type=prospections-terrain') }],
       }}
       exportListe={{ export: exportListe, pdf: true }}
+      dialogues={
+        fenetre.idOuvert && (
+          <FicheProspectionTerrainFenetre key={fenetre.idOuvert} id={fenetre.idOuvert} voisins={fenetre.voisins} onFermer={fenetre.fermer} />
+        )
+      }
     >
       <DataGrid
         cleOrdre="prospections-terrain"
         rows={rows}
         colonnes={grille}
-        onOuvrir={(id) => void navigate(`/terrains-prospection/${id}`)}
+        onOuvrir={fenetre.ouvrir}
         libelleLigne={(p) => `Ouvrir la fiche de ${p.code ?? ''}`.trim()}
       />
     </CadreListe>

@@ -21,23 +21,17 @@ const SuiviCommerciaux = lazy(() => import('../../pages/suiviCommerciaux/SuiviCo
 const ProspectionsList = lazy(() => import('../../pages/prospections/ProspectionsList'));
 const PreProspectionsList = lazy(() => import('../../pages/prospections/PreProspectionsList'));
 const ImportPreProspections = lazy(() => import('../../pages/prospections/ImportPreProspections'));
-const ProspectionDetail = lazy(() => import('../../pages/prospections/ProspectionDetail'));
 const OffresList = lazy(() => import('../../pages/prospections/OffresList'));
-const OffreDetail = lazy(() => import('../../pages/prospections/OffreDetail'));
 const EncaissementsList = lazy(() => import('../../pages/encaissements/EncaissementsList'));
-const EncaissementDetail = lazy(() => import('../../pages/encaissements/EncaissementDetail'));
 const ImpayesList = lazy(() => import('../../pages/impayes/ImpayesList'));
 const DesistementsList = lazy(() => import('../../pages/desistements/DesistementsList'));
-const DesistementFiche = lazy(() => import('../../pages/desistements/DesistementFiche'));
 const ProspectsList = lazy(() => import('../../pages/prospects/ProspectsList'));
 const NewProspect = lazy(() => import('../../pages/prospects/NewProspect'));
-const ProspectDetail = lazy(() => import('../../pages/prospects/ProspectDetail'));
 const ClientsList = lazy(() => import('../../pages/clients/ClientsList'));
 const NewDossier = lazy(() => import('../../pages/dossiers/NewDossier'));
 const DossiersList = lazy(() => import('../../pages/dossiers/DossiersList'));
 const PlansAccueil = lazy(() => import('../../pages/tranches/PlansAccueil'));
 const CommissionsList = lazy(() => import('../../pages/commissions/CommissionsList'));
-const CommissionTranche = lazy(() => import('../../pages/commissions/CommissionTranche'));
 const Aide = lazy(() => import('../../pages/aide/Aide'));
 const ListeRapports = lazy(() => import('../../pages/rapports/ListeRapports'));
 const Rapport = lazy(() => import('../../pages/rapports/Rapport'));
@@ -75,31 +69,24 @@ const vente: ModuleApp = {
     { path: '/suivi-affectations', element: <SuiviAffectations /> },
     { path: '/historique-ventes', element: <HistoriqueVentes /> },
     { path: '/suivi-previsions', element: <SuiviPrevisions /> },
-    { path: '/prospections', element: <ProspectionsList /> },
+    // Une seule route par liste : `/prospections/:id` garde la liste montée avec la fiche ouverte en fenêtre.
+    { path: '/prospections/:id?', element: <ProspectionsList /> },
     // La saisie est une boîte, pas une page : la route rend la liste avec la boîte ouverte.
     { path: '/prospections/nouveau', element: <ProspectionsList nouveau /> },
-    { path: '/pre-prospections', element: <PreProspectionsList /> },
+    { path: '/pre-prospections/:id?', element: <PreProspectionsList /> },
     { path: '/pre-prospections/nouveau', element: <PreProspectionsList nouveau /> },
     { path: '/pre-prospections/import', element: <ImportPreProspections /> },
-    { path: '/pre-prospections/:id', element: <ProspectionDetail /> },
-    { path: '/prospections/:id', element: <ProspectionDetail /> },
     { path: '/prospections/:id/nouveau-dossier', element: <NewDossier /> },
-    { path: '/offres', element: <OffresList /> },
-    { path: '/offres/:id', element: <OffreDetail /> },
-    { path: '/encaissements', element: <EncaissementsList /> },
-    { path: '/encaissements/:id', element: <EncaissementDetail /> },
+    { path: '/offres/:id?', element: <OffresList /> },
+    { path: '/encaissements/:id?', element: <EncaissementsList /> },
     { path: '/impayes', element: <ImpayesList /> },
-    { path: '/desistements', element: <DesistementsList /> },
-    { path: '/desistements/:id', element: <DesistementFiche /> },
-    { path: '/prospects', element: <ProspectsList /> },
+    { path: '/desistements/:id?', element: <DesistementsList /> },
+    { path: '/prospects/:id?', element: <ProspectsList /> },
     { path: '/prospects/nouveau', element: <NewProspect /> },
-    { path: '/prospects/:id', element: <ProspectDetail /> },
-    { path: '/clients', element: <ClientsList /> },
-    { path: '/clients/:id', element: <ProspectDetail /> },
+    { path: '/clients/:id?', element: <ClientsList /> },
     // Une seule route : `/dossiers/:id` garde la liste montée (filtres, page) avec la fiche ouverte en fenêtre.
     { path: '/dossiers/:id?', element: <DossiersList /> },
-    { path: '/commissions', element: <CommissionsList /> },
-    { path: '/commissions/:trancheId', element: <CommissionTranche /> },
+    { path: '/commissions/:trancheId?', element: <CommissionsList /> },
     { path: '/rapports', element: <ListeRapports module="vente" /> },
     { path: '/rapports/:code', element: <Rapport module="vente" /> },
     { path: '/plans', element: <PlansAccueil /> },

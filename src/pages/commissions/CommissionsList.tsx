@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { RotateCcw } from 'lucide-react';
+import FicheCommissionTrancheFenetre from '../../components/commissions/fiche/FicheCommissionTrancheFenetre';
+import { voisinsDe } from '../../lib/fenetreFiche';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import PageListe from '../../components/liste/PageListe';
 import EnteteListe from '../../components/liste/EnteteListe';
@@ -33,6 +35,7 @@ const COLONNES: ColonneGrille<Ligne>[] = [
 
 export default function CommissionsList() {
   const navigate = useNavigate();
+  const { trancheId: idOuvert } = useParams();
   const [recherche, setRecherche] = useState('');
   const q = useDebouncedValue(recherche.trim());
   const liste = useApi(() => lire(() => getCommissionTranches(q || undefined)), [q], 'commissions-tranches');
@@ -41,6 +44,8 @@ export default function CommissionsList() {
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('commissions'));
   const exportListe = useExportListe(cheminExportCommissions(), { recherche: q || undefined }, 'commissions');
   const decompte = liste.data ? pluriel(liste.data.length, 'tranche') : undefined;
+  const ouvrir = (id: string) => void navigate(`/commissions/${id}`);
+  const voisins = voisinsDe(lignes.map((l) => l.id), idOuvert, ouvrir);
 
   return (
     <PageListe titre="Commissions">
@@ -74,7 +79,7 @@ export default function CommissionsList() {
                   cleOrdre="commissions-tranches"
                   rows={lignes}
                   colonnes={COLONNES}
-                  onOuvrir={(id) => navigate(`/commissions/${id}`)}
+                  onOuvrir={ouvrir}
                   libelleLigne={(t) => `Ouvrir les commissions de ${t.code ?? t.id}`}
                   bandeauRegroupement={false}
                 />
@@ -92,6 +97,7 @@ export default function CommissionsList() {
           { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: refuse || exportListe.enCours },
         ]}
       />
+      {idOuvert && <FicheCommissionTrancheFenetre key={idOuvert} trancheId={idOuvert} voisins={voisins} onFermer={() => void navigate('/commissions')} />}
     </PageListe>
   );
 }

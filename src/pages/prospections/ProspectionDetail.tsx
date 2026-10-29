@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import LienFiche from '../../components/LienFiche';
 import { usePreview } from '../../lib/previewContext';
-import { ArchiveRestore, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
+import { Archive, ArchiveRestore, ArrowRightLeft, ArrowUpRight, Download, Eye, FilePlus, FileText, Minus, Pencil, Phone, Plus, Send, X } from 'lucide-react';
 import BoutonEdition from '../../components/BoutonEdition';
-import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/CadreFiche';
+import CadreFiche, { EnteteFiche } from '../../components/CadreFiche';
+import CoqueFiche, { type VarianteCoque } from '../../components/CoqueFiche';
+import ClasseurBas from '../../components/fiche/ClasseurBas';
+import ClasseurEntete from '../../components/fiche/ClasseurEntete';
+import ChampFiche, { BandeFiche } from '../../components/fiche/ChampFiche';
+import FenetreFiche from '../../components/fiche/FenetreFiche';
+import PiedAudit from '../../components/fiche/PiedAudit';
+import RubanFiche, { type ActionRuban } from '../../components/fiche/RubanFiche';
+import type { VoisinsFiche } from '../../lib/fenetreFiche';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { DossierIssuBanner, InactiviteBadge, ResumeActivite } from '../../components/ActiviteProspection';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
@@ -17,9 +25,8 @@ import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { TimelineList, TimelineRow } from '../../components/Timeline';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import FicheShell from '../../components/FicheShell';
 import ParcoursVente from '../../components/ParcoursVente';
-import { ChampLecture, ChampNotes, ChampRef, GrilleFiche, PiedFiche } from '../../components/ChampsFiche';
+import { ChampLecture, ChampNotes, ChampRef, GrilleFiche } from '../../components/ChampsFiche';
 import MarqueurTri from '../../components/MarqueurTri';
 import { OngletAutres, OngletProfils } from '../../components/SousCollectionsProspection';
 import RefSelect from '../../components/RefSelect';
@@ -27,7 +34,6 @@ import MentionPrixPlancher from '../../components/MentionPrixPlancher';
 import { Button, buttonVariants } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
-import { Separator } from '../../components/ui/separator';
 import { cn } from '../../lib/utils';
 import {
   formatCurrency,
@@ -155,7 +161,6 @@ type FormFiche = {
 // référentiel, c'est le texte que porte la vue légataire.
 const CATEGORIE_INTERACTION_ORDINAIRE = 'Prospection';
 
-const TITRE_BLOC = 'mb-2 text-micro font-semibold tracking-wide text-muted-foreground uppercase';
 // Plus étroit que `--fiche-col-min` : deux colonnes tiennent dans une moitié de fiche sur un portable.
 const COLONNES_BLOC = 'grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]';
 
@@ -481,28 +486,23 @@ function libelleOuiNon(v: boolean | null | undefined): string | null {
   return v ? 'Oui' : 'Non';
 }
 
-export default function ProspectionDetail() {
-  // Les deux routes `:id` garantissent le paramètre.
-  const { id = '' } = useParams();
-  const location = useLocation();
-  return <FicheProspection key={id} id={id} pre={location.pathname.startsWith('/pre-prospections')} />;
-}
-
-// `pre` (la route) ne règle que l'habillage ; le contenu suit la donnée (`isPre` plus bas) —
+// `pre` (la liste ouverte) ne règle que l'habillage ; le contenu suit la donnée (`isPre` plus bas) —
 // pré-prospection et prospection sont la même ligne en base.
 export function FicheProspection({
   id,
   pre,
-  variante = 'page',
+  variante = 'fenetre',
+  voisins,
+  onFermer = () => undefined,
 }: Readonly<{
   id: string;
   pre: boolean;
-  variante?: VarianteFiche;
+  variante?: VarianteCoque;
+  voisins?: VoisinsFiche;
+  onFermer?: () => void;
 }>) {
   const { data: p, loading, error, refetch } = useApi(() => getProspection(id), [id], 'prospection');
   const isPreRoute = habillagePre(variante === 'dialogue', p, pre);
-  const listPath = isPreRoute ? '/pre-prospections' : '/prospections';
-  const listLabel = isPreRoute ? 'Pré-prospections' : 'Prospections';
   const sectionAccent = isPreRoute ? 'var(--sec-preprospection)' : 'var(--sec-prospection)';
   /* Le prospect lié rendu par « Créer prospect » / rattachement : la relecture
      peut revenir avec l'ancien état (base de lecture en retard), et le bouton
@@ -535,7 +535,7 @@ export function FicheProspection({
   /* Attendre la fin du chargement avant de rediriger : une fiche servie du
      cache peut porter l'ancien code de type. */
   useEffect(() => {
-    if (variante !== 'page' || loading || !p || p.id !== id) return;
+    if (variante !== 'fenetre' || loading || !p || p.id !== id) return;
     if (isPreRoute && p.typeProspectionCode === CODE_PROSPECTION) {
       void navigate(`/prospections/${id}`, { replace: true });
     } else if (!isPreRoute && p.typeProspectionCode === CODE_PRE_PROSPECTION) {
@@ -588,13 +588,15 @@ export function FicheProspection({
   const devis = useApi(() => listDevis(id, { page: devisPage, size: 20 }), [id, devisPage], 'prospection-devis');
 
   // `!p` : une prospection déjà vue se repeint depuis le cache, la revalidation reste invisible.
-  if (loading && !p) return <CadreFiche variante={variante} title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><LoadingState /></CadreFiche>;
-  if (error) return <CadreFiche variante={variante} title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><ErrorState message={error} /></CadreFiche>;
+  const nature = isPreRoute ? 'Pré-prospection' : 'Prospection';
+  const coque = { variante, nature, voisins, onFermer };
+  if (loading && !p) return <CoqueFiche {...coque} titre={nature}><LoadingState /></CoqueFiche>;
+  if (error) return <CoqueFiche {...coque} titre={nature}><ErrorState message={error} /></CoqueFiche>;
   if (!p) {
     return (
-      <CadreFiche variante={variante} title={`${isPreRoute ? 'Pré-prospection' : 'Prospection'} introuvable`} crumbs={[{ label: listLabel, to: listPath }]}>
-        <p>Cette {isPreRoute ? 'pré-prospection' : 'prospection'} n'existe pas.</p>
-      </CadreFiche>
+      <CoqueFiche {...coque} titre={`${nature} introuvable`}>
+        <p className="p-4">Cette {isPreRoute ? 'pré-prospection' : 'prospection'} n'existe pas.</p>
+      </CoqueFiche>
     );
   }
 
@@ -632,7 +634,7 @@ export function FicheProspection({
       const maj = await transformerProspection(id, body);
       await refetch();
       void parcours.refetch();
-      if (variante === 'page') {
+      if (variante === 'fenetre') {
         if (isPreRoute) void navigate(`/prospections/${maj.id}`, { replace: true });
         showToast(texteProspectionTransformee(name, maj));
       } else {
@@ -831,6 +833,8 @@ export function FicheProspection({
       valeur={isPre ? p.tempEmail : p.emailFiche || p.tempEmail}
       aide={isPre ? "Idem : servi, mais non modifiable par l'API." : undefined}
     />,
+  ].filter(Boolean);
+  const champsArchivage = [
     /* Le désarchivage conserve date et motif : l'état se lit sur `fermee`,
        jamais sur la date. */
     (p.fermee || !!p.dateFermeture) && (
@@ -846,150 +850,67 @@ export function FicheProspection({
   ].filter(Boolean);
 
   // Une seule action principale, selon l'avancement : prospect → transformation → dossier.
-  let actionPrincipale;
+  let actionPrincipale: ActionRuban;
   if (isPre) {
-    actionPrincipale = (
-      <Button variant="outline" size="sm" onClick={() => setShowCreateProspect(true)}>
-        <Plus data-icon="inline-start" /> Créer prospect
-      </Button>
-    );
+    actionPrincipale = { id: 'creer-prospect', libelle: 'Créer prospect', icone: Plus, onClick: () => setShowCreateProspect(true) };
   } else if (estTransformable(p)) {
-    actionPrincipale = (
-      <Button size="sm" onClick={() => setShowTransform(true)} disabled={busy}>
-        Transformer
-      </Button>
-    );
+    actionPrincipale = { id: 'transformer', libelle: 'Transformer', icone: ArrowRightLeft, onClick: () => setShowTransform(true), disabled: busy };
   } else if (dossierIssu) {
-    actionPrincipale = (
-      <Button size="sm" onClick={() => ouvrirFicheDossier(dossierIssu.id)}>
-        <ArrowUpRight data-icon="inline-start" /> Dossier {dossierIssu.code ?? ''}
-      </Button>
-    );
+    actionPrincipale = {
+      id: 'dossier',
+      libelle: `Dossier ${dossierIssu.code ?? ''}`.trim(),
+      icone: ArrowUpRight,
+      onClick: () => ouvrirFicheDossier(dossierIssu.id),
+    };
   } else {
-    actionPrincipale = (
-      <Button size="sm" onClick={() => navigate(`/prospections/${p.id}/nouveau-dossier`)} disabled={p.fermee}>
-        Créer un dossier
-      </Button>
-    );
+    actionPrincipale = {
+      id: 'nouveau-dossier',
+      libelle: 'Créer un dossier',
+      icone: FilePlus,
+      onClick: () => void navigate(`/prospections/${p.id}/nouveau-dossier`),
+      disabled: p.fermee,
+    };
+  }
+  const propres: ActionRuban[] = [
+    actionPrincipale,
+    { id: 'appeler', libelle: 'Appeler', icone: Phone, onClick: () => showToast('Intégration VOIP à venir.') },
+  ];
+  if (p.fermee) {
+    propres.push({ id: 'desarchiver', libelle: 'Désarchiver', icone: ArchiveRestore, onClick: () => void handleDesarchiver(), disabled: busy });
+  } else if (!showArchiver) {
+    propres.push({ id: 'archiver', libelle: 'Archiver', icone: Archive, onClick: () => setShowArchiver(true), disabled: busy });
   }
 
-  return (
-    <CadreFiche
-      variante={variante}
-      title={name}
-      crumbs={[{ label: listLabel, to: listPath }]}
-      typeFiche={isPreRoute ? 'Pré-prospection' : 'Prospection'}
-      fullHeight
-      icon={isPreRoute ? <UserPlus /> : <Users />}
-      accent={sectionAccent}
-      accentBg={isPreRoute ? 'var(--sec-preprospection-bg)' : 'var(--sec-prospection-bg)'}
-      entete={
-        <EnteteFiche
-          code={p.code}
-          aideCode="Attribué par le système, non modifiable."
-          nom={
-            p.prospectId ? (
-              <LienFiche cible={{ type: 'prospect', id: p.prospectId }} className="hover:underline" title="Ouvrir la fiche prospect — elle se modifie depuis l'onglet Contacts.">
-                {p.prospectNom || p.prospectCode || 'Voir la fiche'}
-              </LienFiche>
-            ) : (
-              name
-            )
-          }
-        >
-          {isPre && <Badge tone="amber">Non qualifiée</Badge>}
-          <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Archivée' : p.etape || '—'}</Badge>
-          {joursInactivite !== null && <InactiviteBadge jours={joursInactivite} />}
-        </EnteteFiche>
-      }
-      parcours={etapesParcours && <ParcoursVente etapes={etapesParcours} accent={sectionAccent} />}
-      actions={
-        <>
-          <ProspectionDocumentButtons prospectionId={p.id} hasProspect={!isPre} />
-          <Button variant="outline" size="sm" onClick={() => showToast('Intégration VOIP à venir.')}>
-            <Phone data-icon="inline-start" /> Appeler
-          </Button>
-          {!p.fermee && !showArchiver && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => setShowArchiver(true)}
-              disabled={busy}
-            >
-              Archiver
-            </Button>
-          )}
-          {p.fermee && (
-            <Button variant="outline" size="sm" onClick={() => void handleDesarchiver()} disabled={busy}>
-              <ArchiveRestore data-icon="inline-start" /> Désarchiver
-            </Button>
-          )}
-          <Separator orientation="vertical" className="h-6" />
-          {actionPrincipale}
-        </>
-      }
-    >
-      <FicheShell
-        ongletActif={tab}
-        onOngletChange={(v) => setTab(v as ProspectionTab)}
-        identite={
-          (p.marqueurTri || p.noteQualification || dossierIssu) && (
-            <div className="flex flex-col gap-1.5">
-              {(p.marqueurTri || p.noteQualification) && <MarqueurTri p={p} />}
-              {dossierIssu && (
-                <DossierIssuBanner
-                  dossierId={p.activite?.dossierId}
-                  dossierCode={p.activite?.dossierCode}
-                  statutDossier={p.activite?.statutDossier}
-                />
-              )}
-            </div>
-          )
-        }
-        formulaire={
-          <Card padded={false}>
-            <div className="@container p-3">
-              {/* Libellés au-dessus des valeurs : sur un écran de portable, la grille à libellé
-                  latéral tronquait l'email et la tranche. */}
-              <div className="grid gap-x-6 gap-y-3 @3xl:grid-cols-2">
-                <section aria-labelledby="titre-qualification" className="min-w-0">
-                  <h3 id="titre-qualification" className={TITRE_BLOC}>Qualification</h3>
-                  <GrilleFiche empilee className={COLONNES_BLOC}>{champsQualification}</GrilleFiche>
-                </section>
-                <section aria-labelledby="titre-fiche" className="min-w-0 @3xl:border-l @3xl:border-border @3xl:pl-6">
-                  <h3 id="titre-fiche" className={TITRE_BLOC}>Contact et rattachement</h3>
-                  <GrilleFiche empilee className={COLONNES_BLOC}>{champsFiche}</GrilleFiche>
-                </section>
-              </div>
-              <GrilleFiche empilee className="mt-3 border-t border-border pt-3">
-                <ChampNotes
-                  id="f-notes"
-                  label="Notes"
-                  valeur={form.valeurs.notes}
-                  onChange={(v) => form.set('notes', v)}
-                  modifie={form.aChange('notes')}
-                />
-                <PiedFiche>
-                  <span title="Date de création, non modifiable.">Créée le {formatDate(p.dateDocument)}</span>
-                  <span aria-hidden>·</span>
-                  <span
-                    title={
-                      isPre
-                        ? "Vide tant que la pré-prospection n'est pas transformée."
-                        : 'Assigné à la transformation ; aucun endpoint ne le change ensuite.'
-                    }
-                  >
-                    commercial {p.commercialNom || '— non assigné —'}
-                  </span>
-                  {p.societeCode && (
-                    <>
-                      <span aria-hidden>·</span>
-                      <span>société {p.societeCode}</span>
-                    </>
-                  )}
-                </PiedFiche>
-              </GrilleFiche>
+  const prospectLien = p.prospectId ? (
+    <LienFiche cible={{ type: 'prospect', id: p.prospectId }} className="hover:underline" title="Ouvrir la fiche prospect — elle se modifie depuis l'onglet Contacts.">
+      {p.prospectNom || p.prospectCode || 'Voir la fiche'}
+    </LienFiche>
+  ) : null;
+  const badges = (
+    <>
+      {isPre && <Badge tone="amber">Non qualifiée</Badge>}
+      <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Archivée' : p.etape || '—'}</Badge>
+      {joursInactivite !== null && <InactiviteBadge jours={joursInactivite} />}
+    </>
+  );
+
+  const corps = (
+    <>
+      <RubanFiche
+        enregistrer={{ onClick: () => void enregistrerFiche(), disabled: !form.estModifie || saving, aide: 'Enregistre les champs modifiés.' }}
+        propres={propres}
+        enSuite={<ProspectionDocumentButtons prospectionId={p.id} hasProspect={!isPre} />}
+      />
+      <div className="flex shrink-0 flex-col gap-1.5 px-4 pt-2 empty:hidden">
+        {etapesParcours && <ParcoursVente etapes={etapesParcours} accent={sectionAccent} />}
+        {(p.marqueurTri || p.noteQualification) && <MarqueurTri p={p} />}
+        {dossierIssu && (
+          <DossierIssuBanner
+            dossierId={p.activite?.dossierId}
+            dossierCode={p.activite?.dossierCode}
+            statutDossier={p.activite?.statutDossier}
+          />
+        )}
 
               {showArchiver && (
                 <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5">
@@ -1012,11 +933,7 @@ export function FicheProspection({
                   </div>
                 </div>
               )}
-            </div>
-          </Card>
-        }
-        barreAction={
-          form.estModifie ? (
+        {form.estModifie && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-(--warning)/40 bg-(--warning-bg) px-3 py-2">
               <span className="text-label font-medium text-foreground">
                 {form.champsModifies.length} modification{form.champsModifies.length > 1 ? 's' : ''} non enregistrée
@@ -1034,8 +951,35 @@ export function FicheProspection({
                 </Button>
               </div>
             </div>
-          ) : undefined
-        }
+        )}
+      </div>
+      <div className="grid max-h-[52%] shrink-0 grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-4 overflow-auto border-b border-border px-4 py-3">
+        <div className="flex min-w-0 flex-col gap-3">
+          <BandeFiche>
+            <ChampFiche libelle="Code" valeur={p.code} />
+            <ChampFiche libelle="Prospect" valeur={prospectLien} />
+            <ChampFiche libelle="Créée le" valeur={formatDate(p.dateDocument)} />
+            <ChampFiche libelle="Commercial" valeur={p.commercialNom || '— non assigné —'} />
+            <ChampFiche libelle="Société" valeur={p.societeCode} />
+          </BandeFiche>
+          <GrilleFiche empilee className={COLONNES_BLOC}>{champsQualification}</GrilleFiche>
+          <GrilleFiche empilee>
+            <ChampNotes id="f-notes" label="Notes" valeur={form.valeurs.notes} onChange={(v) => form.set('notes', v)} modifie={form.aChange('notes')} />
+          </GrilleFiche>
+        </div>
+        <ClasseurEntete
+          type={isPreRoute ? 'preprospection' : 'prospection'}
+          onglets={[
+            { id: 'rattachement', titre: 'Contact et rattachement', contenu: <GrilleFiche empilee className={COLONNES_BLOC}>{champsFiche}</GrilleFiche> },
+            ...(champsArchivage.length > 0
+              ? [{ id: 'archivage', titre: 'Archivage', contenu: <GrilleFiche empilee className={COLONNES_BLOC}>{champsArchivage}</GrilleFiche> }]
+              : []),
+          ]}
+        />
+      </div>
+      <ClasseurBas
+        actif={tab}
+        onChange={(v) => setTab(v as ProspectionTab)}
         onglets={[
           {
             id: 'etape',
@@ -1416,7 +1360,36 @@ export function FicheProspection({
         />
       )}
 
-    </CadreFiche>
+    </>
+  );
+
+  if (variante === 'dialogue') {
+    return (
+      <CadreFiche
+        variante="dialogue"
+        title={name}
+        typeFiche={nature}
+        entete={
+          <EnteteFiche code={p.code} aideCode="Attribué par le système, non modifiable." nom={prospectLien ?? name}>
+            {badges}
+          </EnteteFiche>
+        }
+      >
+        {corps}
+      </CadreFiche>
+    );
+  }
+  return (
+    <FenetreFiche
+      nature={nature}
+      titre={p.prospectNom || name}
+      badge={badges}
+      voisins={voisins}
+      onFermer={onFermer}
+      pied={<PiedAudit creePar={p.creePar} creeLe={p.creeLe} modifiePar={p.modifiePar} modifieLe={p.modifieLe} />}
+    >
+      {corps}
+    </FenetreFiche>
   );
 }
 
