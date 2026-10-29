@@ -63,6 +63,7 @@ export default function FicheEditableFenetre<T extends Tracee>({ id, config, nat
       badge={fiche?.code}
       voisins={voisins}
       onFermer={onFermer}
+      enEdition={edition}
       trace={fiche ?? undefined}
       etat={{ chargement: loading && !fiche, erreur: error, pret: !!fiche, introuvable: 'Cet enregistrement n\'existe pas.' }}
       erreur={erreur}

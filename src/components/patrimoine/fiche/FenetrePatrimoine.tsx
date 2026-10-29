@@ -64,8 +64,10 @@ export default function FenetrePatrimoine({
   onFermer,
   trace,
   etat,
+  enEdition,
   ...corps
 }: Readonly<{
+  enEdition?: boolean;
   nature: string;
   titre: string;
   badge?: ReactNode;
@@ -79,7 +81,7 @@ export default function FenetrePatrimoine({
   else if (etat.pret) contenu = <CorpsFiche {...corps} />;
   else if (etat.chargement) contenu = <LoadingState />;
   return (
-    <FenetreFiche nature={nature} titre={titre} badge={badge} voisins={voisins} onFermer={onFermer} pied={trace && <PiedAudit {...trace} />}>
+    <FenetreFiche nature={nature} titre={titre} badge={badge} voisins={voisins} onFermer={onFermer} enEdition={enEdition} pied={trace && <PiedAudit {...trace} />}>
       {contenu}
     </FenetreFiche>
   );

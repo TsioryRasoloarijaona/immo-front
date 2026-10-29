@@ -12,11 +12,20 @@ export default function CoqueFiche({
   titre,
   voisins,
   onFermer,
+  enEdition,
   children,
-}: Readonly<{ variante: VarianteCoque; nature: string; titre: string; voisins?: VoisinsFiche; onFermer: () => void; children: ReactNode }>) {
+}: Readonly<{
+  variante: VarianteCoque;
+  nature: string;
+  titre: string;
+  voisins?: VoisinsFiche;
+  onFermer: () => void;
+  enEdition?: boolean;
+  children: ReactNode;
+}>) {
   if (variante === 'dialogue') return <CadreFiche variante="dialogue" title={titre}>{children}</CadreFiche>;
   return (
-    <FenetreFiche nature={nature} titre={titre} voisins={voisins} onFermer={onFermer}>
+    <FenetreFiche nature={nature} titre={titre} voisins={voisins} onFermer={onFermer} enEdition={enEdition}>
       {children}
     </FenetreFiche>
   );
