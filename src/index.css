@@ -320,6 +320,17 @@ table {
   }
 }
 
+/* Barres d'actions : icônes seules (choix du user, 29/10). Le libellé reste dans le DOM — nom accessible, infobulle posée
+   par useIconesSeules — mais ne s'affiche pas. Un bouton sans icône et un choix déroulant (valeur choisie) restent écrits. */
+.icones-seules :is(button, a):has(svg):not([role='combobox']) {
+  font-size: 0;
+  gap: 0;
+  padding-inline: 0.375rem;
+}
+.icones-seules :is(button, a):has(svg):not([role='combobox']) :not(svg, svg *):not(:has(svg)) {
+  display: none;
+}
+
 .page {
   padding: 14px 28px 20px;
   max-width: 1680px;

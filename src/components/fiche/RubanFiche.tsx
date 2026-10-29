@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { Paperclip, Printer, Save, Trash2, type LucideIcon } from 'lucide-react';
+import { ICONES_SEULES, useIconesSeules } from '../../lib/useIconesSeules';
 import { cn } from '../../lib/utils';
 import { CLASSE_FAMILLE, type FamilleOutil } from '../../lib/outilsListe';
 
@@ -35,7 +36,8 @@ function BoutonRuban({
 }
 
 /**
- * Ruban d'une fiche, sur une ligne : Enregistrer (plein) | actions propres | à droite Imprimer, Pièces jointes, Supprimer.
+ * Ruban d'une fiche, en icônes seules (libellé en infobulle) : Enregistrer (plein) | actions propres | à droite Imprimer,
+ * Pièces jointes, Supprimer.
  * Seules les actions que la fiche a réellement sont passées. `enSuite` accueille les actions déjà rendues par leur
  * composant (boutons + boîtes de dialogue).
  */
@@ -55,8 +57,15 @@ export default function RubanFiche({
   supprimer?: ActionSimple;
 }>) {
   const aDroite = [imprimer, piecesJointes, supprimer].some((a) => a !== undefined);
+  const racine = useRef<HTMLDivElement>(null);
+  useIconesSeules(racine);
   return (
-    <div role="toolbar" aria-label="Actions de la fiche" className="flex shrink-0 flex-wrap items-center gap-0.5 gap-y-1 border-b border-border px-3 py-1.5">
+    <div
+      ref={racine}
+      role="toolbar"
+      aria-label="Actions de la fiche"
+      className={cn(ICONES_SEULES, 'flex shrink-0 flex-wrap items-center gap-0.5 gap-y-1 border-b border-border px-3 py-1.5')}
+    >
       {enregistrer && (
         <>
           <button

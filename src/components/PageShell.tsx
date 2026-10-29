@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '../lib/utils';
+import BarreIcones from './BarreIcones';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -105,7 +106,7 @@ export default function PageShell({
           </div>
         </div>
         <div className={cn('flex items-center gap-2', entete ? 'ml-auto max-w-full' : 'shrink-0')}>
-          {actions && <div className="flex min-w-0 flex-wrap justify-end gap-2">{actions}</div>}
+          {actions && <BarreIcones className="flex min-w-0 flex-wrap justify-end gap-2">{actions}</BarreIcones>}
         </div>
       </header>
       <div className={cn('page', fullHeight && 'flex min-h-0 flex-col overflow-hidden')}>{children}</div>
