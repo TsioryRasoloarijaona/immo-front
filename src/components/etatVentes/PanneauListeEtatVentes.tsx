@@ -26,26 +26,14 @@ import { useTotauxServeur } from '../../lib/totauxServeur';
 import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import { useExportListe } from '../../lib/useExportListe';
 import { pluriel } from '../../lib/format';
-import {
-  referentielItems,
-  useCategoriesBien,
-  useColonnesEtatVentes,
-  useEntitesReferentiel,
-  useProjetsReferentiel,
-  useTranchesFiltre,
-  useTypesBienReferentiel,
-} from '../../lib/referentiels';
-import type { LigneEtatVentesDto, PageDto, StatutSynthese, TrancheDetailDto } from '../../types';
+import { referentielItems, useCategoriesBien, useColonnesEtatVentes, useTypesBienReferentiel } from '../../lib/referentiels';
+import { useCascadeTranches, type SelectionCascade } from '../../lib/cascadeTranches';
+import type { LigneEtatVentesDto, PageDto, StatutSynthese } from '../../types';
 
 const CLE = 'etat-des-ventes-omran';
 
 function avecId(p: PageDto<LigneEtatVentesDto>): PageDto<LigneEtatVentes> {
   return { ...p, content: p.content.map((l) => ({ ...l, id: l.articleId })) };
-}
-
-/** Aucune entité cochée = toutes les tranches. La liste des tranches ne sert que `entiteCode`, pas `entiteId`. */
-function appartientAuxEntites(t: Pick<TrancheDetailDto, 'entiteCode'>, codes: string[] | null): boolean {
-  return codes === null || (!!t.entiteCode && codes.includes(t.entiteCode));
 }
 
 /** Onglet « Liste des articles » ; les filtres vivent dans la page pour survivre au changement d'onglet. */
@@ -60,20 +48,13 @@ export default function PanneauListeEtatVentes({
   statuts: StatutSynthese[];
   onOuvrir: (ligne: LigneEtatVentes) => void;
 }>) {
-  const entites = useEntitesReferentiel().data;
-  const entiteItems = referentielItems(entites);
-  const codesEntites = (ids: string[]) => (ids.length === 0 ? null : entites.flatMap((e) => (ids.includes(e.id) && e.code ? [e.code] : [])));
-  const projetItems = referentielItems(useProjetsReferentiel().data);
-  const toutesTranches = useTranchesFiltre().data;
-  const trancheItems = toutesTranches
-    .filter((t) => appartientAuxEntites(t, codesEntites(filtres.entiteId)))
-    .map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  const cascade = useCascadeTranches(filtres);
   const categorieItems = referentielItems(useCategoriesBien().data);
   const typeItems = referentielItems(useTypesBienReferentiel().data);
 
   const [page, setPage] = useState(0);
   const search = useDebouncedValue(filtres.search);
-  const params = paramsEtatVentes({ ...filtres, search });
+  const params = paramsEtatVentes({ ...filtres, search }, cascade.params(true));
   const cle = JSON.stringify(params);
 
   function changer<K extends keyof FiltresListeEtatVentes>(c: K, valeur: FiltresListeEtatVentes[K]) {
@@ -81,14 +62,9 @@ export default function PanneauListeEtatVentes({
     setFiltres((f) => ({ ...f, [c]: valeur }));
   }
 
-  function changerEntites(entiteId: string[]) {
-    const codes = codesEntites(entiteId);
+  function changerCascade(sel: SelectionCascade) {
     setPage(0);
-    setFiltres((f) => ({
-      ...f,
-      entiteId,
-      trancheId: f.trancheId.filter((id) => toutesTranches.some((t) => t.id === id && appartientAuxEntites(t, codes))),
-    }));
+    setFiltres((f) => ({ ...f, ...sel }));
   }
 
   function reinitialiser() {
@@ -157,11 +133,9 @@ export default function PanneauListeEtatVentes({
       <FiltresEtatVentesPanneau
         filtres={filtres}
         changer={changer}
-        changerEntites={changerEntites}
+        changerCascade={changerCascade}
+        cascade={cascade}
         reinitialiser={reinitialiser}
-        entites={entiteItems}
-        projets={projetItems}
-        tranches={trancheItems}
         categories={categorieItems}
         statuts={statutItems}
         types={typeItems}

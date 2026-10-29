@@ -17,17 +17,18 @@ import PageListe from '../../components/liste/PageListe';
 import EnteteListe from '../../components/liste/EnteteListe';
 import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
 import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import FiltreEntiteProjetTranche from '../../components/liste/FiltreEntiteProjetTranche';
 import EtatVideListe from '../../components/liste/EtatVideListe';
 import BarreEtatListe from '../../components/liste/BarreEtatListe';
 import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import { creerDevis, DEFAULT_PAGE_SIZE, getProspection, listOffres, listProspections } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { CATALOGUE_OFFRES, COLONNES_OFFRES, detailOffre, DISPOSITION_OFFRES } from '../../lib/offres';
-import { useTranchesFiltre } from '../../lib/referentiels';
+import { CASCADE_VIDE, pucesCascade, useCascadeTranches, type SelectionCascade } from '../../lib/cascadeTranches';
 import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
-import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
+import { puceUnique } from '../../lib/pucesFiltres';
 import { debutMoisISO, finMoisISO, formatCurrency, pluriel } from '../../lib/format';
 import { prospectionDisplayName } from '../../lib/domain';
 import type { CreerDevisRequest, ProspectionListItemDto } from '../../types';
@@ -38,7 +39,9 @@ export default function OffresList() {
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
-  const [trancheIds, setTrancheIds] = useState<string[]>([]);
+  const [selection, setSelection] = useState<SelectionCascade>(CASCADE_VIDE);
+  const cascade = useCascadeTranches(selection);
+  const trancheId = cascade.params().trancheId;
   const [commercial, setCommercial] = useState<string | null>(null);
   const [dateDebut, setDateDebut] = useState(debutMoisISO);
   const [dateFin, setDateFin] = useState(finMoisISO);
@@ -52,7 +55,7 @@ export default function OffresList() {
       listOffres(
         {
           search: debouncedSearch || undefined,
-          trancheId: trancheIds.length > 0 ? trancheIds : undefined,
+          trancheId,
           commercial: commercial || undefined,
           dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
           dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
@@ -60,7 +63,7 @@ export default function OffresList() {
         // Tri sur `docDate` (propriété d'entité), pas `dateDocument` (champ du DTO) : sinon 400.
         { page, size: DEFAULT_PAGE_SIZE, sort: ['docDate,desc'] },
       ),
-    [debouncedSearch, trancheIds.join(','), commercial, dateDebut, dateFin, page],
+    [debouncedSearch, trancheId?.join(',') ?? '', commercial, dateDebut, dateFin, page],
     'offres',
   );
   const offres = data?.content ?? [];
@@ -69,12 +72,6 @@ export default function OffresList() {
   // Sélecteur local : chaque ligne porte déjà tous les montants, cocher une colonne ne refait pas la requête.
   const colonnes = useColonnesVisibles('offres', CATALOGUE_OFFRES, DISPOSITION_OFFRES);
   const grille = COLONNES_OFFRES.filter((c) => colonnes.visibles.includes(c.nom));
-
-  const tranches = useTranchesFiltre();
-  const trancheItems = tranches.data.map((t) => ({
-    label: t.description || t.code || t.id,
-    value: t.id,
-  }));
 
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
@@ -92,7 +89,7 @@ export default function OffresList() {
   function resetFilters() {
     setPage(0);
     setSearch('');
-    setTrancheIds([]);
+    setSelection(CASCADE_VIDE);
     setCommercial(null);
     setDateDebut(debutMoisISO());
     setDateFin(finMoisISO());
@@ -104,10 +101,10 @@ export default function OffresList() {
 
   // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
-    !!search || trancheIds.length > 0 || !!commercial || dateDebut !== debutMoisISO() || dateFin !== finMoisISO();
+    !!search || trancheId !== undefined || !!commercial || dateDebut !== debutMoisISO() || dateFin !== finMoisISO();
 
   const puces = [
-    ...puceSelection('Entité', trancheItems, trancheIds),
+    ...pucesCascade(cascade, selection),
     ...puceUnique(commercialItems, commercial),
     ...(search ? [`« ${search} »`] : []),
   ];
@@ -140,7 +137,7 @@ export default function OffresList() {
         }}
         onReinitialiser={resetFilters}
       >
-        <BoiteFiltre titre="Entité" mode="multiple" items={trancheItems} valeur={trancheIds} onChange={(v) => resetAndSet(setTrancheIds, v)} />
+        <FiltreEntiteProjetTranche valeur={selection} onChange={(sel) => resetAndSet(setSelection, sel)} cascade={cascade} />
         <BoiteFiltre titre="Commercial" mode="unique" items={commercialItems} valeur={commercial} onChange={(v) => resetAndSet(setCommercial, v)} />
       </PanneauFiltresCoches>
 

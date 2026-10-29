@@ -9,9 +9,7 @@ import { countActiveFiltresAvances, TYPES_PROSPECTION, type FiltresAvancesState 
 import {
   referentielItems,
   useActionsCommerciales,
-  useEntitesReferentiel,
   usePays,
-  useProjetsReferentiel,
   useRaisonsCloture,
   useSupportsOrigine,
   useTypesContactProspection,
@@ -53,8 +51,6 @@ export default function ProspectionFiltresAvances({
   onChange: <K extends keyof FiltresAvancesState>(key: K, value: FiltresAvancesState[K]) => void;
   onReset: () => void;
 }>) {
-  const projets = useProjetsReferentiel();
-  const societes = useEntitesReferentiel();
   const vocations = useVocations();
   const typesContact = useTypesContactProspection();
   const actions = useActionsCommerciales();
@@ -102,8 +98,6 @@ export default function ProspectionFiltresAvances({
 
   function multi(
     cle:
-      | 'projetId'
-      | 'societeId'
       | 'vocationId'
       | 'typeContactId'
       | 'actionId'
@@ -176,13 +170,6 @@ export default function ProspectionFiltresAvances({
           </Section>
 
           <Section titre="Rattachement">
-            {multi(
-              'projetId',
-              'Projet',
-              referentielItems(projets.data),
-              'Une prospection sans tranche n’a pas de projet et sort du résultat.',
-            )}
-            {multi('societeId', 'Société', referentielItems(societes.data))}
             {multi('vocationId', 'Vocation', referentielItems(vocations.data))}
             {multi(
               'typeProspection',

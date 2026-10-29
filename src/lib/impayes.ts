@@ -1,9 +1,8 @@
 import type { ImpayeChampDate, ImpayeEchuA, ImpayesFilterParams } from './api';
+import { CASCADE_VIDE, type SelectionCascade } from './cascadeTranches';
 
 /** État des filtres de l'écran « Impayés » ; les textes sont débouncés par la page avant l'appel. */
-export type FiltresImpayes = {
-  projetId: string[];
-  trancheId: string[];
+export type FiltresImpayes = SelectionCascade & {
   echu: ImpayeEchuA;
   champDate: ImpayeChampDate;
   du: string;
@@ -16,8 +15,7 @@ export type FiltresImpayes = {
 };
 
 export const FILTRES_IMPAYES_DEFAUT: FiltresImpayes = {
-  projetId: [],
-  trancheId: [],
+  ...CASCADE_VIDE,
   echu: 'ECHEANCE',
   champDate: 'ECHEANCE',
   du: '',
@@ -46,16 +44,11 @@ function texte(valeur: string): string | undefined {
   return t === '' ? undefined : t;
 }
 
-function liste(valeurs: string[]): string[] | undefined {
-  return valeurs.length > 0 ? valeurs : undefined;
-}
-
 /** Mêmes paramètres pour la liste et l'export : le classeur reprend exactement l'écran. */
-export function paramsImpayes(f: FiltresImpayes): ImpayesFilterParams {
+export function paramsImpayes(f: FiltresImpayes, trancheId: string[] | undefined): ImpayesFilterParams {
   const periode = f.du !== '' || f.au !== '';
   return {
-    projetId: liste(f.projetId),
-    trancheId: liste(f.trancheId),
+    trancheId,
     echu: f.echu,
     champDate: periode ? f.champDate : undefined,
     du: f.du || undefined,

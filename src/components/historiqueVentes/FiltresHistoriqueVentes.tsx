@@ -1,6 +1,8 @@
 import PanneauFiltresCoches from '../liste/PanneauFiltresCoches';
 import BoiteFiltre from '../liste/BoiteFiltre';
 import { Input } from '../ui/input';
+import FiltreEntiteProjetTranche from '../liste/FiltreEntiteProjetTranche';
+import { pucesCascade, type CascadeTranches } from '../../lib/cascadeTranches';
 import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
 import type { FiltresHistorique, ModeDate } from '../../lib/historiqueVentes';
 
@@ -20,19 +22,19 @@ export default function FiltresHistoriqueVentes({
   ferme,
   onBasculer,
   options,
+  cascade,
 }: Readonly<{
   filtres: FiltresHistorique;
   onChange: (patch: Partial<FiltresHistorique>) => void;
   onReinitialiser: () => void;
   ferme: boolean;
   onBasculer: () => void;
-  options: { societes: Option[]; projets: Option[]; tranches: Option[]; statuts: Option[]; champsDate: Option[]; commerciaux: Option[] };
+  options: { statuts: Option[]; champsDate: Option[]; commerciaux: Option[] };
+  cascade: CascadeTranches;
 }>) {
   const unique = (valeur: string) => valeur || null;
   const puces = [
-    ...puceUnique(options.societes, unique(filtres.societeId)),
-    ...puceUnique(options.projets, unique(filtres.projet)),
-    ...puceSelection('Tranche', options.tranches, filtres.trancheIds),
+    ...pucesCascade(cascade, filtres),
     ...puceSelection('Statut', options.statuts, filtres.statuts),
     ...(filtres.modeDate === 'PERIODE' ? [] : puceUnique(MODES_DATE, filtres.modeDate)),
     ...puceUnique(options.commerciaux, unique(filtres.commercial)),
@@ -56,9 +58,7 @@ export default function FiltresHistoriqueVentes({
         </>
       }
     >
-      <BoiteFiltre titre="Société" mode="unique" items={options.societes} valeur={unique(filtres.societeId)} onChange={(v) => onChange({ societeId: v ?? '' })} />
-      <BoiteFiltre titre="Projet" mode="unique" items={options.projets} valeur={unique(filtres.projet)} onChange={(v) => onChange({ projet: v ?? '' })} />
-      <BoiteFiltre titre="Tranche" mode="multiple" items={options.tranches} valeur={filtres.trancheIds} onChange={(v) => onChange({ trancheIds: v })} />
+      <FiltreEntiteProjetTranche valeur={filtres} onChange={onChange} cascade={cascade} />
       <BoiteFiltre titre="Statut" mode="multiple" items={options.statuts} valeur={filtres.statuts} onChange={(v) => onChange({ statuts: v })} />
       <BoiteFiltre
         titre="Mode de date"

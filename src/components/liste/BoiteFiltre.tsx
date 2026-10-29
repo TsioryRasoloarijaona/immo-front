@@ -24,8 +24,9 @@ type Selection =
 export default function BoiteFiltre({
   titre,
   items,
+  coches = false,
   ...selection
-}: Readonly<{ titre: string; items: ItemFiltre[] } & Selection>) {
+}: Readonly<{ titre: string; items: ItemFiltre[]; coches?: boolean } & Selection>) {
   function estCochee(v: string): boolean {
     if (selection.mode === 'unique') return selection.valeur === v;
     return selection.valeur.includes(v);
@@ -49,7 +50,7 @@ export default function BoiteFiltre({
 
   const filtre = selection.mode === 'unique' ? selection.valeur !== null : selection.valeur.length > 0;
 
-  if (items.length > SEUIL_DEROULANT || LISTE_DE_PERSONNES.test(titre)) {
+  if (!coches && (items.length > SEUIL_DEROULANT || LISTE_DE_PERSONNES.test(titre))) {
     return (
       <div className="flex max-w-62.5 min-w-32.5 flex-[1_1_160px] flex-col gap-1">
         <span className="truncate pl-0.5 text-micro font-semibold tracking-wide text-muted-foreground uppercase" title={titre}>

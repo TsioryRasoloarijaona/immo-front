@@ -1,7 +1,9 @@
 import { Input } from '../ui/input';
 import PanneauFiltresCoches from '../liste/PanneauFiltresCoches';
 import BoiteFiltre from '../liste/BoiteFiltre';
-import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
+import FiltreEntiteProjetTranche from '../liste/FiltreEntiteProjetTranche';
+import { pucesCascade, type CascadeTranches, type SelectionCascade } from '../../lib/cascadeTranches';
+import { puceUnique } from '../../lib/pucesFiltres';
 import { CHAMP_DATE_IMPAYE_ITEMS, ECHU_ITEMS, type FiltresImpayes } from '../../lib/impayes';
 
 type Item = { label: string; value: string };
@@ -13,8 +15,7 @@ export default function FiltresImpayesPanneau({
   reinitialiser,
   ferme,
   onBasculer,
-  projets,
-  tranches,
+  cascade,
   commerciaux,
   categories,
 }: Readonly<{
@@ -23,14 +24,18 @@ export default function FiltresImpayesPanneau({
   reinitialiser: () => void;
   ferme: boolean;
   onBasculer: () => void;
-  projets: Item[];
-  tranches: Item[];
+  cascade: CascadeTranches;
   commerciaux: Item[];
   categories: Item[];
 }>) {
+  function changerCascade(sel: SelectionCascade) {
+    changer('entiteId', sel.entiteId);
+    changer('projetId', sel.projetId);
+    changer('trancheId', sel.trancheId);
+  }
+
   const puces = [
-    ...puceSelection('Projet', projets, filtres.projetId),
-    ...puceSelection('Tranche', tranches, filtres.trancheId),
+    ...pucesCascade(cascade, filtres),
     ...puceUnique(commerciaux, filtres.commercialId),
     ...puceUnique(categories, filtres.categorieId),
     ...(filtres.echu === 'ECHEANCE' ? [] : puceUnique(ECHU_ITEMS, filtres.echu)),
@@ -76,8 +81,7 @@ export default function FiltresImpayesPanneau({
         </>
       }
     >
-      <BoiteFiltre titre="Projet" mode="multiple" items={projets} valeur={filtres.projetId} onChange={(v) => changer('projetId', v)} />
-      <BoiteFiltre titre="Tranche" mode="multiple" items={tranches} valeur={filtres.trancheId} onChange={(v) => changer('trancheId', v)} />
+      <FiltreEntiteProjetTranche valeur={filtres} onChange={changerCascade} cascade={cascade} />
       <BoiteFiltre
         titre="Échu à"
         mode="unique"

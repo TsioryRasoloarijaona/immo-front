@@ -1,5 +1,7 @@
 import PanneauFiltresCoches from '../liste/PanneauFiltresCoches';
 import BoiteFiltre from '../liste/BoiteFiltre';
+import FiltreEntiteProjetTranche from '../liste/FiltreEntiteProjetTranche';
+import { pucesCascade, type CascadeTranches, type SelectionCascade } from '../../lib/cascadeTranches';
 import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
 import { ETAT_PIECE_ITEMS, SENS_ITEMS, type FiltresListeAffectations, type SensAffectation } from '../../lib/suiviAffectations';
 
@@ -9,9 +11,6 @@ type Item = { label: string; value: string };
 const SENS_CHOISIS = SENS_ITEMS.filter((s) => s.value !== 'TOUS');
 
 export type ChoixFiltresAffectations = {
-  entites: Item[];
-  projets: Item[];
-  tranches: Item[];
   categories: Item[];
   types: Item[];
   statuts: Item[];
@@ -21,6 +20,8 @@ export type ChoixFiltresAffectations = {
 export default function FiltresAffectationsPanneau({
   filtres,
   changer,
+  changerCascade,
+  cascade,
   reinitialiser,
   ferme,
   onBasculer,
@@ -28,15 +29,15 @@ export default function FiltresAffectationsPanneau({
 }: Readonly<{
   filtres: FiltresListeAffectations;
   changer: <K extends keyof FiltresListeAffectations>(cle: K, valeur: FiltresListeAffectations[K]) => void;
+  changerCascade: (sel: SelectionCascade) => void;
+  cascade: CascadeTranches;
   reinitialiser: () => void;
   ferme: boolean;
   onBasculer: () => void;
   choix: ChoixFiltresAffectations;
 }>) {
   const puces = [
-    ...puceSelection('Entité', choix.entites, filtres.entiteId),
-    ...puceUnique(choix.projets, filtres.projetId),
-    ...puceSelection('Tranche', choix.tranches, filtres.trancheId),
+    ...pucesCascade(cascade, filtres),
     ...puceSelection('Catégorie', choix.categories, filtres.categorieId),
     ...puceSelection('Type', choix.types, filtres.typeId),
     ...puceSelection('Statut', choix.statuts, filtres.statut),
@@ -65,9 +66,7 @@ export default function FiltresAffectationsPanneau({
       }}
       onReinitialiser={reinitialiser}
     >
-      <BoiteFiltre titre="Entité" mode="multiple" items={choix.entites} valeur={filtres.entiteId} onChange={(v) => changer('entiteId', v)} />
-      <BoiteFiltre titre="Projet" mode="unique" items={choix.projets} valeur={filtres.projetId} onChange={(v) => changer('projetId', v)} />
-      <BoiteFiltre titre="Tranche" mode="multiple" items={choix.tranches} valeur={filtres.trancheId} onChange={(v) => changer('trancheId', v)} />
+      <FiltreEntiteProjetTranche valeur={filtres} onChange={changerCascade} cascade={cascade} />
       <BoiteFiltre titre="Catégorie" mode="multiple" items={choix.categories} valeur={filtres.categorieId} onChange={(v) => changer('categorieId', v)} />
       <BoiteFiltre titre="Type de pièce" mode="multiple" items={choix.types} valeur={filtres.typeId} onChange={(v) => changer('typeId', v)} />
       <BoiteFiltre titre="Statut du dossier" mode="multiple" items={choix.statuts} valeur={filtres.statut} onChange={(v) => changer('statut', v)} />
