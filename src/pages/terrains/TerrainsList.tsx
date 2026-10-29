@@ -5,6 +5,9 @@ import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import BoiteFiltre from '../../components/liste/BoiteFiltre';
 import CadreListe from '../../components/patrimoine/CadreListe';
 import ImportPlanDialog from '../../components/patrimoine/ImportPlanDialog';
+import FicheLotissementFenetre from '../../components/terrain/fiche/FicheLotissementFenetre';
+import FicheTerrainFenetre from '../../components/terrain/fiche/FicheTerrainFenetre';
+import useFenetreListe from '../../lib/useFenetreListe';
 import { DEFAULT_PAGE_SIZE } from '../../lib/api';
 import { listTerrains } from '../../lib/apiTerrains';
 import { formatSurface, pluriel } from '../../lib/format';
@@ -57,6 +60,8 @@ export default function TerrainsList({ liste = 'terrains' }: Readonly<{ liste?: 
     [liste, debouncedSearch, entiteId, trancheId, page],
   );
   const rows = data?.content ?? [];
+  const fenetre = useFenetreListe(`/${liste}`, rows.map((t) => t.id));
+  const Fiche = lotissements ? FicheLotissementFenetre : FicheTerrainFenetre;
   const filtre = !!search || entiteId !== null || trancheId !== null;
   const sansTranche = trancheId === null;
   const exportListe = useExportListe(`/api/${liste}/export`, { ...filtres, colonnes: colonnes(lotissements).map((c) => c.nom) }, liste);
@@ -111,15 +116,22 @@ export default function TerrainsList({ liste = 'terrains' }: Readonly<{ liste?: 
           : [],
       }}
       exportListe={{ export: exportListe, pdf: true }}
-      dialogues={planOuvert && trancheId && (
-        <ImportPlanDialog trancheId={trancheId} onClose={() => setPlanOuvert(false)} onImporte={() => setPlanOuvert(false)} />
-      )}
+      dialogues={
+        <>
+          {planOuvert && trancheId && (
+            <ImportPlanDialog trancheId={trancheId} onClose={() => setPlanOuvert(false)} onImporte={() => setPlanOuvert(false)} />
+          )}
+          {fenetre.idOuvert && (
+            <Fiche key={fenetre.idOuvert} id={fenetre.idOuvert} voisins={fenetre.voisins} onFermer={fenetre.fermer} />
+          )}
+        </>
+      }
     >
       <DataGrid
         cleOrdre={liste}
         rows={rows}
         colonnes={colonnes(lotissements)}
-        onOuvrir={(id) => navigate(`/${lotissements ? 'lotissements' : 'terrains'}/${id}`)}
+        onOuvrir={fenetre.ouvrir}
         libelleLigne={(t) => `Ouvrir la fiche de ${t.code ?? ''}`.trim()}
       />
     </CadreListe>

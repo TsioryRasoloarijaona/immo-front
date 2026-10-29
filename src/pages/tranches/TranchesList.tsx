@@ -4,7 +4,9 @@ import ColumnSelector from '../../components/ColumnSelector';
 import DataGrid from '../../components/DataGrid';
 import EtatColonnes from '../../components/EtatColonnes';
 import CadreListe from '../../components/patrimoine/CadreListe';
+import FicheTrancheFenetre from '../../components/tranche/fiche/FicheTrancheFenetre';
 import { DEFAULT_PAGE_SIZE, listTranches } from '../../lib/api';
+import useFenetreListe from '../../lib/useFenetreListe';
 import { pluriel } from '../../lib/format';
 import { useExportListe } from '../../lib/useExportListe';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
@@ -37,6 +39,7 @@ export default function TranchesList() {
   );
   const rows = data?.content ?? [];
   const exportListe = useExportListe('/api/tranches/export', { search: debouncedSearch || undefined, colonnes: colonnes.visibles }, 'tranches');
+  const fenetre = useFenetreListe('/tranches', rows.map((t) => t.id));
 
   function resetFilters() {
     setPage(0);
@@ -80,13 +83,16 @@ export default function TranchesList() {
         actions: [{ id: 'importer', onClick: () => void navigate('/articles/import?type=tranches') }],
       }}
       exportListe={{ export: exportListe, pdf: true, inactif: colonnes.visibles.length === 0 }}
+      dialogues={
+        fenetre.idOuvert && <FicheTrancheFenetre key={fenetre.idOuvert} id={fenetre.idOuvert} voisins={fenetre.voisins} onFermer={fenetre.fermer} />
+      }
     >
       <EtatColonnes pret={grille.length > 0} erreur={catalogue.error}>
         <DataGrid
           cleOrdre="tranches"
           rows={rows}
           colonnes={grille}
-          onOuvrir={(id) => navigate(`/tranches/${id}`)}
+          onOuvrir={fenetre.ouvrir}
           libelleLigne={(t) => `Ouvrir la tranche ${t.description || t.code || ''}`.trim()}
         />
       </EtatColonnes>

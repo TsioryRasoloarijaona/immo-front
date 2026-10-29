@@ -10,6 +10,7 @@ import ActionsRecentes from './ActionsRecentes';
 import Cloche from './notifications/Cloche';
 import ThemeToggle from './ThemeToggle';
 import ModuleSwitcher from './ModuleSwitcher';
+import BarreIcones from './BarreIcones';
 import { useAuth } from '../lib/auth';
 import { estAdministrateur, estCommercialTerrain } from '../lib/roles';
 import { MODULES_DECLARES } from '../modules/registre';
@@ -49,21 +50,11 @@ export default function BarreHaut() {
       <SidebarTrigger title="Afficher/masquer la barre latérale" className="self-center" />
       <OngletsEcrans titres={titres} />
       <div className="flex-1" />
-      <div className="flex shrink-0 items-center gap-1 self-center">
-        <button
-          type="button"
-          onClick={() => setPalette(true)}
-          className="mr-1 hidden h-7.5 w-56 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-background px-2 text-xs text-muted-foreground transition-colors hover:text-foreground lg:flex"
-        >
-          <Search className="size-3.5" aria-hidden />
-          Rechercher partout
-          <kbd className="ml-auto rounded-sm border border-border px-1 text-micro">Ctrl K</kbd>
-        </button>
+      <BarreIcones className="flex shrink-0 items-center gap-1 self-center">
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="lg:hidden"
           onClick={() => setPalette(true)}
           aria-label="Rechercher partout"
           title="Rechercher partout (Ctrl K)"
@@ -80,7 +71,7 @@ export default function BarreHaut() {
         <Button type="button" variant="ghost" size="icon-sm" onClick={() => setModules(true)} aria-label="Changer de module" title="Changer de module">
           <Grid2x2 />
         </Button>
-      </div>
+      </BarreIcones>
       {palette && <PaletteMenu entrees={entrees} onClose={() => setPalette(false)} />}
       {modules && <ModuleSwitcher onClose={() => setModules(false)} />}
     </header>

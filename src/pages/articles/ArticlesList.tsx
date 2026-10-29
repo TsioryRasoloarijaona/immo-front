@@ -8,7 +8,6 @@ export default function ArticlesList() {
   return (
     <ListeLignesArticles
       liste="articles"
-      onOuvrir={(id) => navigate(`/articles/${id}`)}
       admin={{
         nouveau: { libelle: 'Nouvel article', onClick: () => void navigate('/articles/nouveau') },
         actions: [{ id: 'importer', onClick: () => void navigate('/articles/import?type=articles') }],

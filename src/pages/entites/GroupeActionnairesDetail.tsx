@@ -1,28 +1,7 @@
-import { useParams } from 'react-router-dom';
-import { UsersRound } from 'lucide-react';
-import FicheEditable, { type ConfigFiche } from '../../components/entites/FicheEditable';
-import {
-  createGroupeActionnaires, deleteGroupeActionnaires, getGroupeActionnaires, updateGroupeActionnaires,
-} from '../../lib/apiEntites';
-import { SECTIONS_GROUPE } from '../../lib/saisieEntite';
-import type { GroupeActionnairesDto } from '../../types';
+import FicheEditable from '../../components/entites/FicheEditable';
+import { CONFIG_GROUPE } from '../../components/entites/fiche/configsEntites';
 
-const CONFIG: ConfigFiche<GroupeActionnairesDto> = {
-  chemin: '/groupes-actionnaires',
-  libelleListe: "Groupes d'actionnaires",
-  titreCreation: "Nouveau groupe d'actionnaires",
-  icon: <UsersRound />,
-  sections: SECTIONS_GROUPE,
-  lignes: { cle: 'lignes', champ: 'pourcentage', titre: 'Actionnaires du groupe (Σ = 100 %)' },
-  libelleEdition: 'Modifier',
-  messageSuppression: 'Le groupe et ses lignes seront supprimés. Continuer ?',
-  charger: getGroupeActionnaires,
-  creer: createGroupeActionnaires,
-  modifier: updateGroupeActionnaires,
-  supprimer: deleteGroupeActionnaires,
-};
-
+/** Création d'un groupe (`/groupes-actionnaires/nouveau`) ; la fiche existante s'ouvre en fenêtre sur la liste. */
 export default function GroupeActionnairesDetail() {
-  const { id } = useParams();
-  return <FicheEditable id={id} config={CONFIG} />;
+  return <FicheEditable config={CONFIG_GROUPE} />;
 }

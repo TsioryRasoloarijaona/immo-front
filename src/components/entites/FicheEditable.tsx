@@ -1,26 +1,18 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, Trash2 } from 'lucide-react';
-import PageShell from '../PageShell';
-import ActionAdmin from '../patrimoine/ActionAdmin';
-import BoutonImprimerFiche from '../patrimoine/BoutonImprimerFiche';
-import FicheSections from '../patrimoine/FicheSections';
 import PiedSaisie from '../patrimoine/PiedSaisie';
 import SectionsSaisie, { type ListesChoix } from '../patrimoine/SectionsSaisie';
+import type { OngletFiche } from '../FicheShell';
 import LignesActionnaires from './LignesActionnaires';
 import AdminGuard from '../../pages/utilisateurs/AdminGuard';
-import { Card, ErrorState, Field, FieldGrid, LoadingState } from '../ui';
 import { Button } from '../ui/button';
-import { useConfirm } from '../../lib/confirmContext';
-import { libelleTrace } from '../../lib/format';
-import { lignesFil, rangeesDepuis, type ChampLigne, type LigneFil, type RangeeActionnaire } from '../../lib/lignesActionnaires';
+import { lignesDe, lignesFil, rangeesDepuis, type ChampLigne, type RangeeActionnaire } from '../../lib/lignesActionnaires';
 import { brouillonDepuis, champsDe, corpsDepuis, useSaisie, type Brouillon, type SectionSaisie } from '../../lib/saisiePatrimoine';
-import { useApi } from '../../lib/useApi';
 import type { RessourceFichePdf } from '../../types';
 
 type Corps = Record<string, unknown>;
 
-interface Tracee {
+export interface Tracee {
   id: string;
   code?: string;
   description?: string;
@@ -57,92 +49,34 @@ export interface ConfigFiche<T extends Tracee> {
   apresChamp?: (nom: string, valeur: string | boolean, contexte: ContexteSaisie) => void;
   /** Champs grisés à la création (le groupe exige l'id de l'entité pour charger la répartition). */
   verrouillesCreation?: string[];
-  /** Présent : bouton « Imprimer » (PDF de la fiche) en tête. */
+  /** Présent : bouton « Imprimer » (PDF de la fiche) dans le ruban. */
   ressourceFichePdf?: RessourceFichePdf;
-  /** Actions d'en-tête propres à l'écran (bascule Active de l'entité). */
+  /** Actions du ruban propres à l'écran (bascule Active de l'entité). */
   actions?: (fiche: T, recharger: () => void) => ReactNode;
-  pied?: (fiche: T) => ReactNode;
+  /** Onglets du bas en plus des sections et de la répartition. */
+  onglets?: (fiche: T) => OngletFiche[];
 }
 
-const lignesDe = (source: object | undefined, cle: string) => (source as Record<string, LigneFil[] | null> | undefined)?.[cle];
-
-/** Fiche en lecture seule à l'ouverture, « Débloquer » / « Modifier » (Administrateur) → saisie ; `id` absent = création. */
-export default function FicheEditable<T extends Tracee>({ id, config }: Readonly<{ id?: string; config: ConfigFiche<T> }>) {
-  if (!id) {
-    return (
-      <AdminGuard title={config.titreCreation} icon={config.icon}
-        crumbs={[{ label: config.libelleListe, to: config.chemin }, { label: config.titreCreation }]}>
-        <Saisie config={config} />
-      </AdminGuard>
-    );
-  }
-  return <FicheExistante key={id} id={id} config={config} />;
-}
-
-function FicheExistante<T extends Tracee>({ id, config }: Readonly<{ id: string; config: ConfigFiche<T> }>) {
-  const { data: fiche, error, refetch } = useApi(() => config.charger(id), [id]);
-  const [edition, setEdition] = useState(false);
-  const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
-  const navigate = useNavigate();
-  const confirm = useConfirm();
-  const recharger = () => void refetch();
-
-  async function supprimer() {
-    if (!(await confirm({ title: 'Supprimer', message: config.messageSuppression, confirmLabel: 'Supprimer' }))) return;
-    try {
-      await config.supprimer(id);
-      void navigate(config.chemin);
-    } catch (err) {
-      setErreurSuppression(err instanceof Error ? err.message : 'Suppression impossible.');
-    }
-  }
-
-  if (error) return <PageShell title={config.libelleListe}><ErrorState message={error} /></PageShell>;
-  if (!fiche) return <PageShell title={config.libelleListe}><LoadingState /></PageShell>;
-
+/** Création (`/x/nouveau`) en pleine page ; la fiche d'un enregistrement existant est `FicheEditableFenetre`. */
+export default function FicheEditable<T extends Tracee>({ config }: Readonly<{ config: ConfigFiche<T> }>) {
   return (
-    <PageShell
-      title={fiche.description || fiche.code || config.libelleListe}
-      crumbs={[{ label: config.libelleListe, to: config.chemin }, { label: fiche.code ?? '' }]}
-      icon={config.icon}
-      actions={!edition && (
-        <div className="flex flex-wrap gap-2">
-          {config.ressourceFichePdf && <BoutonImprimerFiche ressource={config.ressourceFichePdf} id={fiche.id} />}
-          {config.actions?.(fiche, recharger)}
-          <ActionAdmin onClick={() => void supprimer()} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
-          <ActionAdmin onClick={() => setEdition(true)} libelle={config.libelleEdition} icone={<Pencil data-icon="inline-start" />} />
-        </div>
-      )}
-    >
-      {erreurSuppression && <p role="alert" className="mb-3 text-label text-destructive">{erreurSuppression}</p>}
-      {edition ? (
-        <Saisie config={config} fiche={fiche} onAnnuler={() => setEdition(false)}
-          onEnregistre={() => { setEdition(false); recharger(); }} />
-      ) : (
-        <div className="flex flex-col gap-3">
-          <FicheSections sections={config.sections} source={fiche} />
-          {config.lignes && (
-            <LignesActionnaires titre={config.lignes.titre} champ={config.lignes.champ}
-              rangees={rangeesDepuis(lignesDe(fiche, config.lignes.cle), config.lignes.champ)} />
-          )}
-          <Card title="Traçabilité">
-            <FieldGrid>
-              <Field label="Créé par" value={libelleTrace(fiche.creePar, fiche.creeLe)} />
-              <Field label="Modifié par" value={libelleTrace(fiche.modifiePar, fiche.modifieLe)} />
-            </FieldGrid>
-          </Card>
-          {config.pied?.(fiche)}
-        </div>
-      )}
-    </PageShell>
+    <AdminGuard title={config.titreCreation} icon={config.icon}
+      crumbs={[{ label: config.libelleListe, to: config.chemin }, { label: config.titreCreation }]}>
+      <Saisie config={config} />
+    </AdminGuard>
   );
 }
 
-function Saisie<T extends Tracee>({ config, fiche, onAnnuler, onEnregistre }: Readonly<{
+/**
+ * Formulaire de saisie (création ou modification). `declencheur` reçoit la fonction d'envoi : le bouton
+ * « Enregistrer » du ruban de la fenêtre l'appelle.
+ */
+export function Saisie<T extends Tracee>({ config, fiche, onAnnuler, onEnregistre, declencheurRef }: Readonly<{
   config: ConfigFiche<T>;
   fiche?: T;
   onAnnuler?: () => void;
   onEnregistre?: () => void;
+  declencheurRef?: RefObject<(() => void) | null>;
 }>) {
   const navigate = useNavigate();
   const champs = champsDe(config.sections);
@@ -166,6 +100,14 @@ function Saisie<T extends Tracee>({ config, fiche, onAnnuler, onEnregistre }: Re
     if (fiche) void saisie.envoyer(() => config.modifier(fiche.id, corps), () => onEnregistre?.());
     else void saisie.envoyer(() => config.creer(corps), (cree) => void navigate(`${config.chemin}/${cree.id}`));
   }
+
+  useEffect(() => {
+    if (!declencheurRef) return undefined;
+    declencheurRef.current = enregistrer;
+    return () => {
+      declencheurRef.current = null;
+    };
+  });
 
   return (
     <div className="flex max-w-240 flex-col gap-3">

@@ -4,6 +4,7 @@ import { Ruler, Settings2 } from 'lucide-react';
 import type { ColonneGrille } from '../../components/DataGrid';
 import ListeAdmin from '../../components/entites/ListeAdmin';
 import ConfigWorkflowFaisabilite from '../../components/faisabilite/ConfigWorkflowFaisabilite';
+import FicheEtudeFenetre from '../../components/faisabilite/fiche/FicheEtudeFenetre';
 import GardeEtudes from '../../components/faisabilite/GardeEtudes';
 import BoiteFiltre from '../../components/liste/BoiteFiltre';
 import PageShell from '../../components/PageShell';
@@ -88,6 +89,7 @@ function Contenu() {
       sujet="étude"
       aucun="Aucune étude"
       etat={etat}
+      Fiche={FicheEtudeFenetre}
       colonnes={COLONNES}
       exportListe={{ export: exportListe, pdf: true }}
       propres={[{ id: 'statuts', libelle: 'Statuts et transitions', icone: Settings2, onClick: () => void navigate(`${LISTE}?vue=configuration`) }]}
