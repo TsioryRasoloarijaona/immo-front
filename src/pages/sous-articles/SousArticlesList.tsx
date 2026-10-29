@@ -10,7 +10,6 @@ export default function SousArticlesList() {
   return (
     <ListeLignesArticles
       liste="sous-articles"
-      onOuvrir={(id) => navigate(`/sous-articles/${id}`)}
       admin={{
         nouveau: { libelle: 'Nouveau sous-article', onClick: () => setCreation(true) },
         actions: [{ id: 'importer', onClick: () => void navigate('/articles/import?type=sous-articles') }],

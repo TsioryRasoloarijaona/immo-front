@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Home } from 'lucide-react';
 import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
 import { usePreview } from '../../lib/previewContext';
@@ -26,12 +26,6 @@ import { useContenances } from '../../lib/referentiels';
 import { sectionsArticle, useListesFicheArticle } from '../../lib/saisieArticle';
 import { useApi } from '../../lib/useApi';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-
-/** `ecranSousArticles` : route `/sous-articles/:id`, où un sous-article rattaché est en lecture seule. */
-export default function ArticleDetail({ ecranSousArticles = false }: Readonly<{ ecranSousArticles?: boolean }>) {
-  const { id = '' } = useParams();
-  return <FicheArticle key={id} id={id} ecranSousArticles={ecranSousArticles} />;
-}
 
 /** `onFermer` : en dialogue, ferme le dialogue au lieu de quitter l'écran après une suppression. */
 export function FicheArticle({

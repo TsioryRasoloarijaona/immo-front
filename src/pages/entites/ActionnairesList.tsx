@@ -1,5 +1,6 @@
 import type { ColonneGrille } from '../../components/DataGrid';
 import ListeAdmin from '../../components/entites/ListeAdmin';
+import { FicheActionnaireFenetre } from '../../components/entites/fiche/fichesEntites';
 import { listActionnaires } from '../../lib/apiEntites';
 import { useApi } from '../../lib/useApi';
 import type { ActionnaireDto } from '../../types';
@@ -14,5 +15,5 @@ const COLONNES: ColonneGrille<ActionnaireDto>[] = [
 export default function ActionnairesList() {
   const etat = useApi(listActionnaires, []);
   return <ListeAdmin titre="Actionnaires" chemin="/actionnaires" libelleNouveau="Nouvel actionnaire" sujet="actionnaire" aucun="Aucun actionnaire"
-    etat={etat} colonnes={COLONNES} />;
+    etat={etat} colonnes={COLONNES} Fiche={FicheActionnaireFenetre} />;
 }

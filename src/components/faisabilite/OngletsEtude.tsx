@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode, type RefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FicheShell, { type OngletFiche } from '../FicheShell';
 import ChampsSpecifiques from '../patrimoine/ChampsSpecifiques';
@@ -33,7 +33,7 @@ import type { EtudeFaisabiliteDto, SaisieEtudeDto } from '../../types/faisabilit
  * Onglets d'une étude : un seul brouillon pour Identité, Terrain et Phases (enregistré d'un coup), aperçu serveur
  * rafraîchi à chaque saisie, grilles enregistrées chacune à part. Sans `fiche` : création (les grilles viennent ensuite).
  */
-export default function OngletsEtude({ fiche, entete, recharger, onEnregistre, ongletInitial = 'identite', onOngletChange }: Readonly<{
+export default function OngletsEtude({ fiche, entete, recharger, onEnregistre, ongletInitial = 'identite', onOngletChange, declencheurRef }: Readonly<{
   fiche?: EtudeFaisabiliteDto;
   entete?: ReactNode;
   recharger: () => Promise<void>;
@@ -42,6 +42,8 @@ export default function OngletsEtude({ fiche, entete, recharger, onEnregistre, o
   /** Le parent garde l'onglet : ce composant est remonté à chaque rechargement de l'étude. */
   ongletInitial?: string;
   onOngletChange?: (id: string) => void;
+  /** Reçoit la fonction d'enregistrement : le bouton « Enregistrer » du ruban de la fenêtre l'appelle. */
+  declencheurRef?: RefObject<(() => void) | null>;
 }>) {
   const navigate = useNavigate();
   const showToast = useToast();
@@ -85,6 +87,14 @@ export default function OngletsEtude({ fiche, entete, recharger, onEnregistre, o
       void saisie.envoyer(() => createEtudeFaisabilite(corps), (cree) => void navigate(`/etudes-faisabilite/${cree.id}`));
     }
   }
+
+  useEffect(() => {
+    if (!declencheurRef) return undefined;
+    declencheurRef.current = enregistrer;
+    return () => {
+      declencheurRef.current = null;
+    };
+  });
 
   const listes = { societes: referentielItems(societes.data), terrains: referentielItems(terrains.data ?? []) };
   const sections = (liste: SectionSaisie[]) => (fiche && lecture

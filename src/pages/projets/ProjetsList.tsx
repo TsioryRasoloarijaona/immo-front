@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import ColumnSelector from '../../components/ColumnSelector';
 import DataGrid from '../../components/DataGrid';
 import CadreListe from '../../components/patrimoine/CadreListe';
+import FicheProjetFenetre from '../../components/projet/fiche/FicheProjetFenetre';
 import { DEFAULT_PAGE_SIZE, listProjets } from '../../lib/api';
+import useFenetreListe from '../../lib/useFenetreListe';
 import { pluriel } from '../../lib/format';
 import { useExportListe } from '../../lib/useExportListe';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
@@ -60,6 +62,7 @@ export default function ProjetsList() {
   );
   const rows = data?.content ?? [];
   const exportListe = useExportListe('/api/projets/export', { search: debouncedSearch || undefined, colonnes: colonnes.visibles }, 'projets');
+  const fenetre = useFenetreListe('/projets', rows.map((p) => p.id));
 
   function resetFilters() {
     setPage(0);
@@ -101,12 +104,15 @@ export default function ProjetsList() {
         actions: [{ id: 'importer', onClick: () => void navigate('/articles/import?type=projets') }],
       }}
       exportListe={{ export: exportListe, pdf: true }}
+      dialogues={
+        fenetre.idOuvert && <FicheProjetFenetre key={fenetre.idOuvert} id={fenetre.idOuvert} voisins={fenetre.voisins} onFermer={fenetre.fermer} />
+      }
     >
       <DataGrid
         cleOrdre="projets"
         rows={rows}
         colonnes={grille}
-        onOuvrir={(id) => navigate(`/projets/${id}`)}
+        onOuvrir={fenetre.ouvrir}
         libelleLigne={(p) => `Ouvrir le projet ${p.description || p.code || ''}`.trim()}
       />
     </CadreListe>

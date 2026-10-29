@@ -1,5 +1,7 @@
 import { useMemo, useState, type ComponentProps, type ReactNode } from 'react';
 import usePanneauArticles from './usePanneauArticles';
+import FicheArticleFenetre from './fiche/FicheArticleFenetre';
+import useFenetreListe from '../../lib/useFenetreListe';
 import CadreListe from './CadreListe';
 import ColumnSelector from '../ColumnSelector';
 import DataGrid from '../DataGrid';
@@ -17,9 +19,8 @@ import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useExportListe } from '../../lib/useExportListe';
 
 /** Liste à colonnes choisies (catalogue serveur) de `/articles` et `/sous-articles` : filtres, sélecteur, grille. */
-export default function ListeLignesArticles({ liste, onOuvrir, admin, dialogues }: Readonly<{
+export default function ListeLignesArticles({ liste, admin, dialogues }: Readonly<{
   liste: 'articles' | 'sous-articles';
-  onOuvrir: (id: string) => void;
   admin: ComponentProps<typeof CadreListe>['admin'];
   dialogues?: ReactNode;
 }>) {
@@ -62,6 +63,7 @@ export default function ListeLignesArticles({ liste, onOuvrir, admin, dialogues 
   );
   const grille = useMemo(() => grilleLignesArticles(colonnes.colonnes, ouvrirFicheDossier), [colonnes.colonnes, ouvrirFicheDossier]);
   const rows = data?.content ?? [];
+  const fenetre = useFenetreListe(`/${liste}`, rows.map((r) => r.id));
   const exportListe = useExportListe(
     `/api/${liste}/export`,
     { search: debouncedSearch || undefined, trancheId: trancheId.length > 0 ? trancheId : undefined, ...filtres.params, colonnes: colonnes.visibles },
@@ -118,14 +120,21 @@ export default function ListeLignesArticles({ liste, onOuvrir, admin, dialogues 
       pagination={data ? { page: data.page, totalPages: data.totalPages, totalElements: data.totalElements, onPageChange: setPage } : undefined}
       admin={admin}
       exportListe={{ export: exportListe, pdf: true, inactif: colonnes.visibles.length === 0 }}
-      dialogues={dialogues}
+      dialogues={
+        <>
+          {dialogues}
+          {fenetre.idOuvert && (
+            <FicheArticleFenetre key={fenetre.idOuvert} id={fenetre.idOuvert} ecranSousArticles={sous} voisins={fenetre.voisins} onFermer={fenetre.fermer} />
+          )}
+        </>
+      }
     >
       <EtatColonnes pret={grille.length > 0} erreur={catalogue.error}>
         <DataGrid
           cleOrdre={cleStockage}
           rows={rows}
           colonnes={grille}
-          onOuvrir={onOuvrir}
+          onOuvrir={fenetre.ouvrir}
           libelleLigne={(a) => `Ouvrir la fiche de ${a.code ?? ''}`.trim()}
         />
       </EtatColonnes>
