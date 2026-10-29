@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react';
+import ChoixUnique from '../ChoixUnique';
+import MultiSelectDropdown from '../MultiSelectDropdown';
 import { formatNumber } from '../../lib/format';
+
+/** Au-delà, la boîte devient une liste déroulante : elle n'affiche que 4 lignes. Personnes : toujours déroulante. */
+const SEUIL_DEROULANT = 8;
+const LISTE_DE_PERSONNES = /commercia|utilisateur|vendeur|créé par/i;
 
 export interface ItemFiltre {
   value: string;
@@ -12,8 +18,8 @@ type Selection =
   | { mode: 'unique'; valeur: string | null; onChange: (valeur: string | null) => void };
 
 /**
- * Liste à cocher d'un filtre. « Tout » = `[]` (multiple) ou `null` (unique) = aucun filtre :
- * toutes les cases s'affichent cochées, et la dernière case cochée ne se décoche pas.
+ * Liste à cocher d'un filtre. Rien de coché = `[]` (multiple) ou `null` (unique) = aucun filtre, tout s'affiche ;
+ * cocher une valeur restreint la liste à elle.
  */
 export default function BoiteFiltre({
   titre,
@@ -22,7 +28,7 @@ export default function BoiteFiltre({
 }: Readonly<{ titre: string; items: ItemFiltre[] } & Selection>) {
   function estCochee(v: string): boolean {
     if (selection.mode === 'unique') return selection.valeur === v;
-    return selection.valeur.length === 0 || selection.valeur.includes(v);
+    return selection.valeur.includes(v);
   }
 
   function basculer(v: string) {
@@ -30,30 +36,45 @@ export default function BoiteFiltre({
       selection.onChange(selection.valeur === v ? null : v);
       return;
     }
-    const courant = selection.valeur;
-    const choisis = new Set(courant.length === 0 ? items.map((i) => i.value) : courant);
-    if (choisis.has(v)) {
-      if (choisis.size === 1) return;
-      choisis.delete(v);
-    } else {
-      choisis.add(v);
-    }
-    const suivant = items.map((i) => i.value).filter((x) => choisis.has(x));
-    selection.onChange(suivant.length === items.length ? [] : suivant);
+    const choisis = new Set(selection.valeur);
+    if (choisis.has(v)) choisis.delete(v);
+    else choisis.add(v);
+    selection.onChange(items.map((i) => i.value).filter((x) => choisis.has(x)));
   }
 
-  function toutSelectionner() {
+  function effacer() {
     if (selection.mode === 'unique') selection.onChange(null);
     else selection.onChange([]);
+  }
+
+  const filtre = selection.mode === 'unique' ? selection.valeur !== null : selection.valeur.length > 0;
+
+  if (items.length > SEUIL_DEROULANT || LISTE_DE_PERSONNES.test(titre)) {
+    return (
+      <div className="flex max-w-62.5 min-w-32.5 flex-[1_1_160px] flex-col gap-1">
+        <span className="truncate pl-0.5 text-micro font-semibold tracking-wide text-muted-foreground uppercase" title={titre}>
+          {titre}
+        </span>
+        {selection.mode === 'unique' ? (
+          <ChoixUnique items={items} tous="Tous" value={selection.valeur} placeholder="Tous" largeur="w-full" onChange={selection.onChange} />
+        ) : (
+          <MultiSelectDropdown ariaLabel={titre} placeholder="Tous" items={items} value={selection.valeur} onChange={selection.onChange} className="max-w-none" />
+        )}
+      </div>
+    );
   }
 
   return (
     <CadreBoiteFiltre
       titre={titre}
       action={
-        <button type="button" className="text-micro font-medium text-(--brand) hover:underline" onClick={toutSelectionner}>
-          Tout
-        </button>
+        filtre ? (
+          <button type="button" className="text-micro font-medium text-(--brand) hover:underline" onClick={effacer}>
+            Effacer
+          </button>
+        ) : (
+          <span className="text-micro text-muted-foreground">Tous</span>
+        )
       }
     >
       {items.map((item) => (
