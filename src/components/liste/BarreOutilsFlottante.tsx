@@ -23,8 +23,9 @@ export interface ActionOutil {
 
 export interface OutilPropre {
   id: string;
+  /** Affiché seulement en infobulle : la barre ne montre que des icônes. */
   libelle: string;
-  icone?: LucideIcon;
+  icone: LucideIcon;
   onClick: () => void;
   disabled?: boolean;
 }
@@ -66,14 +67,13 @@ function BoutonPropre({ outil }: Readonly<{ outil: OutilPropre }>) {
   return (
     <button
       type="button"
-      className={cn(BOUTON, INFOBULLE, 'flex h-8 w-auto gap-1.5 px-2 text-body font-medium whitespace-nowrap')}
+      className={cn(BOUTON, INFOBULLE)}
       aria-label={outil.libelle}
       data-tip={outil.libelle}
       disabled={outil.disabled}
       onClick={outil.onClick}
     >
-      {Icone && <Icone aria-hidden className="size-4" />}
-      {outil.libelle}
+      <Icone aria-hidden className="size-4" />
     </button>
   );
 }
@@ -187,12 +187,12 @@ export default function BarreOutilsFlottante({
         <>
           <button
             type="button"
-            className={cn(INFOBULLE, 'relative mx-0.5 flex h-7 items-center gap-1.5 rounded-md bg-primary px-2.5 text-body font-semibold text-primary-foreground hover:opacity-90')}
-            data-tip="Nouveau · Inser"
+            className={cn(INFOBULLE, 'relative mx-0.5 grid size-7 place-items-center rounded-md bg-primary text-primary-foreground hover:opacity-90')}
+            aria-label={nouveauVisible.libelle}
+            data-tip={`${nouveauVisible.libelle} · Inser`}
             onClick={nouveauVisible.onClick}
           >
             <Plus aria-hidden className="size-4" />
-            {nouveauVisible.libelle}
           </button>
           {blocs.length > 0 && SEPARATEUR}
         </>
