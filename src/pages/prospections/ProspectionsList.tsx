@@ -1,5 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { FicheProspection } from './ProspectionDetail';
+import { voisinsDe } from '../../lib/fenetreFiche';
 import { ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import PageListe from '../../components/liste/PageListe';
 import EnteteListe from '../../components/liste/EnteteListe';
@@ -59,6 +61,9 @@ const NouvelleProspectionDialog = lazy(() => import('./NewProspection'));
 // `nouveau` vient de la route `/prospections/nouveau` : l'URL porte l'intention, Retour ferme la boîte.
 export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boolean }> = {}) {
   const navigate = useNavigate();
+  // `/prospections/:id` rend cette même page : la liste (filtres, page) reste montée sous la fenêtre.
+  const { id: idOuvert } = useParams();
+  const { search: rechercheUrl } = useLocation();
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const { commerciaux, commerciauxLoading } = useAppData();
@@ -222,6 +227,9 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
     paramsExportProspections(filtresServeur, filtresAvances, colonnes.visibles),
     'prospections',
   );
+  const ouvrirChemin = (chemin: string) => void navigate(`${chemin}${rechercheUrl}`);
+  // ‹ › : lignes de la page affichée seulement ; en groupes ou en Kanban ils restent inactifs.
+  const voisins = voisinsDe(enGroupes || kanban ? [] : rows.map((r) => r.id), idOuvert, (id) => ouvrirChemin(`/prospections/${id}`));
   const unite = enGroupes ? 'groupe' : 'prospection';
   const decompte = pageAffichee ? pluriel(pageAffichee.totalElements, unite) : undefined;
 
@@ -231,7 +239,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
         cleOrdre="prospections"
         rows={enGroupes ? [] : rows}
         colonnes={colonnes.colonnes}
-        onOuvrir={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
+        onOuvrir={(prospectionId) => ouvrirChemin(`/prospections/${prospectionId}`)}
         bandeauRegroupement={false}
         actions={actionsLigne.rendu}
         groupes={groupesGrille(groupement, groupes.data, lignesGroupes)}
@@ -293,7 +301,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
             filtres={filtresServeur}
             avances={filtresAvances}
             cle={clesFiltres.join('|')}
-            onOuvrir={(id) => navigate(`/prospections/${id}`)}
+            onOuvrir={(id) => ouvrirChemin(`/prospections/${id}`)}
           />
         )}
         {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul, le
@@ -340,6 +348,8 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
       )}
 
       {actionsLigne.boites}
+
+      {idOuvert && <FicheProspection key={idOuvert} id={idOuvert} pre={false} voisins={voisins} onFermer={() => ouvrirChemin('/prospections')} />}
 
       <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
       <BarreOutilsFlottante
