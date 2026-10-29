@@ -394,8 +394,8 @@ table {
 /* Champs de fiche « libellé à gauche » (planning/DENSITE-ARPENT-vs-OMRAN.md) : ligne, libellé, colonne minimale. */
 @theme {
   --fiche-row-h: 26px;
-  --fiche-label-w: 6.5rem;
-  --fiche-col-min: 15rem;
+  --fiche-label-w: 8.5rem;
+  --fiche-col-min: 17rem;
 }
 
 /* Sinon `h-5` fait grandir la ligne de grille. `:has(> [data-badge-dot])` plutôt que `data-slot` : ne dépend que

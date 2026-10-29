@@ -56,7 +56,7 @@ export default function RubanFiche({
 }>) {
   const aDroite = [imprimer, piecesJointes, supprimer].some((a) => a !== undefined);
   return (
-    <div role="toolbar" aria-label="Actions de la fiche" className="flex shrink-0 items-center gap-0.5 overflow-x-auto border-b border-border px-3 py-1.5">
+    <div role="toolbar" aria-label="Actions de la fiche" className="flex shrink-0 flex-wrap items-center gap-0.5 gap-y-1 border-b border-border px-3 py-1.5">
       {enregistrer && (
         <>
           <button
