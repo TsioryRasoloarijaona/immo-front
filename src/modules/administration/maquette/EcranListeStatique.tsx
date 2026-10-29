@@ -19,6 +19,13 @@ import type { ConfigEcran, Ligne } from './types';
 
 type Filtres = Record<string, string[]>;
 
+/** « pays » → « pays », « forme sociale » → « formes sociales », « type de relation » → « types de relation ». */
+function plurielUnite(unite: string): string {
+  const [tete, ...complement] = unite.split(' de ');
+  const mots = tete.split(' ').map((m) => (/[sxz]$/.test(m) ? m : `${m}s`));
+  return [mots.join(' '), ...complement].join(' de ');
+}
+
 function valeursDistinctes(lignes: Ligne[], nom: string): { value: string; label: string }[] {
   return [...new Set(lignes.map((l) => String(l[nom] ?? '')).filter((v) => v !== ''))].sort((a, b) => a.localeCompare(b, 'fr')).map((v) => ({ value: v, label: v }));
 }
@@ -49,7 +56,7 @@ export default function EcranListeStatique({ config, racine }: Readonly<{ config
   );
   const rows = config.lignes.filter((l) => correspond(l, filtres, texte.trim().toLowerCase(), periode.debut, periode.fin, config.colonneDate));
   const actif = texte !== '' || periode.debut !== '' || periode.fin !== '' || Object.values(filtres).some((v) => v.length > 0);
-  const decompte = pluriel(rows.length, config.unite);
+  const decompte = pluriel(rows.length, config.unite, plurielUnite(config.unite));
   const ouvrir = (id: string) => void navigate(`/administration/${racine}/${id}${search}`);
   const fermer = () => void navigate(`/administration/${racine}${search}`);
   const ligneOuverte = idOuvert === 'nouveau' ? ({ id: 'nouveau' } as Ligne) : rows.find((l) => l.id === idOuvert);

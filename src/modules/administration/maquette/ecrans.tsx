@@ -1,6 +1,7 @@
 import { Play, RefreshCw, RotateCcw, Unlock, UnlockKeyhole } from 'lucide-react';
 import type { ColonneGrille } from '../../../components/DataGrid';
 import ArbreDroits from './ArbreDroits';
+import RestrictionsRole from './RestrictionsRole';
 import * as d from './donnees';
 import type { ChampStatique, ConfigEcran, Ligne } from './types';
 
@@ -24,14 +25,9 @@ function ecran(base: Pick<ConfigEcran, 'titre' | 'unite' | 'nature' | 'lignes' |
 }
 
 const colsRoles = colonnes(['code', 'Code', 20], ['description', 'Description', 24], ['utilisateurs', 'Utilisateurs', 8, 'NOMBRE'], ['droits', 'Droits', 8, 'NOMBRE']);
-const RESTRICTIONS = [
-  'Fichiers attachés : ajout', 'Fichiers attachés : modification', 'Fichiers attachés : suppression', 'Actions : ajout', 'Actions : modification',
-  'Actions : suppression', 'Éditions des rapports', 'Audits', 'Champs spécifiques', 'Modification des séquences',
-];
 const champsRole: ChampStatique[] = [
   { nom: 'code', libelle: 'Code' },
   { nom: 'description', libelle: 'Description' },
-  ...RESTRICTIONS.map((r, i) => ({ nom: `restr${i + 1}`, libelle: `Avec restriction sur… ${r}`, type: 'case' as const })),
 ];
 
 const colsTiers = colonnes(['code', 'Code', 9], ['nom', 'Nom', 20], ['telephone', 'Téléphone', 12], ['mobile', 'Mobile', 12], ['email', 'E-mail', 20], ['ville', 'Ville', 10], ['nature', 'Nature', 12], ['compte', 'Compte comptable', 12]);
@@ -66,7 +62,7 @@ const onglet = (id: string, libelle: string, cols: ColonneGrille<Ligne>[], ligne
 
 export const ECRANS: Record<string, ConfigEcran> = {
   roles: ecran(
-    { titre: 'Rôles', unite: 'rôle', nature: 'Rôle', lignes: d.ROLES, recherche: 'Code, description…', titreFiche: (l) => String(l.code), outils: STANDARD, champs: champsRole, extra: () => <ArbreDroits /> },
+    { titre: 'Rôles', unite: 'rôle', nature: 'Rôle', lignes: d.ROLES, recherche: 'Code, description…', titreFiche: (l) => String(l.code), outils: STANDARD, champs: champsRole, extra: (l) => <><RestrictionsRole ligne={l} /><ArbreDroits /></> },
     colsRoles,
   ),
   historique: ecran(
