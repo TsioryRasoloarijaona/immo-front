@@ -644,9 +644,15 @@ export const DISPOSITION_SUIVI_ACTIONS: DispositionColonnes = {
   masquees: new Set(['id', 'typeId', 'categorieId', 'tiersId', 'prospectionId', 'dossierId', 'trancheId']),
 };
 
-/** Ordre du catalogue serveur. `statutCode` masqué mais groupable : le groupement lit le catalogue brut. */
+/** Ordre d'ouverture de l'état des ventes OMRAN ; le reste suit le catalogue serveur. */
+const OUVERTURE_ETAT_VENTES = [
+  'alerte', 'statutLibelle', 'trancheCode', 'articleCode', 'sousArticles', 'clientNom', 'prixVenteTTC', 'montantRegle',
+  'resteARegler', 'fraisSyndic', 'fraisSyndicRegles', 'netAPayerRegle',
+];
+
+/** `statutCode` masqué mais groupable : le groupement lit le catalogue brut. */
 export const DISPOSITION_ETAT_VENTES: DispositionColonnes = {
-  ordre: [],
+  ordre: OUVERTURE_ETAT_VENTES,
   poids: {
     ...POIDS_DOSSIERS,
     categorieCode: 5,
@@ -671,8 +677,9 @@ export const DISPOSITION_ETAT_VENTES: DispositionColonnes = {
     netAPayer: 11,
   },
   masquees: new Set(['articleId', 'dossierId', 'statutCode']),
-  // Le ton du badge de statut se lit sur le code.
-  toujoursDemandees: ['statutCode'],
+  ouverture: OUVERTURE_ETAT_VENTES,
+  // Le ton du badge de statut se lit sur le code ; le clic ouvre le dossier de la ligne.
+  toujoursDemandees: ['statutCode', 'dossierId', 'dossierCode'],
 };
 
 /** Ordre du catalogue serveur. Le clic sur une ligne ouvre le dossier ; le lien de la pièce lit `pieceOuvrable` et `pieceId`. */

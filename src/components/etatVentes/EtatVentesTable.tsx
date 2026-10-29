@@ -31,18 +31,21 @@ export default function EtatVentesTable({
 }: Readonly<{
   rows: LigneEtatVentes[];
   colonnes: ColonneDto[];
-  onOuvrir: (id: string) => void;
+  onOuvrir: (ligne: LigneEtatVentes) => void;
   groupes?: GroupementGrille<LigneEtatVentes>;
   totauxServeur?: TotauxServeurGrille;
 }>) {
   const colonnesGrille = useMemo(() => grille(colonnes), [colonnes]);
   return (
     <DataGrid
-      cleOrdre="etat-des-ventes"
+      cleOrdre="etat-des-ventes-omran"
       rows={rows}
       colonnes={colonnesGrille}
-      onOuvrir={onOuvrir}
-      libelleLigne={(r) => `Ouvrir l'article ${r.articleCode ?? r.id}`}
+      onOuvrir={(id) => {
+        const ligne = [...rows, ...(groupes?.lignesChargees ?? [])].find((r) => r.id === id);
+        if (ligne) onOuvrir(ligne);
+      }}
+      libelleLigne={(r) => (r.dossierId ? `Ouvrir le dossier ${r.dossierCode ?? r.id}` : `Ouvrir l'article ${r.articleCode ?? r.id}`)}
       bandeauRegroupement={false}
       groupes={groupes}
       totauxServeur={totauxServeur}
