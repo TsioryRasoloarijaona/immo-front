@@ -132,6 +132,10 @@
       "description": "Le panneau « Actions récentes » : ce qui vient d'être fait sur les prospections, pré-prospections et dossiers, avec de quoi rouvrir la fiche. Détail : `instructions/FEATURE-actions-recentes.md`."
     },
     {
+      "name": "Rôles (administration)",
+      "description": "Écran « Rôles » d'OMRAN, réservé à l'Administrateur. Le code d'un rôle porte les autorisations : il ne change jamais après création. Le rôle Administrateur est verrouillé. Les restrictions sont stockées ; seule `rapports` est lue ailleurs. Voir `instructions/FEATURE-admin-roles.md`."
+    },
+    {
       "name": "Dossiers — modification de la fiche",
       "description": "Fiche du dossier de vente modifiable, onglet par onglet, comme l'écran OMRAN (`Yes.Com.Front.Sales/Sale.cs:FilterToolsByRights`). Chaque champ appartient à un groupe de droits (voir `GET /api/dossiers/{id}/edition`). Voir FEATURE-vente-edition.md."
     },
@@ -3143,6 +3147,62 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/administration/roles/{id}/droits": {
+      "put": {
+        "tags": [
+          "Rôles (administration)"
+        ],
+        "summary": "Remplace les droits de l'arbre du rôle",
+        "description": "Écriture par différence : les droits de l'arbre non cochés sont retirés, les nouveaux sont insérés avec le libellé de l'arbre, les lignes conservées gardent leur PKey. Les droits absents de l'arbre (hérités d'OMRAN) ne sont jamais touchés, et un tel code dans `codes` répond 400 sans rien écrire. Sans changement effectif, rien n'est écrit ni tracé. L'arbre `AdmRightEntity` n'est jamais écrit.",
+        "operationId": "remplacerDroits",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du rôle.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DroitsRoleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Rôle relu après écriture.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "codes absent, ou code absent de l'arbre."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Rôle inconnu."
+          },
+          "409": {
+            "description": "Rôle Administrateur : non modifiable, avant tout contrôle du corps."
           }
         }
       }
@@ -14259,13 +14319,94 @@
         }
       }
     },
+    "/api/administration/roles": {
+      "get": {
+        "tags": [
+          "Rôles (administration)"
+        ],
+        "summary": "Liste paginée des rôles, triée par code",
+        "operationId": "lister_18",
+        "parameters": [
+          {
+            "name": "texte",
+            "in": "query",
+            "description": "Texte cherché dans le code et la description (casse ignorée).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de rôles.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoRoleLigneDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Rôles (administration)"
+        ],
+        "summary": "Crée un rôle",
+        "operationId": "creer_18",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Rôle créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code manquant ou trop long, ou description trop longue."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "409": {
+            "description": "Code déjà pris, casse ignorée."
+          }
+        }
+      }
+    },
     "/api/administration/rendez-vous": {
       "get": {
         "tags": [
           "Rendez-vous (administration)"
         ],
         "summary": "Liste paginée des rendez-vous, triée par date prévisionnelle puis code",
-        "operationId": "lister_18",
+        "operationId": "lister_19",
         "parameters": [
           {
             "name": "texte",
@@ -14341,7 +14482,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Crée un rendez-vous, code issu de la séquence AdmTask",
-        "operationId": "creer_18",
+        "operationId": "creer_19",
         "requestBody": {
           "content": {
             "application/json": {
@@ -18145,13 +18286,139 @@
         }
       }
     },
+    "/api/administration/roles/{id}": {
+      "get": {
+        "tags": [
+          "Rôles (administration)"
+        ],
+        "summary": "Fiche d'un rôle",
+        "operationId": "detail_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du rôle.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le rôle.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Rôle inconnu."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Rôles (administration)"
+        ],
+        "summary": "Supprime un rôle libre et ses droits",
+        "description": "Refusée en 409 si le rôle est lié à un utilisateur (`AdmUserRole` ou rôle web), un intervenant, un rapport, un workflow ou un droit web : en base, ces liens partiraient en cascade sans prévenir.",
+        "operationId": "supprimer_15",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du rôle.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Rôle supprimé."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Rôle inconnu."
+          },
+          "409": {
+            "description": "Rôle Administrateur, ou rôle lié : le message nomme les liens."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Rôles (administration)"
+        ],
+        "summary": "Modifie description et restrictions (champ absent ou null = inchangé, code ignoré)",
+        "operationId": "modifier_17",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du rôle.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Rôle modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Description trop longue."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Rôle inconnu."
+          },
+          "409": {
+            "description": "Rôle Administrateur : non modifiable, avant tout contrôle du corps."
+          }
+        }
+      }
+    },
     "/api/administration/rendez-vous/{id}": {
       "get": {
         "tags": [
           "Rendez-vous (administration)"
         ],
         "summary": "Fiche d'un rendez-vous",
-        "operationId": "detail_3",
+        "operationId": "detail_4",
         "parameters": [
           {
             "name": "id",
@@ -18188,7 +18455,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Supprime un rendez-vous",
-        "operationId": "supprimer_15",
+        "operationId": "supprimer_16",
         "parameters": [
           {
             "name": "id",
@@ -18219,7 +18486,7 @@
         ],
         "summary": "Modifie un rendez-vous (champ absent ou null = inchangé)",
         "description": "Les dates comparées sont les valeurs fusionnées : un champ absent vaut la date déjà en base. La source (`sourceId`, `sourceLibelle`, `sourceEntite`) ne bouge jamais.",
-        "operationId": "modifier_17",
+        "operationId": "modifier_18",
         "parameters": [
           {
             "name": "id",
@@ -19535,7 +19802,7 @@
         ],
         "summary": "Détail d'un mois : dossiers, mouvements et échéances qui font les cellules",
         "description": "Code `SuiviPrevisionsVenteMois`, mêmes paramètres plus `mois` (1 à 12, obligatoire). Trois sections, triées par date\ndécroissante, faites des lignes sources exactes des cellules du mois : `dossiers` (projet, tranche, article, dossier,\ndateConcretisation, prixVente, regle, client ; leur nombre = `quantites.reel` du mois), `mouvements` (projet, tranche,\narticle, dateDossier, dateMouvement, categorie, montant, libelle, client ; Σ montant = `montants.reel`), `echeances`\n(client, date, categorie, montant, regle, reste ; Σ montant = `schemaFinancement`). `regle` d'une échéance = ses lignes\nde règlement comptées en encaissement, toutes dates ; `reste` = montant − regle.",
-        "operationId": "detail_4",
+        "operationId": "detail_5",
         "responses": {
           "200": {
             "description": "Trois sections : dossiers, mouvements, echeances.",
@@ -19559,7 +19826,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_19",
+        "operationId": "lister_20",
         "parameters": [
           {
             "name": "du",
@@ -20243,7 +20510,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_20",
+        "operationId": "lister_21",
         "parameters": [
           {
             "name": "entiteId",
@@ -23664,7 +23931,7 @@
           "Rapports"
         ],
         "summary": "Rapports du module visibles par l'appelant, groupés",
-        "operationId": "lister_21",
+        "operationId": "lister_22",
         "parameters": [
           {
             "name": "module",
@@ -26123,7 +26390,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_22",
+        "operationId": "lister_23",
         "parameters": [
           {
             "name": "page",
@@ -27810,7 +28077,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier (frais syndic compris), `alerte` et `sousArticles` : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
-        "operationId": "lister_23",
+        "operationId": "lister_24",
         "parameters": [
           {
             "name": "entiteId",
@@ -32884,7 +33151,7 @@
         ],
         "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
         "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
-        "operationId": "lister_24",
+        "operationId": "lister_25",
         "parameters": [
           {
             "name": "q",
@@ -34151,7 +34418,7 @@
         ],
         "summary": "Journal d'un objet (patrimoine, prospection, étude, rendez-vous) et de ses lignes enfants",
         "description": "Les lignes sont rendues de la plus récente à la plus ancienne.",
-        "operationId": "lister_25",
+        "operationId": "lister_26",
         "parameters": [
           {
             "name": "objetId",
@@ -34714,13 +34981,76 @@
         }
       }
     },
+    "/api/administration/roles/export": {
+      "get": {
+        "tags": [
+          "Rôles (administration)"
+        ],
+        "summary": "Export Excel des rôles filtrés, triés par code",
+        "operationId": "exporter_20",
+        "parameters": [
+          {
+            "name": "texte",
+            "in": "query",
+            "description": "Texte cherché dans le code et la description (casse ignorée).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/roles/arbre-droits": {
+      "get": {
+        "tags": [
+          "Rôles (administration)"
+        ],
+        "summary": "Arbre complet des droits, trié par AdmRightEntity.Sorting",
+        "operationId": "arbreDroits",
+        "responses": {
+          "200": {
+            "description": "Les nœuds de l'arbre, à plat.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoeudDroitDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/administration/rendez-vous/export": {
       "get": {
         "tags": [
           "Rendez-vous (administration)"
         ],
         "summary": "Export Excel des rendez-vous filtrés, date croissante",
-        "operationId": "exporter_20",
+        "operationId": "exporter_21",
         "parameters": [
           {
             "name": "texte",
@@ -34856,7 +35186,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes de la période, date décroissante, à date égale par `PKey`. Sans date : les 30 derniers jours. `dateFin` est incluse jusqu'à 23:59:59. `texte` cherche dans `ObjectType` et `ObjectLabel` seulement, `%`, `_` et `[` pris à la lettre ; `utilisateur` est une égalité exacte. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_26",
+        "operationId": "lister_27",
         "parameters": [
           {
             "name": "dateDebut",
@@ -35020,7 +35350,7 @@
         ],
         "summary": "Export Excel des lignes filtrées",
         "description": "Mêmes filtres et même tri que la liste, sans pagination : au plus 20 000 lignes. Date au format `dd/MM/yyyy HH:mm` ; `Details` et `Description` ne sont pas exportés.",
-        "operationId": "exporter_21",
+        "operationId": "exporter_22",
         "parameters": [
           {
             "name": "dateDebut",
@@ -35105,7 +35435,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_27",
+        "operationId": "lister_28",
         "parameters": [
           {
             "name": "dateDebut",
@@ -35209,7 +35539,7 @@
         ],
         "summary": "Fiche d'un e-mail",
         "description": "Mêmes champs que la ligne, plus `copie`, `copieCachee`, `corps` et `html`. `corps` est le `Body` brut, balises comprises : l'écran l'affiche en texte, jamais comme du HTML.",
-        "operationId": "detail_5",
+        "operationId": "detail_6",
         "parameters": [
           {
             "name": "id",
@@ -35280,7 +35610,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_28",
+        "operationId": "lister_29",
         "parameters": [
           {
             "name": "portee",
@@ -35382,7 +35712,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_16",
+        "operationId": "supprimer_17",
         "parameters": [
           {
             "name": "porteur",
@@ -35631,7 +35961,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_17",
+        "operationId": "supprimer_18",
         "parameters": [
           {
             "name": "id",
@@ -35875,7 +36205,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_18",
+        "operationId": "supprimer_19",
         "parameters": [
           {
             "name": "id",
@@ -38439,6 +38769,104 @@
             "items": {
               "$ref": "#/components/schemas/LigneContenanceDto"
             }
+          }
+        }
+      },
+      "DroitsRoleEcritureDto": {
+        "type": "object",
+        "description": "Droits cochés dans l'arbre.",
+        "properties": {
+          "codes": {
+            "type": "array",
+            "description": "Obligatoire ; vide = aucun droit de l'arbre. Casse respectée, doublons traités une fois.",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RestrictionsRoleDto": {
+        "type": "object",
+        "description": "Les 10 restrictions d'un rôle, stockées sans être appliquées. Jamais null à la lecture : NULL en base = true.",
+        "properties": {
+          "ajoutPiecesJointes": {
+            "type": "boolean",
+            "description": "Restriction sur l'ajout des fichiers attachés."
+          },
+          "modificationPiecesJointes": {
+            "type": "boolean",
+            "description": "Restriction sur la modification des fichiers attachés."
+          },
+          "suppressionPiecesJointes": {
+            "type": "boolean",
+            "description": "Restriction sur la suppression des fichiers attachés."
+          },
+          "ajoutActions": {
+            "type": "boolean",
+            "description": "Restriction sur l'ajout des actions."
+          },
+          "modificationActions": {
+            "type": "boolean",
+            "description": "Restriction sur la modification des actions."
+          },
+          "suppressionActions": {
+            "type": "boolean",
+            "description": "Restriction sur la suppression des actions."
+          },
+          "rapports": {
+            "type": "boolean",
+            "description": "Restriction sur les éditions des rapports, lue par l'accès aux rapports."
+          },
+          "audits": {
+            "type": "boolean",
+            "description": "Restriction sur les audits."
+          },
+          "champsSpecifiques": {
+            "type": "boolean",
+            "description": "Restriction sur les champs spécifiques."
+          },
+          "sequences": {
+            "type": "boolean",
+            "description": "Restriction sur la modification des séquences."
+          }
+        }
+      },
+      "RoleDto": {
+        "type": "object",
+        "description": "Fiche d'un rôle.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du rôle."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du rôle, immuable après création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé, affiché tel quel."
+          },
+          "restrictions": {
+            "$ref": "#/components/schemas/RestrictionsRoleDto",
+            "description": "Les 10 restrictions, jamais null."
+          },
+          "codesDroits": {
+            "type": "array",
+            "description": "Codes du rôle présents dans l'arbre des droits.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "droitsHorsArbre": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de droits du rôle absents de l'arbre, conservés à chaque enregistrement."
+          },
+          "verrouille": {
+            "type": "boolean",
+            "description": "Vrai pour le rôle Administrateur : toute écriture répond 409."
           }
         }
       },
@@ -48886,6 +49314,24 @@
           }
         }
       },
+      "RoleEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'un rôle. En modification, champ absent ou null = inchangé.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Création seulement : obligatoire, 255 caractères au plus, espaces de bord retirés. Ignoré en modification."
+          },
+          "description": {
+            "type": "string",
+            "description": "Facultative, 255 caractères au plus ; une chaîne vide efface la description."
+          },
+          "restrictions": {
+            "$ref": "#/components/schemas/RestrictionsRoleDto",
+            "description": "Case absente : true à la création, inchangée en modification."
+          }
+        }
+      },
       "RendezVousEcritureDto": {
         "type": "object",
         "description": "Saisie d'un rendez-vous. En modification, champ absent ou null = inchangé. Code et source n'en font pas partie.",
@@ -59228,6 +59674,85 @@
           "reste": {
             "type": "number",
             "description": "Vente : `total` − `regle`, 0 sur un dossier sorti. Location et syndic : null."
+          }
+        }
+      },
+      "PageDtoRoleLigneDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleLigneDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RoleLigneDto": {
+        "type": "object",
+        "description": "Ligne de la liste des rôles.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du rôle."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du rôle, porté par les autorisations."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé, affiché tel quel."
+          },
+          "utilisateurs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes AdmUserRole ; le rôle web des comptes n'y entre pas."
+          },
+          "droits": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes AdmRight, droits hors de l'arbre compris."
+          }
+        }
+      },
+      "NoeudDroitDto": {
+        "type": "object",
+        "description": "Nœud de l'arbre des droits (AdmRightEntity). L'ordre de la liste et la profondeur donnent la hiérarchie.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code du droit."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé du droit."
+          },
+          "profondeur": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Profondeur dans l'arbre."
+          },
+          "type": {
+            "type": "string",
+            "description": "Module, Form, Group ou Action."
           }
         }
       },
