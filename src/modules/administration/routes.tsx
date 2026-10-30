@@ -11,7 +11,8 @@ const EditeurModele = lazy(() => import('../../pages/modeles/EditeurModele'));
 const ReferentielTachePage = lazy(() => import('../../pages/administration/ReferentielTachePage'));
 const EmailHistorique = lazy(() => import('../../pages/administration/EmailHistorique'));
 const HistoriqueList = lazy(() => import('../../pages/administration/HistoriqueList'));
-const TachesList = lazy(() => import('../../pages/administration/TachesList'));
+const RolesList = lazy(() => import('../../pages/administration/RolesList'));
+const TachesList =lazy(() => import('../../pages/administration/TachesList'));
 const CalendrierRendezVous = lazy(() => import('../../pages/administration/CalendrierRendezVous'));
 
 const administration: ModuleApp = {
@@ -31,6 +32,7 @@ const administration: ModuleApp = {
     { path: '/modeles-documents/:id', element: <EditeurModele /> },
     { path: '/administration/type-tache', element: <ReferentielTachePage /> },
     { path: '/administration/priorite-tache', element: <ReferentielTachePage /> },
+    { path: '/administration/roles/:id?', element: <RolesList /> },
     { path: '/administration/taches/:id?', element: <TachesList /> },
     { path: '/administration/calendrier/:id?', element: <CalendrierRendezVous /> },
     { path: '/administration/email-historique', element: <EmailHistorique /> },
