@@ -212,6 +212,10 @@
       "description": "Exports Excel des listes de prospections et de pré-prospections. Chaque export relit la liste avec ses propres filtres et le périmètre commercial de l'appelant : il ne rend jamais une ligne que la liste ne montrerait pas."
     },
     {
+      "name": "EMail Historique (administration)",
+      "description": "Journal des e-mails envoyés (`AdmEMailHistory`), en lecture seule : l'écran « EMail Historique » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). La configuration d'envoi (`SmtpHost`, `SmtpPort`, `EnableSsl`) n'est jamais exposée. Voir `instructions/FEATURE-admin-email-historique.md`."
+    },
+    {
       "name": "Notes",
       "description": "Notes (AdmMessage) du patrimoine et des prospections terrain ; écriture Administrateur."
     },
@@ -34406,6 +34410,181 @@
         }
       }
     },
+    "/api/administration/emails": {
+      "get": {
+        "tags": [
+          "EMail Historique (administration)"
+        ],
+        "summary": "Journal des e-mails, page par page",
+        "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
+        "operationId": "lister_25",
+        "parameters": [
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Premier jour inclus, ISO ; absent = pas de borne basse.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-01"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Dernier jour inclus, ISO ; absent = pas de borne haute.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-31"
+          },
+          {
+            "name": "texte",
+            "in": "query",
+            "description": "Sous-chaîne littérale, sans tenir compte de la casse ; vide ou blanc = pas de filtre.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "utilisateur",
+            "in": "query",
+            "description": "Utilisateur exact, valeur de GET /api/administration/emails/utilisateurs.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "envoye",
+            "in": "query",
+            "description": "Vrai = envoyés, faux = en échec ; absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Numéro de page, à partir de 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Lignes par page, de 1 à 200.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes, date décroissante puis PKey croissante.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneEmailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date illisible, dateDebut après dateFin, page ou size hors bornes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/emails/{id}": {
+      "get": {
+        "tags": [
+          "EMail Historique (administration)"
+        ],
+        "summary": "Fiche d'un e-mail",
+        "description": "Mêmes champs que la ligne, plus `copie`, `copieCachee`, `corps` et `html`. `corps` est le `Body` brut, balises comprises : l'écran l'affiche en texte, jamais comme du HTML.",
+        "operationId": "detail_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'e-mail (AdmEMailHistory.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ligne, copies et corps.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Identifiant illisible."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Aucun e-mail avec cet id."
+          }
+        }
+      }
+    },
+    "/api/administration/emails/utilisateurs": {
+      "get": {
+        "tags": [
+          "EMail Historique (administration)"
+        ],
+        "summary": "Utilisateurs présents au journal, pour la liste déroulante",
+        "description": "Valeurs distinctes de `AdmUserDescription`, triées. Tableau JSON de chaînes, pas une page.",
+        "operationId": "utilisateurs_1",
+        "responses": {
+          "200": {
+            "description": "Tableau de chaînes distinctes, triées, sans null ni vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/actions-recentes": {
       "get": {
         "tags": [
@@ -34413,7 +34592,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_25",
+        "operationId": "lister_26",
         "parameters": [
           {
             "name": "portee",
@@ -58068,6 +58247,147 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "LigneEmailDto": {
+        "type": "object",
+        "description": "Ligne du journal des e-mails.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'e-mail (AdmEMailHistory.PKey)."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'envoi, ISO locale.",
+            "example": "2026-03-10T09:15:30"
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Utilisateur à l'origine de l'envoi."
+          },
+          "expediteur": {
+            "type": "string",
+            "description": "Adresse de l'expéditeur."
+          },
+          "destinataires": {
+            "type": "string",
+            "description": "Destinataires, tels qu'enregistrés."
+          },
+          "objet": {
+            "type": "string",
+            "description": "Objet de l'e-mail."
+          },
+          "automatique": {
+            "type": "boolean",
+            "description": "Envoi automatique ; null si OMRAN ne l'a pas renseigné."
+          },
+          "envoye": {
+            "type": "boolean",
+            "description": "Vrai si envoyé, faux si en échec ; null si OMRAN ne l'a pas renseigné."
+          },
+          "erreur": {
+            "type": "string",
+            "description": "Message d'erreur ; null s'il est vide."
+          },
+          "libelleObjet": {
+            "type": "string",
+            "description": "Libellé de l'objet métier concerné (dossier, tiers…)."
+          }
+        }
+      },
+      "PageDtoLigneEmailDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneEmailDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "EmailDetailDto": {
+        "type": "object",
+        "description": "Fiche d'un e-mail : les champs de la ligne, plus la copie et le corps.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'e-mail (AdmEMailHistory.PKey)."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'envoi, ISO locale.",
+            "example": "2026-03-10T09:15:30"
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Utilisateur à l'origine de l'envoi."
+          },
+          "expediteur": {
+            "type": "string",
+            "description": "Adresse de l'expéditeur."
+          },
+          "destinataires": {
+            "type": "string",
+            "description": "Destinataires, tels qu'enregistrés."
+          },
+          "objet": {
+            "type": "string",
+            "description": "Objet de l'e-mail."
+          },
+          "automatique": {
+            "type": "boolean",
+            "description": "Envoi automatique ; null si OMRAN ne l'a pas renseigné."
+          },
+          "envoye": {
+            "type": "boolean",
+            "description": "Vrai si envoyé, faux si en échec ; null si OMRAN ne l'a pas renseigné."
+          },
+          "erreur": {
+            "type": "string",
+            "description": "Message d'erreur ; null s'il est vide."
+          },
+          "libelleObjet": {
+            "type": "string",
+            "description": "Libellé de l'objet métier concerné (dossier, tiers…)."
+          },
+          "copie": {
+            "type": "string",
+            "description": "Destinataires en copie."
+          },
+          "copieCachee": {
+            "type": "string",
+            "description": "Destinataires en copie cachée."
+          },
+          "corps": {
+            "type": "string",
+            "description": "Corps brut, balises comprises : à afficher en texte, jamais à injecter."
+          },
+          "html": {
+            "type": "boolean",
+            "description": "Vrai si le corps est du HTML (IsBodyHtml)."
           }
         }
       },
