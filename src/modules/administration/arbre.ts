@@ -1,4 +1,4 @@
-import { Bot, FileCode2, Gauge, KeyRound, Settings2, Users } from 'lucide-react';
+import { Bot, FileCode2, Gauge, KeyRound, Mail, Settings2, Users } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
 
 export const arbreAdministration: ArbreModule = () => [
@@ -6,6 +6,11 @@ export const arbreAdministration: ArbreModule = () => [
     cle: 'droits',
     titre: 'Droits',
     entrees: [{ to: '/utilisateurs', libelle: 'Utilisateurs', Icone: Users, exact: true }],
+  },
+  {
+    cle: 'securite',
+    titre: 'Sécurité',
+    entrees: [{ to: '/administration/email-historique', libelle: 'EMail Historique', Icone: Mail }],
   },
   {
     cle: 'configuration',
