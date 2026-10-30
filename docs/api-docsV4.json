@@ -56,6 +56,10 @@
       "description": "Écran OMRAN « PROSPECTIONS TERRAIN » : `LndLand`, terrain repéré avant achat, workflow `Str*` de l'entité `LndLand`.\nLecture pour tout compte connecté, écriture réservée à l'Administrateur ; aucune visibilité par société (la table n'en a\npas) ; aucune portée de clé d'API. Notes et audit : porteur `prospection-terrain` (`/api/notes`, `/api/audit?objetId=`) ;\npièces jointes : `/api/prospections-terrain/{id}/pieces-jointes`. Surfaces et prix calculés par le serveur seul\n(`SurfacesTerrain`, variante marocaine si `AdmParamsString.CountryFormule` vaut `MA` ou est absent)."
     },
     {
+      "name": "Audit",
+      "description": "Journal d'audit OMRAN (AdmWebHistorics) : patrimoine, entités juridiques, prospections terrain, études, rendez-vous."
+    },
+    {
       "name": "Dossiers — visites techniques",
       "description": "Calendrier des visites techniques (bouton à gauche du champ « Visite technique / réception » de la fiche OMRAN). Une visite est un `AdmEvent` rattaché au dossier (`ComFolderId`) et à la tranche de son article (`CfgTrancheId`) ; les créneaux et le quota sont comptés par tranche."
     },
@@ -242,10 +246,6 @@
     {
       "name": "Calendrier",
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
-    },
-    {
-      "name": "Audit",
-      "description": "Journal d'audit OMRAN (AdmWebHistorics) : patrimoine, entités juridiques, prospections terrain, études."
     },
     {
       "name": "Mon équipe",
@@ -34149,13 +34149,14 @@
         "tags": [
           "Audit"
         ],
-        "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
+        "summary": "Journal d'un objet (patrimoine, prospection, étude, rendez-vous) et de ses lignes enfants",
+        "description": "Les lignes sont rendues de la plus récente à la plus ancienne.",
         "operationId": "lister_25",
         "parameters": [
           {
             "name": "objetId",
             "in": "query",
-            "description": "PKey de l'entité (même inactive), du programme, de la tranche, de l'article, de la prospection ou de l'étude.",
+            "description": "PKey de l'entité (même inactive), du programme, de la tranche, de l'article, de la prospection, de l'étude ou du rendez-vous. Le journal d'un rendez-vous est réservé à l'Administrateur.",
             "required": true,
             "schema": {
               "type": "string",
@@ -34207,7 +34208,7 @@
             }
           },
           "404": {
-            "description": "Aucun objet visible : entité, programme, tranche, article, prospection, étude (Admin / DG).",
+            "description": "Aucun objet visible : entité, programme, tranche, article, prospection, étude (Administrateur / Direction Générale) ou rendez-vous (Administrateur seul). Un rendez-vous supprimé ne ressort plus par cette route : sa trace d'audit reste en base, mais la route répond 404.",
             "content": {
               "*/*": {
                 "schema": {

@@ -6,7 +6,7 @@ import FicheRendezVousFenetre from '../../components/rendezVous/FicheRendezVousF
 import { Input } from '../../components/ui/input';
 import { DEFAULT_PAGE_SIZE } from '../../lib/api';
 import { EXPORT_RENDEZ_VOUS, listRendezVous } from '../../lib/apiRendezVous';
-import { pluriel } from '../../lib/format';
+import { formatDate, pluriel } from '../../lib/format';
 import { puceUnique } from '../../lib/pucesFiltres';
 import { NOUVEAU_RENDEZ_VOUS } from '../../lib/saisieRendezVous';
 import { useChoixPersonnes } from '../../lib/useChoixRendezVous';
@@ -73,8 +73,8 @@ export default function TachesList() {
       panneau={{
         puces: [
           ...puceUnique(personnes, personnelId),
-          ...(debut ? [`Du ${debut}`] : []),
-          ...(fin ? [`Au ${fin}`] : []),
+          ...(debut ? [`Du ${formatDate(debut)}`] : []),
+          ...(fin ? [`Au ${formatDate(fin)}`] : []),
           ...(search ? [`« ${search} »`] : []),
         ],
         recherche: { valeur: search, onChange: apresFiltre(setSearch), placeholder: 'Code, description…' },

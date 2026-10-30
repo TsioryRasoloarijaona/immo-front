@@ -67,10 +67,13 @@ function FenetreRendezVous({ rdv, dateInitiale, voisins, onFermer, onCree, onMaj
     setErreurs(manque);
     if (Object.keys(manque).length > 0) return;
     try {
-      const corps = corpsDepuis(saisie);
+      const corps = corpsDepuis(saisie, !!rdv);
       const r = rdv ? await modifierRendezVous(rdv.id, corps) : await creerRendezVous(corps);
       refetchAllApis();
-      if (rdv) onMaj(r);
+      if (rdv) {
+        onMaj(r);
+        setSaisie(saisieDepuis(r));
+      }
       else onCree(r.id);
     } catch (err) {
       const { cle, texte } = erreurParChamp(errorMessage(err));
@@ -104,7 +107,7 @@ function FenetreRendezVous({ rdv, dateInitiale, voisins, onFermer, onCree, onMaj
           <Input {...saisir('datePrevue')} type="datetime-local" aria-invalid={erreurs.datePrevue ? true : undefined} />
         </Champ>
         <Champ id="rdv-dureePrevue" libelle="Durée prévisionnelle" erreur={erreurs.dureePrevue}>
-          <Input {...saisir('dureePrevue')} type="number" min={0} step="any" />
+          <Input {...saisir('dureePrevue')} type="number" min={0} step={1} />
         </Champ>
         <Champ id="rdv-dateFinPrevue" libelle="Date fin prévisionnelle" erreur={erreurs.dateFinPrevue}>
           <Input {...saisir('dateFinPrevue')} type="datetime-local" aria-invalid={erreurs.dateFinPrevue ? true : undefined} />

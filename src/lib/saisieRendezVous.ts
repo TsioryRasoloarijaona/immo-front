@@ -25,12 +25,15 @@ export function saisieDepuis(r: RendezVousDto): SaisieRendezVous {
   ) as SaisieRendezVous;
 }
 
-/** Vide = absent (le serveur lit `null` comme « inchangé ») ; la fin vide prend le début. */
-export function corpsDepuis(s: SaisieRendezVous): RendezVousEcritureDto {
+/** Vide = absent (le serveur lit `null` comme « inchangé ») ; la fin vide prend le début ; en modification, notes vides = `''` (efface). */
+export function corpsDepuis(s: SaisieRendezVous, modification = false): RendezVousEcritureDto {
   const corps: Record<string, string | number> = {};
   for (const cle of CLES) {
     const v = (cle === 'dateFinPrevue' ? s.dateFinPrevue || s.datePrevue : s[cle]).trim();
-    if (v === '') continue;
+    if (v === '') {
+      if (modification && cle === 'notes') corps[cle] = '';
+      continue;
+    }
     if (cle === 'dureePrevue') corps[cle] = Number(v);
     else corps[cle] = CLES_DATE.has(cle) ? (toApiDateTime(v) ?? v) : v;
   }
