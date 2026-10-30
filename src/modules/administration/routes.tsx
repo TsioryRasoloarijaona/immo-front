@@ -12,6 +12,7 @@ const ReferentielTachePage = lazy(() => import('../../pages/administration/Refer
 const EmailHistorique = lazy(() => import('../../pages/administration/EmailHistorique'));
 const HistoriqueList = lazy(() => import('../../pages/administration/HistoriqueList'));
 const TachesList = lazy(() => import('../../pages/administration/TachesList'));
+const CalendrierRendezVous = lazy(() => import('../../pages/administration/CalendrierRendezVous'));
 
 const administration: ModuleApp = {
   slug: 'administration',
@@ -31,6 +32,7 @@ const administration: ModuleApp = {
     { path: '/administration/type-tache', element: <ReferentielTachePage /> },
     { path: '/administration/priorite-tache', element: <ReferentielTachePage /> },
     { path: '/administration/taches/:id?', element: <TachesList /> },
+    { path: '/administration/calendrier/:id?', element: <CalendrierRendezVous /> },
     { path: '/administration/email-historique', element: <EmailHistorique /> },
     { path: '/administration/historique', element: <HistoriqueList /> },
   ],

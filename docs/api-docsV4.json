@@ -56,6 +56,10 @@
       "description": "Écran OMRAN « PROSPECTIONS TERRAIN » : `LndLand`, terrain repéré avant achat, workflow `Str*` de l'entité `LndLand`.\nLecture pour tout compte connecté, écriture réservée à l'Administrateur ; aucune visibilité par société (la table n'en a\npas) ; aucune portée de clé d'API. Notes et audit : porteur `prospection-terrain` (`/api/notes`, `/api/audit?objetId=`) ;\npièces jointes : `/api/prospections-terrain/{id}/pieces-jointes`. Surfaces et prix calculés par le serveur seul\n(`SurfacesTerrain`, variante marocaine si `AdmParamsString.CountryFormule` vaut `MA` ou est absent)."
     },
     {
+      "name": "Audit",
+      "description": "Journal d'audit OMRAN (AdmWebHistorics) : patrimoine, entités juridiques, prospections terrain, études, rendez-vous."
+    },
+    {
       "name": "Dossiers — visites techniques",
       "description": "Calendrier des visites techniques (bouton à gauche du champ « Visite technique / réception » de la fiche OMRAN). Une visite est un `AdmEvent` rattaché au dossier (`ComFolderId`) et à la tranche de son article (`CfgTrancheId`) ; les créneaux et le quota sont comptés par tranche."
     },
@@ -200,6 +204,10 @@
       "description": "Suivi des affectations (écran OMRAN « Suivi des affectations ») : une ligne par affectation d'une pièce de règlement (`StlSettlement`) à une échéance de vente (`ComDocument`), c'est-à-dire une `StlSettlementLine` dont `ComDocumentId` est renseigné ; une pièce à plusieurs lignes donne plusieurs lignes. Les lignes d'une tranche `IsForSale = 0` sont exclues ; une échéance sans catégorie, un dossier sans statut ou un dossier sans article restent listés. Liste, groupes, totaux et export partagent exactement les mêmes filtres et la même visibilité : entités actives (même pour l'Administrateur) et périmètre commercial, jugés ligne par ligne sur le projet de la tranche de l'article du dossier (ligne sans tranche résolue : visible). Une tranche hors périmètre donne une liste vide, pas un 403."
     },
     {
+      "name": "Rendez-vous (administration)",
+      "description": "Écrans « Tâches » et « Calendrier » d'OMRAN : lignes `AdmTask` de l'entité `AdmAppointment`, sans statut. Une tâche répond 404 ici. Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-rendez-vous.md`."
+    },
+    {
       "name": "Dossiers — fiche",
       "description": "Fiche complète d'un dossier de vente en consultation, organisée par onglet de l'écran OMRAN (en-tête, statut, autres montants, dates, dates autres, annulation, autres). Lecture seule : la modification des champs est un autre lot. Même périmètre que `GET /api/dossiers/{id}` : un dossier hors périmètre ou rattaché à une entité inactive renvoie 404."
     },
@@ -238,10 +246,6 @@
     {
       "name": "Calendrier",
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
-    },
-    {
-      "name": "Audit",
-      "description": "Journal d'audit OMRAN (AdmWebHistorics) : patrimoine, entités juridiques, prospections terrain, études."
     },
     {
       "name": "Mon équipe",
@@ -14255,6 +14259,119 @@
         }
       }
     },
+    "/api/administration/rendez-vous": {
+      "get": {
+        "tags": [
+          "Rendez-vous (administration)"
+        ],
+        "summary": "Liste paginée des rendez-vous, triée par date prévisionnelle puis code",
+        "operationId": "lister_18",
+        "parameters": [
+          {
+            "name": "texte",
+            "in": "query",
+            "description": "Cherché dans code, description, déclencheur et source ; espaces et casse ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "gestionnaireId",
+            "in": "query",
+            "description": "Personnel (CfgTier).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Premier jour inclus de la date prévisionnelle, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-01"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Dernier jour inclus de la date prévisionnelle, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-31"
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de rendez-vous.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoRendezVousDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date illisible, ou dateDebut après dateFin."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Rendez-vous (administration)"
+        ],
+        "summary": "Crée un rendez-vous, code issu de la séquence AdmTask",
+        "operationId": "creer_18",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RendezVousEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Rendez-vous créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RendezVousDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire manquant, fin avant début, ou référence inconnue."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/actionnaires": {
       "get": {
         "tags": [
@@ -18028,6 +18145,126 @@
         }
       }
     },
+    "/api/administration/rendez-vous/{id}": {
+      "get": {
+        "tags": [
+          "Rendez-vous (administration)"
+        ],
+        "summary": "Fiche d'un rendez-vous",
+        "operationId": "detail_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du rendez-vous.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le rendez-vous.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RendezVousDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Rendez-vous inconnu, ou tâche."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Rendez-vous (administration)"
+        ],
+        "summary": "Supprime un rendez-vous",
+        "operationId": "supprimer_15",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du rendez-vous.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Rendez-vous supprimé."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Rendez-vous inconnu, ou tâche."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Rendez-vous (administration)"
+        ],
+        "summary": "Modifie un rendez-vous (champ absent ou null = inchangé)",
+        "description": "Les dates comparées sont les valeurs fusionnées : un champ absent vaut la date déjà en base. La source (`sourceId`, `sourceLibelle`, `sourceEntite`) ne bouge jamais.",
+        "operationId": "modifier_17",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du rendez-vous.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RendezVousEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Rendez-vous modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RendezVousDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire manquant, fin avant début, ou référence inconnue."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Rendez-vous inconnu, ou tâche."
+          }
+        }
+      }
+    },
     "/api/actionnaires/{id}": {
       "get": {
         "tags": [
@@ -19298,7 +19535,7 @@
         ],
         "summary": "Détail d'un mois : dossiers, mouvements et échéances qui font les cellules",
         "description": "Code `SuiviPrevisionsVenteMois`, mêmes paramètres plus `mois` (1 à 12, obligatoire). Trois sections, triées par date\ndécroissante, faites des lignes sources exactes des cellules du mois : `dossiers` (projet, tranche, article, dossier,\ndateConcretisation, prixVente, regle, client ; leur nombre = `quantites.reel` du mois), `mouvements` (projet, tranche,\narticle, dateDossier, dateMouvement, categorie, montant, libelle, client ; Σ montant = `montants.reel`), `echeances`\n(client, date, categorie, montant, regle, reste ; Σ montant = `schemaFinancement`). `regle` d'une échéance = ses lignes\nde règlement comptées en encaissement, toutes dates ; `reste` = montant − regle.",
-        "operationId": "detail_3",
+        "operationId": "detail_4",
         "responses": {
           "200": {
             "description": "Trois sections : dossiers, mouvements, echeances.",
@@ -19322,7 +19559,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_18",
+        "operationId": "lister_19",
         "parameters": [
           {
             "name": "du",
@@ -20006,7 +20243,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_19",
+        "operationId": "lister_20",
         "parameters": [
           {
             "name": "entiteId",
@@ -23427,7 +23664,7 @@
           "Rapports"
         ],
         "summary": "Rapports du module visibles par l'appelant, groupés",
-        "operationId": "lister_20",
+        "operationId": "lister_21",
         "parameters": [
           {
             "name": "module",
@@ -25886,7 +26123,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_21",
+        "operationId": "lister_22",
         "parameters": [
           {
             "name": "page",
@@ -27573,7 +27810,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier (frais syndic compris), `alerte` et `sousArticles` : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
-        "operationId": "lister_22",
+        "operationId": "lister_23",
         "parameters": [
           {
             "name": "entiteId",
@@ -32647,7 +32884,7 @@
         ],
         "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
         "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
-        "operationId": "lister_23",
+        "operationId": "lister_24",
         "parameters": [
           {
             "name": "q",
@@ -33912,13 +34149,14 @@
         "tags": [
           "Audit"
         ],
-        "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_24",
+        "summary": "Journal d'un objet (patrimoine, prospection, étude, rendez-vous) et de ses lignes enfants",
+        "description": "Les lignes sont rendues de la plus récente à la plus ancienne.",
+        "operationId": "lister_25",
         "parameters": [
           {
             "name": "objetId",
             "in": "query",
-            "description": "PKey de l'entité (même inactive), du programme, de la tranche, de l'article, de la prospection ou de l'étude.",
+            "description": "PKey de l'entité (même inactive), du programme, de la tranche, de l'article, de la prospection, de l'étude ou du rendez-vous. Le journal d'un rendez-vous est réservé à l'Administrateur.",
             "required": true,
             "schema": {
               "type": "string",
@@ -33970,7 +34208,7 @@
             }
           },
           "404": {
-            "description": "Aucun objet visible : entité, programme, tranche, article, prospection, étude (Admin / DG).",
+            "description": "Aucun objet visible : entité, programme, tranche, article, prospection, étude (Administrateur / Direction Générale) ou rendez-vous (Administrateur seul). Un rendez-vous supprimé ne ressort plus par cette route : sa trace d'audit reste en base, mais la route répond 404.",
             "content": {
               "*/*": {
                 "schema": {
@@ -34476,6 +34714,141 @@
         }
       }
     },
+    "/api/administration/rendez-vous/export": {
+      "get": {
+        "tags": [
+          "Rendez-vous (administration)"
+        ],
+        "summary": "Export Excel des rendez-vous filtrés, date croissante",
+        "operationId": "exporter_20",
+        "parameters": [
+          {
+            "name": "texte",
+            "in": "query",
+            "description": "Cherché dans code, description, déclencheur et source ; espaces et casse ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "gestionnaireId",
+            "in": "query",
+            "description": "Personnel (CfgTier).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Premier jour inclus de la date prévisionnelle, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-01"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Dernier jour inclus de la date prévisionnelle, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-31"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date illisible, ou dateDebut après dateFin."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/rendez-vous/calendrier": {
+      "get": {
+        "tags": [
+          "Rendez-vous (administration)"
+        ],
+        "summary": "Rendez-vous d'une plage de 62 jours au plus, non paginés",
+        "operationId": "calendrier_1",
+        "parameters": [
+          {
+            "name": "debut",
+            "in": "query",
+            "description": "Premier jour inclus, ISO.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-01"
+          },
+          {
+            "name": "fin",
+            "in": "query",
+            "description": "Dernier jour inclus, ISO.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-31"
+          },
+          {
+            "name": "gestionnaireId",
+            "in": "query",
+            "description": "Personnel (CfgTier).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rendez-vous de la plage, date croissante.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RendezVousDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Borne absente ou illisible, fin avant début, ou plage de plus de 62 jours."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/administration/historique": {
       "get": {
         "tags": [
@@ -34483,7 +34856,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes de la période, date décroissante, à date égale par `PKey`. Sans date : les 30 derniers jours. `dateFin` est incluse jusqu'à 23:59:59. `texte` cherche dans `ObjectType` et `ObjectLabel` seulement, `%`, `_` et `[` pris à la lettre ; `utilisateur` est une égalité exacte. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_25",
+        "operationId": "lister_26",
         "parameters": [
           {
             "name": "dateDebut",
@@ -34647,7 +35020,7 @@
         ],
         "summary": "Export Excel des lignes filtrées",
         "description": "Mêmes filtres et même tri que la liste, sans pagination : au plus 20 000 lignes. Date au format `dd/MM/yyyy HH:mm` ; `Details` et `Description` ne sont pas exportés.",
-        "operationId": "exporter_20",
+        "operationId": "exporter_21",
         "parameters": [
           {
             "name": "dateDebut",
@@ -34732,7 +35105,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_26",
+        "operationId": "lister_27",
         "parameters": [
           {
             "name": "dateDebut",
@@ -34836,7 +35209,7 @@
         ],
         "summary": "Fiche d'un e-mail",
         "description": "Mêmes champs que la ligne, plus `copie`, `copieCachee`, `corps` et `html`. `corps` est le `Body` brut, balises comprises : l'écran l'affiche en texte, jamais comme du HTML.",
-        "operationId": "detail_4",
+        "operationId": "detail_5",
         "parameters": [
           {
             "name": "id",
@@ -34907,7 +35280,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_27",
+        "operationId": "lister_28",
         "parameters": [
           {
             "name": "portee",
@@ -35009,7 +35382,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_15",
+        "operationId": "supprimer_16",
         "parameters": [
           {
             "name": "porteur",
@@ -35258,7 +35631,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_16",
+        "operationId": "supprimer_17",
         "parameters": [
           {
             "name": "id",
@@ -35502,7 +35875,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_17",
+        "operationId": "supprimer_18",
         "parameters": [
           {
             "name": "id",
@@ -48513,6 +48886,141 @@
           }
         }
       },
+      "RendezVousEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'un rendez-vous. En modification, champ absent ou null = inchangé. Code et source n'en font pas partie.",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Obligatoire à la création, 255 caractères au plus."
+          },
+          "declencheurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Déclencheur (CfgTier) ; inconnu = 400."
+          },
+          "datePrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Obligatoire à la création."
+          },
+          "dureePrevue": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée prévisionnelle."
+          },
+          "dateFinPrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Absente à la création = datePrevue ; antérieure à datePrevue = 400."
+          },
+          "gestionnaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Personnel (CfgTier) ; inconnu = 400."
+          },
+          "tierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tier (CfgTier), obligatoire à la création ; inconnu = 400."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes, 1000 caractères au plus."
+          }
+        }
+      },
+      "RendezVousDto": {
+        "type": "object",
+        "description": "Rendez-vous (ligne AdmTask de l'entité AdmAppointment), sans statut ni workflow.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du rendez-vous."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code issu de la séquence AdmTask, jamais saisi.",
+            "example": "26/00110"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description, obligatoire."
+          },
+          "declencheurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Déclencheur (CfgTier), null si non renseigné."
+          },
+          "declencheurCode": {
+            "type": "string",
+            "description": "Code du déclencheur."
+          },
+          "declencheurNom": {
+            "type": "string",
+            "description": "Nom du déclencheur."
+          },
+          "datePrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date prévisionnelle, clé de tri de la liste."
+          },
+          "dureePrevue": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée prévisionnelle (entier, unité d'OMRAN)."
+          },
+          "dateFinPrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin prévisionnelle."
+          },
+          "gestionnaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Personnel (CfgTier), null si non renseigné."
+          },
+          "gestionnaireCode": {
+            "type": "string",
+            "description": "Code du personnel."
+          },
+          "gestionnaireNom": {
+            "type": "string",
+            "description": "Nom du personnel."
+          },
+          "tierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tier (CfgTier, colonne CfgProspectId), null si non renseigné."
+          },
+          "tierCode": {
+            "type": "string",
+            "description": "Code du tier, null si tier absent."
+          },
+          "tierNom": {
+            "type": "string",
+            "description": "Nom du tier, null si tier absent."
+          },
+          "sourceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Objet source, écrit par OMRAN, lecture seule."
+          },
+          "sourceLibelle": {
+            "type": "string",
+            "description": "Libellé de la source, écrit par OMRAN, lecture seule."
+          },
+          "sourceEntite": {
+            "type": "string",
+            "description": "Entité fonctionnelle de la source (Description de StrEntity)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          }
+        }
+      },
       "ActionnaireEcritureDto": {
         "type": "object",
         "description": "Création ou modification d'un actionnaire ; en PATCH, absent ou null = inchangé.",
@@ -58720,6 +59228,33 @@
           "reste": {
             "type": "number",
             "description": "Vente : `total` − `regle`, 0 sur un dossier sorti. Location et syndic : null."
+          }
+        }
+      },
+      "PageDtoRendezVousDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RendezVousDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

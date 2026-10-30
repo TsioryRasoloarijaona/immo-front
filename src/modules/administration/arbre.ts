@@ -1,4 +1,4 @@
-import { Bot, FileCode2, Gauge, History, KeyRound, ListChecks, Mail, Settings2, Users } from 'lucide-react';
+import { Bot, CalendarDays, FileCode2, Gauge, History, KeyRound, ListChecks, Mail, Settings2, Users } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
 
 export const arbreAdministration: ArbreModule = () => [
@@ -25,6 +25,7 @@ export const arbreAdministration: ArbreModule = () => [
     titre: 'Configuration · Tâches',
     entrees: [
       { to: '/administration/taches', libelle: 'Tâches', Icone: ListChecks },
+      { to: '/administration/calendrier', libelle: 'Calendrier', Icone: CalendarDays },
       { to: '/administration/type-tache', libelle: 'Type', Icone: Settings2 },
       { to: '/administration/priorite-tache', libelle: 'Priorité', Icone: Gauge },
     ],
