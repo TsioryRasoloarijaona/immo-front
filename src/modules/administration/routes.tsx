@@ -10,6 +10,8 @@ const ModelesDocumentsList = lazy(() => import('../../pages/modeles/ModelesDocum
 const EditeurModele = lazy(() => import('../../pages/modeles/EditeurModele'));
 const ReferentielTachePage = lazy(() => import('../../pages/administration/ReferentielTachePage'));
 
+const TachesList = lazy(() => import('../../pages/administration/TachesList'));
+
 const administration: ModuleApp = {
   slug: 'administration',
   label: 'Administration',
@@ -27,6 +29,7 @@ const administration: ModuleApp = {
     { path: '/modeles-documents/:id', element: <EditeurModele /> },
     { path: '/administration/type-tache', element: <ReferentielTachePage /> },
     { path: '/administration/priorite-tache', element: <ReferentielTachePage /> },
+    { path: '/administration/taches/:id?', element: <TachesList /> },
   ],
 };
 
