@@ -86,6 +86,7 @@ function FenetreUtilisateur({ initiale, refs, habilitations, voisins, onFermer, 
   const [erreurs, setErreurs] = useState<Partial<Record<keyof SaisieUtilisateur, string>>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [avertissement, setAvertissement] = useState<string | null>(null);
+  const [envoi, setEnvoi] = useState(false);
 
   const modifiee = saisieModifiee(saisie, base) || !memesIds(roleIds, fiche?.roleIds ?? []) || !memesIds(compteIds, fiche?.compteDepotIds ?? []) || !memesCodes(coches, cochesBase);
 
@@ -130,19 +131,17 @@ function FenetreUtilisateur({ initiale, refs, habilitations, voisins, onFermer, 
     if (!valider()) return;
     let courant = fiche;
     let ecrit = false;
+    setEnvoi(true);
     try {
       if (!courant) {
         courant = await creerUtilisateur(corpsUtilisateur(saisie, true));
         setFiche(courant);
+        setSaisie(saisieDepuisFiche(courant));
         ecrit = true;
       } else if (saisieModifiee(saisie, base)) {
         courant = await modifierUtilisateur(courant.id, corpsUtilisateur(saisie, false, base));
         setFiche(courant);
-        ecrit = true;
-      }
-      if (!memesIds(roleIds, courant.roleIds)) {
-        courant = await remplacerRolesUtilisateur(courant.id, { roleIds });
-        setFiche(courant);
+        setSaisie(saisieDepuisFiche(courant));
         ecrit = true;
       }
       if (!memesIds(compteIds, courant.compteDepotIds)) {
@@ -151,10 +150,18 @@ function FenetreUtilisateur({ initiale, refs, habilitations, voisins, onFermer, 
         ecrit = true;
       }
       await ecrireHabilitations(courant);
+      // Rôles en dernier : changer ses propres rôles coupe la session.
+      if (!memesIds(roleIds, courant.roleIds)) {
+        courant = await remplacerRolesUtilisateur(courant.id, { roleIds });
+        setFiche(courant);
+        ecrit = true;
+      }
     } catch (err) {
       setMessage(ecrit ? `Enregistrement partiel, le reste n'a pas été écrit : ${errorMessage(err)}` : errorMessage(err));
       if (ecrit) refetchAllApis();
       return;
+    } finally {
+      setEnvoi(false);
     }
     refetchAllApis();
     if (!initiale) onCree(courant.id);
@@ -169,7 +176,7 @@ function FenetreUtilisateur({ initiale, refs, habilitations, voisins, onFermer, 
   return (
     <FenetreFiche nature={NATURE} titre={fiche?.code || 'Nouveau compte'} voisins={voisins} onFermer={onFermer} enEdition={modifiee}>
       <RubanFiche
-        enregistrer={{ onClick: () => void enregistrer(), disabled: !modifiee }}
+        enregistrer={{ onClick: () => void enregistrer(), disabled: !modifiee || envoi }}
         propres={fiche ? [{ id: 'mot-de-passe', libelle: 'Mot de passe', icone: KeyRound, onClick: reinitialiserMotDePasse }] : []}
       />
       {message && <p role="alert" className="shrink-0 px-4 pt-2 text-label text-destructive">{message}</p>}
@@ -198,7 +205,13 @@ export default function FicheUtilisateurFenetre({ id, voisins, onFermer, onCree 
   const habilitations = useApi(() => (creation ? Promise.resolve(null) : getHabilitations(id)), [id]);
   const erreur = refs.error ?? fiche.error ?? habilitations.error;
 
-  if (erreur || !refs.data || (!creation && (!fiche.data || !habilitations.data))) {
+  const [monte, setMonte] = useState(false);
+  const enLecture = refs.loading || fiche.loading || habilitations.loading;
+  const pret = !erreur && !!refs.data && (creation || (!!fiche.data && !!habilitations.data));
+  // Monté seulement quand les trois lectures sont finies ; les relectures après enregistrement ne le remontent pas.
+  if (pret && !enLecture && !monte) setMonte(true);
+  if (erreur && monte) setMonte(false);
+  if (!pret || !monte || !refs.data) {
     return (
       <Attente erreur={erreur} voisins={voisins} onFermer={onFermer}
         onReessayer={() => void Promise.all([refs.refetch(), fiche.refetch(), habilitations.refetch()])} />

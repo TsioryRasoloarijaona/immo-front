@@ -48,7 +48,7 @@ export function ciblesCochees(a: ArbreHabilitations, coches: ReadonlySet<string>
     .map((n) => ({ type: n.type as CibleHabilitationDto['type'], id: n.code.slice((n.type ?? '').length + 1) }));
 }
 
-/** Nombre de projets cochés (hors figés) : sert l'avertissement « plus de restriction ». */
+/** Nombre de projets cochés : sert l'avertissement « plus de restriction ». */
 export function projetsCoches(a: ArbreHabilitations, coches: ReadonlySet<string>): number {
   return a.structure.noeuds.filter((n) => n.type === 'PROJET' && coches.has(n.code)).length;
 }

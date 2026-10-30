@@ -17,20 +17,26 @@ const CASES: ReadonlyArray<{ cle: CleCase; libelle: string }> = [
   { cle: 'smtpSsl', libelle: 'SMTP SSL' },
 ];
 
+/** Cocher Inactif coupe l'accès mobile et la messagerie, comme le serveur. */
+function patchCase(cle: CleCase, valeur: boolean): Partial<SaisieUtilisateur> {
+  return cle === 'inactif' && valeur ? { inactif: true, accesMobile: false, avecNotification: false } : { [cle]: valeur };
+}
+
 const CLASSE_SELECT = 'h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-body';
 
-function Liste({ id, libelle, valeur, items, onChange }: Readonly<{
+function Liste({ id, libelle, valeur, items, onChange, effacable = true }: Readonly<{
   id: string;
   libelle: string;
   valeur: string;
   items: ReferentielItemDto[];
   onChange: (valeur: string) => void;
+  effacable?: boolean;
 }>) {
   return (
     <Field>
       <FieldLabel htmlFor={id}>{libelle}</FieldLabel>
       <select id={id} className={CLASSE_SELECT} value={valeur} onChange={(e) => onChange(e.target.value)}>
-        <option value="">—</option>
+        {(effacable || !valeur) && <option value="">—</option>}
         {items.map((i) => (
           <option key={i.id} value={i.id}>{i.description || i.code}</option>
         ))}
@@ -71,7 +77,7 @@ export default function OngletInformations({ saisie, refs, codeFige, erreurs, on
       {texte('telephone', 'Téléphone')}
       {texte('mobile', 'Mobile')}
       <Liste id="utilisateur-personnel" libelle="Personnel" valeur={saisie.personnelId} items={refs.personnels} onChange={onPersonnel} />
-      <Liste id="utilisateur-culture" libelle="Culture web" valeur={saisie.cultureWebId} items={refs.cultures} onChange={(v) => onChange({ cultureWebId: v })} />
+      <Liste id="utilisateur-culture" libelle="Culture web" valeur={saisie.cultureWebId} items={refs.cultures} effacable={false} onChange={(v) => onChange({ cultureWebId: v })} />
       <Liste id="utilisateur-role-web" libelle="Rôle web" valeur={saisie.roleWebId} items={refs.roles} onChange={(v) => onChange({ roleWebId: v })} />
       {texte('smtpServeur', 'SMTP serveur')}
       {texte('smtpPort', 'SMTP port', 5)}
@@ -79,7 +85,7 @@ export default function OngletInformations({ saisie, refs, codeFige, erreurs, on
         <legend className="px-1 text-label font-medium">Options</legend>
         {CASES.map(({ cle, libelle }) => (
           <label key={cle} className="flex items-center gap-2 text-body">
-            <input type="checkbox" checked={saisie[cle]} onChange={(e) => onChange({ [cle]: e.target.checked })} />
+            <input type="checkbox" checked={saisie[cle]} onChange={(e) => onChange(patchCase(cle, e.target.checked))} />
             {libelle}
           </label>
         ))}

@@ -37,7 +37,7 @@ export function saisieDepuisFiche(f: UtilisateurFicheDto | null): SaisieUtilisat
     smtpSsl: f?.smtpSsl ?? false,
     inactif: f?.inactif ?? true,
     avecNotification: f?.avecNotification ?? false,
-    peutMasquerNotification: f?.peutMasquerNotification ?? false,
+    peutMasquerNotification: f?.peutMasquerNotification ?? true,
     accesMobile: f?.accesMobile ?? false,
   };
 }
