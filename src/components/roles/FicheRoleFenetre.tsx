@@ -90,7 +90,7 @@ function FenetreRole({ role, arbre, voisins, onFermer, onCree, onMaj }: Props & 
     refetchAllApis();
     if (final) {
       onMaj(final);
-      if (!idCourant) onCree(final.id);
+      if (!role) onCree(final.id);
     }
   }
 
