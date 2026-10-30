@@ -2,65 +2,55 @@ import { useMemo, useState } from 'react';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import BoiteFiltre from '../../components/liste/BoiteFiltre';
 import CadreListe from '../../components/patrimoine/CadreListe';
-import FicheTacheFenetre from '../../components/taches/FicheTacheFenetre';
-import { Badge } from '../../components/ui';
+import FicheRendezVousFenetre from '../../components/rendezVous/FicheRendezVousFenetre';
+import { Input } from '../../components/ui/input';
 import { DEFAULT_PAGE_SIZE } from '../../lib/api';
-import { listStatutsTaches, listTaches } from '../../lib/apiTaches';
+import { EXPORT_RENDEZ_VOUS, listRendezVous } from '../../lib/apiRendezVous';
 import { pluriel } from '../../lib/format';
 import { puceUnique } from '../../lib/pucesFiltres';
-import { NOUVELLE_TACHE, toneStatut } from '../../lib/saisieTache';
-import { useChoixTaches } from '../../lib/useChoixTaches';
+import { NOUVEAU_RENDEZ_VOUS } from '../../lib/saisieRendezVous';
+import { useChoixPersonnes } from '../../lib/useChoixRendezVous';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useExportListe } from '../../lib/useExportListe';
 import useFenetreListe from '../../lib/useFenetreListe';
-import type { StatutTacheDto, TacheDto } from '../../types/taches';
+import type { RendezVousDto } from '../../types/rendezVous';
 
-function colonnes(statuts: StatutTacheDto[]): ColonneGrille<TacheDto>[] {
-  return [
-    { nom: 'code', libelle: 'Code', largeur: 6, classe: 'font-medium text-foreground' },
-    { nom: 'description', libelle: 'Description', largeur: 20 },
-    { nom: 'typeLibelle', libelle: 'Type', largeur: 8 },
-    { nom: 'prioriteLibelle', libelle: 'Priorité', largeur: 8 },
-    { nom: 'datePrevue', libelle: 'Date prévisionnelle', type: 'DATE', largeur: 8 },
-    { nom: 'gestionnaireNom', libelle: 'Gestionnaire', largeur: 10 },
-    {
-      nom: 'statutLibelle',
-      libelle: 'Statut',
-      largeur: 8,
-      rendu: (t) => <Badge tone={toneStatut(statuts, t.statutId)}>{t.statutLibelle ?? '—'}</Badge>,
-    },
-  ];
-}
+const COLONNES: ColonneGrille<RendezVousDto>[] = [
+  { nom: 'code', libelle: 'Code', largeur: 6, classe: 'font-medium text-foreground' },
+  { nom: 'description', libelle: 'Description', largeur: 18 },
+  { nom: 'declencheurCode', libelle: 'Déclencheur Code', largeur: 7 },
+  { nom: 'declencheurNom', libelle: 'Déclencheur', largeur: 10 },
+  { nom: 'datePrevue', libelle: 'Date prévisionnelle', type: 'DATE', largeur: 8 },
+  { nom: 'dureePrevue', libelle: 'Durée prévisionnelle', largeur: 6 },
+  { nom: 'dateFinPrevue', libelle: 'Date fin prévisionnelle', type: 'DATE', largeur: 8 },
+  { nom: 'gestionnaireCode', libelle: 'Personnel Code', largeur: 7 },
+  { nom: 'gestionnaireNom', libelle: 'Personnel', largeur: 10 },
+  { nom: 'tierCode', libelle: 'Tier Code', largeur: 6 },
+  { nom: 'tierNom', libelle: 'Tier', largeur: 10 },
+  { nom: 'sourceLibelle', libelle: 'Source', largeur: 8 },
+  { nom: 'sourceEntite', libelle: 'Entité fonctionnelle de la source', largeur: 9 },
+  { nom: 'notes', libelle: 'Notes', largeur: 12 },
+];
 
-/** `/administration/taches` : tâches (AdmTask), Administrateur seul. */
+/** `/administration/taches` : rendez-vous (AdmTask de nature rendez-vous), Administrateur seul. */
 export default function TachesList() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
-  const [statutId, setStatutId] = useState<string | null>(null);
-  const [typeId, setTypeId] = useState<string | null>(null);
-  const [prioriteId, setPrioriteId] = useState<string | null>(null);
-  const [gestionnaireId, setGestionnaireId] = useState<string | null>(null);
+  const [personnelId, setPersonnelId] = useState<string | null>(null);
+  const [debut, setDebut] = useState('');
+  const [fin, setFin] = useState('');
   const texte = useDebouncedValue(search).trim();
-  const choix = useChoixTaches();
-  const statuts = useApi(listStatutsTaches, [], 'taches-statuts');
-  const itemsStatut = useMemo(() => (statuts.data ?? []).map((s) => ({ label: s.code ?? s.id, value: s.id })), [statuts.data]);
-  const grille = useMemo(() => colonnes(statuts.data ?? []), [statuts.data]);
-
-  const { data, loading, error } = useApi(
-    () =>
-      listTaches({
-        texte: texte || undefined,
-        statutId: statutId ?? undefined,
-        typeId: typeId ?? undefined,
-        prioriteId: prioriteId ?? undefined,
-        gestionnaireId: gestionnaireId ?? undefined,
-        page,
-        size: DEFAULT_PAGE_SIZE,
-      }),
-    [texte, statutId, typeId, prioriteId, gestionnaireId, page],
+  const personnes = useChoixPersonnes();
+  const filtres = useMemo(
+    () => ({ texte: texte || undefined, gestionnaireId: personnelId ?? undefined, dateDebut: debut || undefined, dateFin: fin || undefined }),
+    [texte, personnelId, debut, fin],
   );
+
+  const { data, loading, error } = useApi(() => listRendezVous({ ...filtres, page, size: DEFAULT_PAGE_SIZE }), [filtres, page]);
+  const exportListe = useExportListe(EXPORT_RENDEZ_VOUS, filtres, 'rendez-vous');
   const rows = data?.content ?? [];
-  const fenetre = useFenetreListe('/administration/taches', rows.map((t) => t.id));
-  const filtre = !!texte || !!statutId || !!typeId || !!prioriteId || !!gestionnaireId;
+  const fenetre = useFenetreListe('/administration/taches', rows.map((r) => r.id));
+  const filtre = !!texte || !!personnelId || !!debut || !!fin;
   const apresFiltre = <T,>(set: (v: T) => void) => (v: T) => {
     setPage(0);
     set(v);
@@ -69,10 +59,9 @@ export default function TachesList() {
   function reinitialiser() {
     setPage(0);
     setSearch('');
-    setStatutId(null);
-    setTypeId(null);
-    setPrioriteId(null);
-    setGestionnaireId(null);
+    setPersonnelId(null);
+    setDebut('');
+    setFin('');
   }
 
   return (
@@ -80,42 +69,47 @@ export default function TachesList() {
       titre="Tâches"
       cle="administration-taches"
       reserveAdmin
-      lignes={data ? pluriel(data.totalElements, 'tâche') : undefined}
+      lignes={data ? pluriel(data.totalElements, 'rendez-vous', 'rendez-vous') : undefined}
       panneau={{
         puces: [
-          ...puceUnique(itemsStatut, statutId),
-          ...puceUnique(choix.types, typeId),
-          ...puceUnique(choix.priorites, prioriteId),
-          ...puceUnique(choix.personnes, gestionnaireId),
+          ...puceUnique(personnes, personnelId),
+          ...(debut ? [`Du ${debut}`] : []),
+          ...(fin ? [`Au ${fin}`] : []),
           ...(search ? [`« ${search} »`] : []),
         ],
         recherche: { valeur: search, onChange: apresFiltre(setSearch), placeholder: 'Code, description…' },
         onReinitialiser: reinitialiser,
         children: (
-          <>
-            <BoiteFiltre titre="Statut" mode="unique" items={itemsStatut} valeur={statutId} onChange={apresFiltre(setStatutId)} />
-            <BoiteFiltre titre="Type" mode="unique" items={choix.types} valeur={typeId} onChange={apresFiltre(setTypeId)} />
-            <BoiteFiltre titre="Priorité" mode="unique" items={choix.priorites} valeur={prioriteId} onChange={apresFiltre(setPrioriteId)} />
-            <BoiteFiltre titre="Gestionnaire" mode="unique" items={choix.personnes} valeur={gestionnaireId} onChange={apresFiltre(setGestionnaireId)} />
-          </>
+          <div className="flex flex-wrap items-center gap-3">
+            <BoiteFiltre titre="Personnel" mode="unique" items={personnes} valeur={personnelId} onChange={apresFiltre(setPersonnelId)} />
+            <span className="flex items-center gap-1.5 text-body text-muted-foreground">
+              du
+              <Input type="date" aria-label="Du" className="w-32.5" value={debut} max={fin || undefined} onChange={(e) => apresFiltre(setDebut)(e.target.value)} />
+            </span>
+            <span className="flex items-center gap-1.5 text-body text-muted-foreground">
+              au
+              <Input type="date" aria-label="Au" className="w-32.5" value={fin} min={debut || undefined} onChange={(e) => apresFiltre(setFin)(e.target.value)} />
+            </span>
+          </div>
         ),
       }}
       etat={{ chargement: loading, erreur: error, pret: !!data }}
-      vide={rows.length === 0 ? { aucun: 'Aucune tâche', filtresActifs: filtre, onReinitialiser: reinitialiser } : null}
+      vide={rows.length === 0 ? { aucun: 'Aucun rendez-vous', filtresActifs: filtre, onReinitialiser: reinitialiser } : null}
       pagination={data ? { page: data.page, totalPages: data.totalPages, totalElements: data.totalElements, onPageChange: setPage } : undefined}
-      admin={{ nouveau: { libelle: 'Nouvelle tâche', onClick: () => fenetre.ouvrir(NOUVELLE_TACHE) } }}
+      exportListe={{ export: exportListe }}
+      admin={{ nouveau: { libelle: 'Nouveau rendez-vous', onClick: () => fenetre.ouvrir(NOUVEAU_RENDEZ_VOUS) } }}
       dialogues={
         fenetre.idOuvert && (
-          <FicheTacheFenetre key={fenetre.idOuvert} id={fenetre.idOuvert} voisins={fenetre.voisins} onFermer={fenetre.fermer} onCree={fenetre.ouvrir} />
+          <FicheRendezVousFenetre key={fenetre.idOuvert} id={fenetre.idOuvert} voisins={fenetre.voisins} onFermer={fenetre.fermer} onCree={fenetre.ouvrir} />
         )
       }
     >
       <DataGrid
         cleOrdre="administration-taches"
         rows={rows}
-        colonnes={grille}
+        colonnes={COLONNES}
         onOuvrir={fenetre.ouvrir}
-        libelleLigne={(t) => `Ouvrir la tâche ${t.code ?? ''}`.trim()}
+        libelleLigne={(r) => `Ouvrir le rendez-vous ${r.code ?? ''}`.trim()}
       />
     </CadreListe>
   );
