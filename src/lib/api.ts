@@ -1953,7 +1953,7 @@ export function completerProfil(body: CompleterProfilRequest): Promise<Utilisate
 }
 
 export function listUtilisateurs(
-  params?: { search?: string; disabled?: boolean },
+  params?: { search?: string; disabled?: boolean; roleId?: UUID; personnelId?: UUID },
   pageable?: Pageable,
 ): Promise<PageDto<UtilisateurListItemDto>> {
   return request('GET', '/api/utilisateurs', { query: withPageable(params, pageable) });

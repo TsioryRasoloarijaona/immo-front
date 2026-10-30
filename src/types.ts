@@ -3398,6 +3398,11 @@ export interface UtilisateurListItemDto {
   /** 0 = aucune restriction. Ignore les rôles d'exemption : un Administrateur
    * affecté à 2 projets affiche 2 sans jamais être filtré. */
   nombreProjets?: number;
+  accesMobile?: boolean;
+  accesMessagerie?: boolean;
+  creePar?: string;
+  modifiePar?: string;
+  modifieLe?: string;
 }
 
 /** Absent ou `{}` : envoi à l'adresse connue du compte, ou aucun envoi. */
