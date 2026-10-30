@@ -47,16 +47,19 @@ export function saisieModifiee(a: SaisieUtilisateur, b: SaisieUtilisateur): bool
 }
 
 /** Création : le code est envoyé ; modification : jamais (immuable). Un identifiant vide n'est pas envoyé. */
-export function corpsUtilisateur(s: SaisieUtilisateur, creation: boolean): UtilisateurEcritureDto {
+export function corpsUtilisateur(s: SaisieUtilisateur, creation: boolean, avant?: SaisieUtilisateur): UtilisateurEcritureDto {
   const port = Number.parseInt(s.smtpPort, 10);
+  const portVide = Number.isNaN(port);
   return {
     ...(creation && { code: s.code.trim() }),
+    ...(avant && !s.personnelId && avant.personnelId && { viderPersonnel: true }),
+    ...(avant && !s.roleWebId && avant.roleWebId && { viderRoleWeb: true }),
     description: s.description.trim(),
     email: s.email,
     telephone: s.telephone,
     mobile: s.mobile,
     smtpServeur: s.smtpServeur,
-    ...(Number.isNaN(port) ? {} : { smtpPort: port }),
+    ...(portVide ? (avant && avant.smtpPort && { smtpPort: 0 }) : { smtpPort: port }),
     smtpSsl: s.smtpSsl,
     inactif: s.inactif,
     avecNotification: s.avecNotification,

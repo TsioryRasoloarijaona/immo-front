@@ -94,7 +94,15 @@ function FenetreUtilisateur({ initiale, refs, habilitations, voisins, onFermer, 
     const personnel = refs.personnels.find((p) => p.id === id);
     if (!personnel) return;
     const oui = await confirmer({ title: 'Personnel', message: 'Voulez-vous charger les informations du personnel ?', confirmLabel: 'Oui', cancelLabel: 'Non' });
-    if (oui) setSaisie((s) => ({ ...s, description: personnel.description ?? s.description }));
+    if (oui) {
+      setSaisie((s) => ({
+        ...s,
+        description: personnel.description ?? '',
+        email: personnel.email ?? '',
+        mobile: personnel.mobile ?? '',
+        telephone: personnel.telephone ?? '',
+      }));
+    }
   }
 
   function valider(): boolean {
@@ -128,7 +136,7 @@ function FenetreUtilisateur({ initiale, refs, habilitations, voisins, onFermer, 
         setFiche(courant);
         ecrit = true;
       } else if (saisieModifiee(saisie, base)) {
-        courant = await modifierUtilisateur(courant.id, corpsUtilisateur(saisie, false));
+        courant = await modifierUtilisateur(courant.id, corpsUtilisateur(saisie, false, base));
         setFiche(courant);
         ecrit = true;
       }
