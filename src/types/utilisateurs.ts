@@ -27,6 +27,19 @@ export interface UtilisateurEcritureDto {
   smtpSsl?: boolean;
   cultureWebId?: UUID;
   roleWebId?: UUID;
+  /** PATCH : remet le lien à NULL, prime sur `personnelId`. */
+  viderPersonnel?: boolean;
+  /** PATCH : remet le lien à NULL, prime sur `roleWebId`. */
+  viderRoleWeb?: boolean;
+}
+
+export interface PersonnelReferenceDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  email?: string | null;
+  mobile?: string | null;
+  telephone?: string | null;
 }
 
 export interface UtilisateurFicheDto {
@@ -61,7 +74,7 @@ export interface UtilisateurFicheDto {
 export interface UtilisateurReferencesDto {
   roles: ReferentielItemDto[];
   cultures: ReferentielItemDto[];
-  personnels: ReferentielItemDto[];
+  personnels: PersonnelReferenceDto[];
   comptesDepot: ReferentielItemDto[];
 }
 

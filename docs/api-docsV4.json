@@ -39612,6 +39612,14 @@
             "type": "string",
             "format": "uuid",
             "description": "AdmRole (voir /references). Ne donne aucun droit."
+          },
+          "viderPersonnel": {
+            "type": "boolean",
+            "description": "PATCH : true remet CfgEmployeeId à NULL et prime sur personnelId. Sans effet au POST."
+          },
+          "viderRoleWeb": {
+            "type": "boolean",
+            "description": "PATCH : true remet WebRoleId à NULL et prime sur roleWebId. Sans effet au POST."
           }
         }
       },
@@ -51826,6 +51834,34 @@
           }
         }
       },
+      "PersonnelReferenceDto": {
+        "type": "object",
+        "description": "Tiers de type Employé : coordonnées copiées dans la fiche si l'écran le propose (R11).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "description": "CfgTier.EMail, null si vide."
+          },
+          "mobile": {
+            "type": "string",
+            "description": "CfgTier.Mobile, null si vide."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "CfgTier.Phone, null si vide."
+          }
+        }
+      },
       "UtilisateurReferencesDto": {
         "type": "object",
         "description": "Listes de choix de la fiche utilisateur.",
@@ -51847,7 +51883,7 @@
             "type": "array",
             "description": "Tiers de type Employé.",
             "items": {
-              "$ref": "#/components/schemas/ReferentielItemDto"
+              "$ref": "#/components/schemas/PersonnelReferenceDto"
             }
           },
           "comptesDepot": {
