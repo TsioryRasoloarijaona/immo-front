@@ -8,6 +8,7 @@ const ReinitialiserMotDePasse = lazy(() => import('../../pages/utilisateurs/Rein
 const ClesApiList = lazy(() => import('../../pages/utilisateurs/ClesApiList'));
 const ModelesDocumentsList = lazy(() => import('../../pages/modeles/ModelesDocumentsList'));
 const EditeurModele = lazy(() => import('../../pages/modeles/EditeurModele'));
+const ReferentielTachePage = lazy(() => import('../../pages/administration/ReferentielTachePage'));
 
 const administration: ModuleApp = {
   slug: 'administration',
@@ -16,7 +17,7 @@ const administration: ModuleApp = {
   ordre: 9,
   path: '/utilisateurs',
   reserveAdmin: true,
-  prefixes: ['/utilisateurs', '/cles-api', '/modeles-documents'],
+  prefixes: ['/utilisateurs', '/cles-api', '/modeles-documents', '/administration'],
   arbre: arbreAdministration,
   routes: [
     { path: '/utilisateurs', element: <UtilisateursList /> },
@@ -24,6 +25,8 @@ const administration: ModuleApp = {
     { path: '/cles-api', element: <ClesApiList /> },
     { path: '/modeles-documents', element: <ModelesDocumentsList /> },
     { path: '/modeles-documents/:id', element: <EditeurModele /> },
+    { path: '/administration/type-tache', element: <ReferentielTachePage /> },
+    { path: '/administration/priorite-tache', element: <ReferentielTachePage /> },
   ],
 };
 

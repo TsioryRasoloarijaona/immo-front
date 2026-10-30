@@ -1,4 +1,4 @@
-import { Bot, FileCode2, KeyRound, Users } from 'lucide-react';
+import { Bot, FileCode2, Gauge, KeyRound, Settings2, Users } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
 
 export const arbreAdministration: ArbreModule = () => [
@@ -11,6 +11,14 @@ export const arbreAdministration: ArbreModule = () => [
     cle: 'configuration',
     titre: 'Configuration',
     entrees: [{ to: '/modeles-documents', libelle: 'Mail models', Icone: FileCode2 }],
+  },
+  {
+    cle: 'configuration-taches',
+    titre: 'Configuration · Tâches',
+    entrees: [
+      { to: '/administration/type-tache', libelle: 'Type', Icone: Settings2 },
+      { to: '/administration/priorite-tache', libelle: 'Priorité', Icone: Gauge },
+    ],
   },
   {
     cle: 'arpent',

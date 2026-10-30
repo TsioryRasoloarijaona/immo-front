@@ -51658,7 +51658,8 @@
             "enum": [
               "ARTICLES",
               "PROSPECTIONS_TERRAINS",
-              "AUTRES"
+              "AUTRES",
+              "TACHES"
             ]
           },
           "parTranche": {
