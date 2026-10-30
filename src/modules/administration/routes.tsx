@@ -11,6 +11,7 @@ const EditeurModele = lazy(() => import('../../pages/modeles/EditeurModele'));
 const ReferentielTachePage = lazy(() => import('../../pages/administration/ReferentielTachePage'));
 const EmailHistorique = lazy(() => import('../../pages/administration/EmailHistorique'));
 const HistoriqueList = lazy(() => import('../../pages/administration/HistoriqueList'));
+const TachesList = lazy(() => import('../../pages/administration/TachesList'));
 
 const administration: ModuleApp = {
   slug: 'administration',
@@ -29,6 +30,7 @@ const administration: ModuleApp = {
     { path: '/modeles-documents/:id', element: <EditeurModele /> },
     { path: '/administration/type-tache', element: <ReferentielTachePage /> },
     { path: '/administration/priorite-tache', element: <ReferentielTachePage /> },
+    { path: '/administration/taches/:id?', element: <TachesList /> },
     { path: '/administration/email-historique', element: <EmailHistorique /> },
     { path: '/administration/historique', element: <HistoriqueList /> },
   ],

@@ -36,6 +36,10 @@
       "description": "Onglet « Actions » du dossier de vente (règle GEN0005 d'OMRAN) et instructions adressées au commercial du dossier. Les actions sont des `ComActionMessage` rattachées au dossier par `ComFolderId` ; leur catégorie est déduite du statut du dossier (Réservation → « Dossier de vente (Réservation) », Annulation ou Désistement → « Désistement et annulation », tout autre statut → « Dossier de vente (Livraison) »), comme `Sale.cs:AttachNotes`. Toute écriture signe le dossier (`UserUpdate`, `UserUpdateDateTime`)."
     },
     {
+      "name": "Tâches (administration)",
+      "description": "Écran « Tâches » d'OMRAN : la table `AdmTask` porte aussi les rendez-vous, jamais exposés ici (un rendez-vous répond 404). Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-taches.md`."
+    },
+    {
       "name": "Prospections",
       "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
@@ -14087,6 +14091,170 @@
         }
       }
     },
+    "/api/administration/taches": {
+      "get": {
+        "tags": [
+          "Tâches (administration)"
+        ],
+        "summary": "Liste paginée des tâches, triée par date prévisionnelle",
+        "operationId": "lister_17",
+        "parameters": [
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut ; Non commencée inclut les tâches sans statut.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type de tâche (AdmTaskType).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "prioriteId",
+            "in": "query",
+            "description": "Priorité (AdmTaskPriority).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "gestionnaireId",
+            "in": "query",
+            "description": "Tiers gestionnaire (CfgTier).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "texte",
+            "in": "query",
+            "description": "Texte cherché dans le code et la description (casse ignorée).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tâches (administration)"
+        ],
+        "summary": "Crée une tâche",
+        "operationId": "creer_17",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TacheEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Tâche créée, statut Non commencée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TacheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Description manquante ou trop longue, ou référence inconnue."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/taches/{id}/statut": {
+      "post": {
+        "tags": [
+          "Tâches (administration)"
+        ],
+        "summary": "Passe une tâche à un autre statut",
+        "description": "Le statut d'arrivée se résout dans `StrWorkFlow` depuis le statut actuel (vide = Non commencée). Même statut ou statut inconnu : 409. Écrit une ligne `StrHistory`, avec le commentaire en notes.",
+        "operationId": "changerStatut",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey de la tâche.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangerStatutTacheRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tâche au nouveau statut.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TacheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "statutId absent, ou commentaire exigé manquant."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Tâche inconnue, ou rendez-vous."
+          },
+          "409": {
+            "description": "Transition non permise ; transitionsAutorisees liste les codes des statuts permis."
+          }
+        }
+      }
+    },
     "/api/actionnaires": {
       "get": {
         "tags": [
@@ -16422,7 +16590,7 @@
         ],
         "summary": "Change le statut du dossier de vente",
         "description": "Change le statut du dossier selon le **workflow paramétré d'OMRAN** (CONFIGURATION › VENTE › Statuts /\nTransitions), dans cet ordre :\n\n1. **Transition** lue dans `StrWorkFlow` depuis le statut courant (sinon **409**, avec\n   `transitionsAutorisees` = les cibles que l'appelant peut exécuter). Base sans paramétrage : table de repli\n   des 34 transitions. Un dossier **sans statut** est refusé (**409**, reprise de données nécessaire).\n2. **Intervenant** : un des rôles de l'appelant (ou l'appelant lui-même) doit être intervenant de la\n   transition (`StrWorkFlowIntervener`), sinon **403**. L'Administrateur passe toujours.\n3. `date` et `note` sont posées, puis les **champs obligatoires** de la transition et du statut cible sont\n   contrôlés, sur le dossier **et** sur le client et les acquéreurs personnes physiques ; puis les **pièces à\n   joindre** (une pièce « juste à cocher » peut n'être que cochée). Manque → **400**, `detail` = texte\n   d'OMRAN : « Pour exécuter la transition : … Le champ '…' est obligatoire ! … Le document de type : … est\n   obligatoire ! ».\n4. Hors annulation / désistement : **seuil de versement** du statut cible (`CfgTrancheStatus`, ligne de la\n   tranche sinon globale ; versements = réglé des échéances avance, auto-financement et crédit) — refus\n   **409** « Il faut que la sommes des versements soit au moins égal à 12,50 %. Soit un montant de … ».\n   `ignorerSeuil=true` le saute (Administrateur seulement, sinon **403**) et laisse une ligne d'historique.\n   Puis, si le statut le demande, **schéma de financement** : prix après remise = avance + crédit +\n   auto-financement au centime près (sinon **409** « Votre schéma de financement ne correspond pas… »).\n5. La `date` va sur la **date associée** au statut cible (`StrStatus.StrFieldDateId` : CONCRETISATION →\n   `advanceDate`, MEILLEURTAUX → `loanCompanySendDate`, CREDIT DEBLOQUE → `creditApprovalDate`, FORMALISE →\n   `ownershipCertificateDate`…), ignorée s'il n'en a pas. Sans `date`, rien n'est écrit : une date déjà\n   renseignée n'est jamais écrasée d'office (un retour à RESERVATION garde `docDate`) ; `dateActuelle` de\n   `etapes-suivantes` dit si la colonne est déjà remplie.\n   Le seuil de versement n'est contrôlé que pour un utilisateur dont un rôle porte le droit OMRAN\n   `toolVerifyThreshold` (tout le monde si ce droit n'est pas paramétré).\n6. `StatusValidityDate` = aujourd'hui + durée de vie du statut (vide sans durée) ; si elle change, une action\n   système « l'état … du dossier de vente N° … est expiré » est posée avec son alerte à cette date. Les\n   relances de la prospection sont désarmées et leurs alertes éteintes (impayés épargnés). Un statut « avec\n   affectation de gestionnaire » donne au dossier sans gestionnaire le personnel de l'appelant.\n7. L'historique (`StrHistory`) porte la transition exécutée (`StrWorkflowId`).\n\n**Type client / prospect, comme OMRAN** (`Sale.cs:ManageTier`), après chaque changement : le client\nprincipal et chaque acquéreur (`ComFolderCustomer`) qui a au moins un dossier actif (statut ni\nannulation ni résiliation) dont le statut porte l'indicateur « Transforme le prospect en client »\n(`StrStatus.BoolField011`) passe d'un type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`) au type\n`CLI` ; un `CLI` qui n'en a plus aucun redevient `PRO` (`CLIRNT`, `CLIPRM`, `CLIROM` restent). `CfgTierKindId` est\nremis à vide dans les deux cas. Une ligne d'historique distincte (type `STATUT`) le dit : « Prospect\ntransformé en client » ou « Retour prospect » (suivie du nom pour un acquéreur) ; la note du\nchangement de statut reste intacte.\n\n**Sortie (ANNULATION ou DESISTEMENT) : le lot est libéré**, comme OMRAN, dans la même transaction.\nChaque article lié au dossier (lot principal et annexes TER / PARKING) perd son `ComFolderId` et\nredevient `DISPONIBLE` ; un sous-article sans « Toujours affecté » (`AlwaysAffected`) perd aussi son\narticle parent. `ComFolder.StkItemId` est conservé : le détail d'un dossier sorti montre toujours son\nlot principal dans `articles`, même revendu depuis. `note` est **obligatoire** (la cause, écrite dans\n`CancelDescription`) ; `date` va dans `CancelDate` (maintenant si absente), pour les deux sorties.\nChaque sous-article libéré reçoit une ligne d'historique « ANNULATION AFFECTATION ». La sortie est\nrefusée (**409**) si un dossier de syndic en cours est rattaché, ou si une facture de chiffre\nd'affaires du dossier n'est pas annulée par un avoir.\n\n**Réactivation ANNULATION → RESERVATION**, comme OMRAN : le lot principal et **tous** les\nsous-articles du dossier (`ComFolderItem`) doivent être libres (sinon **409**) ; tous reprennent le\ndossier (sous-articles rattachés au lot, ligne « AFFECTATION »). `CancelDate` est vidée et\n`CancelDescription` remise à vide.",
-        "operationId": "changerStatut",
+        "operationId": "changerStatut_1",
         "parameters": [
           {
             "name": "id",
@@ -17741,6 +17909,125 @@
         }
       }
     },
+    "/api/administration/taches/{id}": {
+      "get": {
+        "tags": [
+          "Tâches (administration)"
+        ],
+        "summary": "Fiche d'une tâche",
+        "operationId": "detail_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey de la tâche.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La tâche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TacheDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Tâche inconnue, ou rendez-vous."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tâches (administration)"
+        ],
+        "summary": "Supprime une tâche (son historique de statuts est conservé)",
+        "operationId": "supprimer_14",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey de la tâche.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Tâche supprimée."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Tâche inconnue, ou rendez-vous."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Tâches (administration)"
+        ],
+        "summary": "Modifie une tâche (champ absent ou null = inchangé)",
+        "operationId": "modifier_16",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey de la tâche.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TacheEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tâche modifiée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TacheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Description manquante ou trop longue, ou référence inconnue."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Tâche inconnue, ou rendez-vous."
+          }
+        }
+      }
+    },
     "/api/actionnaires/{id}": {
       "get": {
         "tags": [
@@ -19011,7 +19298,7 @@
         ],
         "summary": "Détail d'un mois : dossiers, mouvements et échéances qui font les cellules",
         "description": "Code `SuiviPrevisionsVenteMois`, mêmes paramètres plus `mois` (1 à 12, obligatoire). Trois sections, triées par date\ndécroissante, faites des lignes sources exactes des cellules du mois : `dossiers` (projet, tranche, article, dossier,\ndateConcretisation, prixVente, regle, client ; leur nombre = `quantites.reel` du mois), `mouvements` (projet, tranche,\narticle, dateDossier, dateMouvement, categorie, montant, libelle, client ; Σ montant = `montants.reel`), `echeances`\n(client, date, categorie, montant, regle, reste ; Σ montant = `schemaFinancement`). `regle` d'une échéance = ses lignes\nde règlement comptées en encaissement, toutes dates ; `reste` = montant − regle.",
-        "operationId": "detail_2",
+        "operationId": "detail_3",
         "responses": {
           "200": {
             "description": "Trois sections : dossiers, mouvements, echeances.",
@@ -19035,7 +19322,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_17",
+        "operationId": "lister_18",
         "parameters": [
           {
             "name": "du",
@@ -19719,7 +20006,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_18",
+        "operationId": "lister_19",
         "parameters": [
           {
             "name": "entiteId",
@@ -23140,7 +23427,7 @@
           "Rapports"
         ],
         "summary": "Rapports du module visibles par l'appelant, groupés",
-        "operationId": "lister_19",
+        "operationId": "lister_20",
         "parameters": [
           {
             "name": "module",
@@ -25599,7 +25886,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_20",
+        "operationId": "lister_21",
         "parameters": [
           {
             "name": "page",
@@ -27286,7 +27573,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier (frais syndic compris), `alerte` et `sousArticles` : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
-        "operationId": "lister_21",
+        "operationId": "lister_22",
         "parameters": [
           {
             "name": "entiteId",
@@ -32360,7 +32647,7 @@
         ],
         "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
         "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
-        "operationId": "lister_22",
+        "operationId": "lister_23",
         "parameters": [
           {
             "name": "q",
@@ -33626,7 +33913,7 @@
           "Audit"
         ],
         "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_23",
+        "operationId": "lister_24",
         "parameters": [
           {
             "name": "objetId",
@@ -34161,6 +34448,34 @@
         }
       }
     },
+    "/api/administration/taches/statuts": {
+      "get": {
+        "tags": [
+          "Tâches (administration)"
+        ],
+        "summary": "Statuts de tâche, triés, avec leurs transitions",
+        "operationId": "statuts_3",
+        "responses": {
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/taches/modules": {
+      "get": {
+        "tags": [
+          "Tâches (administration)"
+        ],
+        "summary": "Modules (AdmModule), sélecteur de la fiche, triés par code",
+        "operationId": "modules",
+        "responses": {
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/administration/historique": {
       "get": {
         "tags": [
@@ -34168,7 +34483,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes de la période, date décroissante, à date égale par `PKey`. Sans date : les 30 derniers jours. `dateFin` est incluse jusqu'à 23:59:59. `texte` cherche dans `ObjectType` et `ObjectLabel` seulement, `%`, `_` et `[` pris à la lettre ; `utilisateur` est une égalité exacte. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_24",
+        "operationId": "lister_25",
         "parameters": [
           {
             "name": "dateDebut",
@@ -34417,7 +34732,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_25",
+        "operationId": "lister_26",
         "parameters": [
           {
             "name": "dateDebut",
@@ -34521,7 +34836,7 @@
         ],
         "summary": "Fiche d'un e-mail",
         "description": "Mêmes champs que la ligne, plus `copie`, `copieCachee`, `corps` et `html`. `corps` est le `Body` brut, balises comprises : l'écran l'affiche en texte, jamais comme du HTML.",
-        "operationId": "detail_3",
+        "operationId": "detail_4",
         "parameters": [
           {
             "name": "id",
@@ -34592,7 +34907,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_26",
+        "operationId": "lister_27",
         "parameters": [
           {
             "name": "portee",
@@ -34694,7 +35009,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_14",
+        "operationId": "supprimer_15",
         "parameters": [
           {
             "name": "porteur",
@@ -34943,7 +35258,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_15",
+        "operationId": "supprimer_16",
         "parameters": [
           {
             "name": "id",
@@ -35187,7 +35502,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_16",
+        "operationId": "supprimer_17",
         "parameters": [
           {
             "name": "id",
@@ -47973,6 +48288,228 @@
           "toujoursAffecte": {
             "type": "boolean",
             "description": "AlwaysAffected : le sous-article suit l'article dans la vente. Défaut faux."
+          }
+        }
+      },
+      "TacheEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'une tâche. En modification, champ absent ou null = inchangé. Code et statut n'en font pas partie.",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Obligatoire à la création, 255 caractères au plus."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de tâche (AdmTaskType) ; inconnu = 400."
+          },
+          "declencheurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers déclencheur (CfgTier) ; inconnu = 400."
+          },
+          "datePrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date prévisionnelle."
+          },
+          "dureePrevue": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée prévisionnelle."
+          },
+          "dateFinPrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin prévisionnelle, jamais calculée."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de début réelle."
+          },
+          "duree": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée réelle."
+          },
+          "dateFin": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin réelle."
+          },
+          "moduleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Module (AdmModule) ; inconnu = 400."
+          },
+          "prioriteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Priorité (AdmTaskPriority) ; inconnue = 400."
+          },
+          "gestionnaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers gestionnaire (CfgTier) ; inconnu = 400."
+          },
+          "assigneId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers assigné (CfgTier) ; inconnu = 400."
+          },
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité (CfgCompany) ; inconnue = 400."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet (PrjProject) ; inconnu = 400."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes, 1000 caractères au plus."
+          }
+        }
+      },
+      "TacheDto": {
+        "type": "object",
+        "description": "Tâche d'administration (AdmTask de l'entité AdmTask, jamais un rendez-vous).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la tâche."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code issu de la séquence AdmTask, jamais saisi.",
+            "example": "26/00110"
+          },
+          "description": {
+            "type": "string",
+            "description": "Description, obligatoire."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de tâche (AdmTaskType), null si non renseigné."
+          },
+          "typeLibelle": {
+            "type": "string",
+            "description": "Libellé du type."
+          },
+          "declencheurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers déclencheur (CfgTier), null si non renseigné."
+          },
+          "declencheurNom": {
+            "type": "string",
+            "description": "Nom du déclencheur."
+          },
+          "datePrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date prévisionnelle, clé de tri de la liste."
+          },
+          "dureePrevue": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée prévisionnelle (entier, unité d'OMRAN)."
+          },
+          "dateFinPrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin prévisionnelle, saisie et jamais calculée."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de début réelle."
+          },
+          "duree": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée réelle (entier, unité d'OMRAN)."
+          },
+          "dateFin": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin réelle."
+          },
+          "moduleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Module (AdmModule), null si non renseigné."
+          },
+          "prioriteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Priorité (AdmTaskPriority), null si non renseignée."
+          },
+          "prioriteLibelle": {
+            "type": "string",
+            "description": "Libellé de la priorité."
+          },
+          "gestionnaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers gestionnaire (CfgTier), null si non renseigné."
+          },
+          "gestionnaireNom": {
+            "type": "string",
+            "description": "Nom du gestionnaire."
+          },
+          "assigneId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers assigné (CfgTier), null si non renseigné."
+          },
+          "assigneNom": {
+            "type": "string",
+            "description": "Nom de l'assigné."
+          },
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité (CfgCompany), null si non renseignée."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet (PrjProject), null si non renseigné."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut ; statut vide en base = Non commencée."
+          },
+          "statutLibelle": {
+            "type": "string",
+            "description": "Libellé du statut ; statut vide en base = Non commencée."
+          }
+        }
+      },
+      "ChangerStatutTacheRequest": {
+        "type": "object",
+        "description": "Passage de statut d'une tâche.",
+        "properties": {
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut d'arrivée, obligatoire."
+          },
+          "commentaire": {
+            "type": "string",
+            "description": "Commentaire, obligatoire si la transition l'exige (commentaireRequis)."
           }
         }
       },
