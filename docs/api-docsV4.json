@@ -68,6 +68,10 @@
       "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
     },
     {
+      "name": "Historique (administration)",
+      "description": "Journal de toutes les actions (`AdmWebHistorics`), en lecture seule : l'écran « Historique » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). Voir `instructions/FEATURE-admin-historique.md`."
+    },
+    {
       "name": "Authentification",
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
     },
@@ -34157,6 +34161,255 @@
         }
       }
     },
+    "/api/administration/historique": {
+      "get": {
+        "tags": [
+          "Historique (administration)"
+        ],
+        "summary": "Journal des actions, page par page",
+        "description": "Lignes de la période, date décroissante, à date égale par `PKey`. Sans date : les 30 derniers jours. `dateFin` est incluse jusqu'à 23:59:59. `texte` cherche dans `ObjectType` et `ObjectLabel` seulement, `%`, `_` et `[` pris à la lettre ; `utilisateur` est une égalité exacte. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
+        "operationId": "lister_24",
+        "parameters": [
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Premier jour inclus, ISO ; absent = dateFin moins 30 jours.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-01"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Dernier jour inclus, ISO ; absent = aujourd'hui.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-30"
+          },
+          {
+            "name": "texte",
+            "in": "query",
+            "description": "Sous-chaîne littérale cherchée dans l'entité ou son libellé, sans tenir compte de la casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "utilisateur",
+            "in": "query",
+            "description": "Utilisateur exact, valeur de GET /api/administration/historique/utilisateurs.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "Action exacte ; vide = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Added",
+                "Modified",
+                "Deleted"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Numéro de page, à partir de 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Lignes par page, de 1 à 200.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes, date décroissante puis PKey.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneHistoriqueDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date illisible, dateDebut après dateFin, action inconnue, page ou size hors bornes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/historique/utilisateurs": {
+      "get": {
+        "tags": [
+          "Historique (administration)"
+        ],
+        "summary": "Utilisateurs présents sur la période, pour la liste déroulante",
+        "description": "Valeurs distinctes de `UserDescription` sur la période, triées, sans null ni vide. Mêmes règles de période que la liste : sans date, les 30 derniers jours.",
+        "operationId": "utilisateurs",
+        "parameters": [
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Premier jour inclus, ISO ; absent = dateFin moins 30 jours.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-01"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Dernier jour inclus, ISO ; absent = aujourd'hui.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-30"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Valeurs distinctes triées, sans null ni vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date illisible ou dateDebut après dateFin."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/historique/export": {
+      "get": {
+        "tags": [
+          "Historique (administration)"
+        ],
+        "summary": "Export Excel des lignes filtrées",
+        "description": "Mêmes filtres et même tri que la liste, sans pagination : au plus 20 000 lignes. Date au format `dd/MM/yyyy HH:mm` ; `Details` et `Description` ne sont pas exportés.",
+        "operationId": "exporter_20",
+        "parameters": [
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Premier jour inclus, ISO ; absent = dateFin moins 30 jours.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-01"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Dernier jour inclus, ISO ; absent = aujourd'hui.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-30"
+          },
+          {
+            "name": "texte",
+            "in": "query",
+            "description": "Sous-chaîne littérale cherchée dans l'entité ou son libellé, sans tenir compte de la casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "utilisateur",
+            "in": "query",
+            "description": "Utilisateur exact, valeur de GET /api/administration/historique/utilisateurs.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "query",
+            "description": "Action exacte ; vide = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Added",
+                "Modified",
+                "Deleted"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date illisible, dateDebut après dateFin, action inconnue, page ou size hors bornes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/administration/emails": {
       "get": {
         "tags": [
@@ -34164,7 +34417,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_24",
+        "operationId": "lister_25",
         "parameters": [
           {
             "name": "dateDebut",
@@ -34311,7 +34564,7 @@
         ],
         "summary": "Utilisateurs présents au journal, pour la liste déroulante",
         "description": "Valeurs distinctes de `AdmUserDescription`, triées. Tableau JSON de chaînes, pas une page.",
-        "operationId": "utilisateurs",
+        "operationId": "utilisateurs_1",
         "responses": {
           "200": {
             "description": "Tableau de chaînes distinctes, triées, sans null ni vide.",
@@ -34339,7 +34592,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_25",
+        "operationId": "lister_26",
         "parameters": [
           {
             "name": "portee",
@@ -57930,6 +58183,70 @@
           "reste": {
             "type": "number",
             "description": "Vente : `total` − `regle`, 0 sur un dossier sorti. Location et syndic : null."
+          }
+        }
+      },
+      "LigneHistoriqueDto": {
+        "type": "object",
+        "description": "Une action du journal (AdmWebHistorics), en lecture seule.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la ligne du journal (PKey)."
+          },
+          "objetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'objet concerné (ObjectId) ; peut être null."
+          },
+          "dateAction": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date et heure de l'action (ActionDateTime)."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Utilisateur (UserDescription), tel qu'enregistré au moment de l'action."
+          },
+          "entite": {
+            "type": "string",
+            "description": "Type technique de l'objet (ObjectType)."
+          },
+          "libelleEntite": {
+            "type": "string",
+            "description": "Libellé de l'objet (ObjectLabel)."
+          },
+          "action": {
+            "type": "string",
+            "description": "Action brute : Added, Modified ou Deleted ; à traduire à l'écran."
+          }
+        }
+      },
+      "PageDtoLigneHistoriqueDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneHistoriqueDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
