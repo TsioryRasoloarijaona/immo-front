@@ -100,10 +100,6 @@
       "description": "Listes de choix des fiches programme, tranche et article."
     },
     {
-      "name": "Utilisateurs (admin)",
-      "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur : liste des comptes, réinitialisation du mot de passe Arpent, et affectation des projets qui composent le périmètre commercial d'un utilisateur. Les comptes eux-mêmes se créent dans Omran, jamais ici."
-    },
-    {
       "name": "KPI commerciaux",
       "description": "Indicateurs de performance des commerciaux sur une période — activité réalisée (appels, visites, interactions), portefeuille confié (prospections, réactivité) et résultat (dossiers, montants, taux de transformation).\n\nDeux attributions cohabitent et il faut le savoir pour lire les chiffres : l'**activité** est comptée pour celui qui l'a saisie, le **portefeuille** pour le commercial assigné. Un chef qui appelle sur la prospection d'un commercial voit l'appel chez lui, pas chez l'autre.\n\nTous les compteurs respectent la visibilité par entité juridique et le périmètre commercial de l'appelant. Un commercial restreint verra donc des chiffres inférieurs à son activité réelle — c'est volontaire."
     },
@@ -154,6 +150,10 @@
     {
       "name": "Référentiels",
       "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. Sans filtre `categorieId`, les **annexes** (`IsUnderItem` — parkings, terrasses, jardins, mêmes racines sans parent) sont écartées, comme dans l'écran Articles du logiciel de bureau ; cocher explicitement leur catégorie les fait réapparaître. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
+    },
+    {
+      "name": "Utilisateurs (admin)",
+      "description": "Comptes AdmUser — réservé au rôle Administrateur : liste, fiche, création, désactivation, rôles, comptes de dépôt, habilitations, réinitialisation du mot de passe Arpent et affectation des projets du périmètre commercial. Un compte créé ici n'ouvre pas OMRAN tant qu'un mot de passe n'y est pas défini. Aucune suppression : on désactive."
     },
     {
       "name": "Articles — onglets",
@@ -337,6 +337,208 @@
     }
   ],
   "paths": {
+    "/api/utilisateurs/{id}/roles": {
+      "put": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Remplace les rôles : écrit la différence, un changement coupe la session du compte",
+        "operationId": "remplacerRoles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du compte AdmUser.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RolesUtilisateurEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Fiche relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurFicheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "roleIds absent, ou rôle inconnu."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Compte inconnu."
+          },
+          "409": {
+            "description": "Soi-même, ou dernier Administrateur actif : rien n'est écrit, message à afficher tel quel."
+          }
+        }
+      }
+    },
+    "/api/utilisateurs/{id}/habilitations": {
+      "get": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Arbre des habilitations du compte",
+        "operationId": "lireHabilitations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du compte AdmUser.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les sociétés et leurs descendants.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoeudHabilitationDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Compte inconnu."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Remplace les habilitations à une cible ; les lignes à plusieurs cibles restent",
+        "operationId": "remplacerHabilitations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du compte AdmUser.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HabilitationsEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Arbre relu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoeudHabilitationDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "noeuds absent, ou nœud inconnu."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Compte inconnu."
+          }
+        }
+      }
+    },
+    "/api/utilisateurs/{id}/comptes-depot": {
+      "put": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Remplace les comptes de dépôt : écrit la différence",
+        "operationId": "remplacerComptesDepot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du compte AdmUser.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComptesDepotEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Fiche relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurFicheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "compteIds absent, ou compte inconnu."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Compte inconnu."
+          }
+        }
+      }
+    },
     "/api/utilisateurs/{admUserId}/projets": {
       "get": {
         "tags": [
@@ -3394,13 +3596,131 @@
         }
       }
     },
+    "/api/utilisateurs": {
+      "get": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Liste les comptes utilisateurs",
+        "description": "Tous les comptes (AdmUser) avec leurs informations (identifiant, coordonnées, statut\nactivé/désactivé), la fiche employé (CfgTier) liée et les rôles (AdmRole) assignés — écran\nd'administration des comptes. Les filtres se cumulent, et `/export` applique les mêmes. Réservé au\nrôle Administrateur.",
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne sur code, description ou email, casse ignorée.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "disabled",
+            "in": "query",
+            "description": "Filtre sur le statut désactivé. Absent = tous les comptes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "roleId",
+            "in": "query",
+            "description": "Comptes portant ce rôle (AdmUserRole).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "personnelId",
+            "in": "query",
+            "description": "Comptes liés à ce personnel (CfgEmployeeId).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste (éventuellement vide) des comptes.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Crée un compte, inactif sauf inactif:false, sans mot de passe",
+        "operationId": "creer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UtilisateurEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Compte créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurFicheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code ou description invalide, personnel, rôle ou culture inconnu."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "409": {
+            "description": "Code déjà pris, casse ignorée."
+          }
+        }
+      }
+    },
     "/api/utilisateurs/{admUserId}/reinitialiser-mot-de-passe": {
       "post": {
         "tags": [
           "Utilisateurs (admin)"
         ],
         "summary": "Réinitialise le mot de passe Arpent d'un compte Omran",
-        "description": "Les comptes se créent dans Omran (AdmUser, fiche employé, rôles) ; ce geste est le seul qui ouvre ou\nrouvre l'accès web. Génère **toujours** un nouveau mot de passe Arpent pour le login Omran\n(`AdmUser.Code`), le renvoie une seule fois dans la réponse, et rend le compte **utilisable\nimmédiatement** : aucun changement de mot de passe ni formulaire de profil n'est demandé à la\nconnexion (mustChangePassword=false, profileCompleted=true). Invalide tous les tokens déjà émis pour\nce compte, sur tous les appareils (TokenVersion incrémenté). Crée l'enregistrement d'identifiants\nweb si le compte ne s'était jamais connecté.\n\n**Destinataire** : `email` du corps s'il est fourni (pour cet envoi seulement, jamais enregistré),\nsinon `AdmUser.Email`, à défaut l'email de la fiche employé (`CfgTier`). **Un compte sans aucune\nadresse n'est plus refusé** : la réinitialisation a lieu, aucun email n'est envoyé\n(`emailEnvoye=false`, `destinataire=null`) et l'administrateur transmet lui-même les identifiants\naffichés. Le corps est facultatif (absent = `{}`).\n\nL'email contient l'identifiant, le mot de passe et le lien vers Arpent (sans identifiant ni mot de\npasse dans le lien). L'envoi est **asynchrone** et postérieur au commit : `emailEnvoye=true`\nsignifie qu'il a été déclenché, pas qu'il a été remis — `motDePasseTemporaire` doit donc toujours\nêtre affiché. Réservé au rôle Administrateur.",
+        "description": "Ce geste est le seul qui ouvre ou rouvre l'accès web d'un compte. Génère **toujours** un nouveau mot de passe Arpent pour le login Omran\n(`AdmUser.Code`), le renvoie une seule fois dans la réponse, et rend le compte **utilisable\nimmédiatement** : aucun changement de mot de passe ni formulaire de profil n'est demandé à la\nconnexion (mustChangePassword=false, profileCompleted=true). Invalide tous les tokens déjà émis pour\nce compte, sur tous les appareils (TokenVersion incrémenté). Crée l'enregistrement d'identifiants\nweb si le compte ne s'était jamais connecté.\n\n**Destinataire** : `email` du corps s'il est fourni (pour cet envoi seulement, jamais enregistré),\nsinon `AdmUser.Email`, à défaut l'email de la fiche employé (`CfgTier`). **Un compte sans aucune\nadresse n'est plus refusé** : la réinitialisation a lieu, aucun email n'est envoyé\n(`emailEnvoye=false`, `destinataire=null`) et l'administrateur transmet lui-même les identifiants\naffichés. Le corps est facultatif (absent = `{}`).\n\nL'email contient l'identifiant, le mot de passe et le lien vers Arpent (sans identifiant ni mot de\npasse dans le lien). L'envoi est **asynchrone** et postérieur au commit : `emailEnvoye=true`\nsignifie qu'il a été déclenché, pas qu'il a été remis — `motDePasseTemporaire` doit donc toujours\nêtre affiché. Réservé au rôle Administrateur.",
         "operationId": "reinitialiserMotDePasse",
         "parameters": [
           {
@@ -3475,7 +3795,7 @@
         ],
         "summary": "Liste paginée des tranches, à plat, à colonnes choisies",
         "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le\ncontournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler\nune checklist de filtre côté front — voir instructions/filtres-avances.md point 2.\n\n`?colonnes=` choisit les colonnes sérialisées (catalogue `GET /api/referentiels/colonnes/tranches`, `id` toujours\nservi) ; absent = colonnes par défaut. Un nom inconnu → 400 dont le corps liste `colonnesValides`. `search` filtre\nsans casse sur le code, le libellé, la ville et le code du programme, combiné à `projetId`.",
-        "operationId": "findAll",
+        "operationId": "findAll_1",
         "parameters": [
           {
             "name": "projetId",
@@ -3539,7 +3859,7 @@
           "Tranches"
         ],
         "summary": "Crée une tranche (valeurs par défaut OMRAN pour les champs absents)",
-        "operationId": "creer",
+        "operationId": "creer_1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4339,7 +4659,7 @@
         ],
         "summary": "Crée un terrain au premier statut de l'entité LandProject",
         "description": "Obligatoires (400) : `code`, `description`, `entiteId`, `paysId`, `villeId`, `vocationId`, `categorieId`, `typeId`,\n`surfaceProvisoire` ; société, pays, ville ou référence inconnus → 400, catégorie ou type d'une autre nature que\nTerrain → 400, `natureId` autre que Terrain → 400. `code` unique dans la société (409). Statut = premier statut\n(`Sorting`) de l'entité `LandProject` lu en base ; aucun → 500 sans écriture. Prix : HT ou TTC au m² par surface,\nl'autre et les totaux recalculés comme pour un article ; `prixAchatM2` et `prixAchat` se déduisent l'un de l'autre par\nla surface définitive. `estTermine` vaut vrai par défaut.",
-        "operationId": "creer_1",
+        "operationId": "creer_2",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4631,7 +4951,7 @@
         ],
         "summary": "Liste des sous-articles (libres et rattachés), à colonnes choisies",
         "description": "Mêmes filtres et même catalogue de colonnes que `GET /api/articles`, limités aux sous-articles d'origine des entités\nactives. `codeParent` : sous-chaîne du code de l'article parent, espaces retirés de la saisie et du code (un\nsous-article libre n'y répond jamais). `etat` : dossier de la ligne elle-même (`LIBRE`, `VENDU`, `LOUE`), comme\nOMRAN ; un sous-article sans dossier dont le parent est vendu reste `LIBRE` — la colonne `parentOccupe` le signale.",
-        "operationId": "findAll_1",
+        "operationId": "findAll_2",
         "parameters": [
           {
             "name": "search",
@@ -4839,7 +5159,7 @@
         ],
         "summary": "Crée un sous-article libre, ou rattaché à un article de la même tranche",
         "description": "Création **libre** : `trancheId`, `code` (unique dans la tranche, articles compris → 409), `description`,\n`categorieId` et `typeId` paramétrés « pour les sous-articles », `immeubleId`, `etageId` obligatoires (400).\nDéfauts : vocation VENTE (PROJET refusée), nature Bâtiment, `estTitre` faux, surfaces et prix comme `POST\n/api/articles`. `parentId` facultatif : article principal de la **même tranche** et de la **même vocation** (400),\nnon occupé (409) ; son prix de vente est recalculé. `toujoursAffecte` vrai sans `parentId` → 400 « Vous ne pouvez\npas toujours affecter un sous article sans article parent ».",
-        "operationId": "creer_2",
+        "operationId": "creer_3",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5066,7 +5386,7 @@
         "tags": [
           "prospect-controller"
         ],
-        "operationId": "findAll_2",
+        "operationId": "findAll_3",
         "parameters": [
           {
             "name": "search",
@@ -5277,7 +5597,7 @@
         ],
         "summary": "Liste paginée des prospections",
         "description": "Filtre optionnellement par étape/origine/commercial (multi-sélection, une valeur pour un seul choix\nse comporte comme avant), tranche(s) visée(s), plage de dates sur la date du document, et recherche\nlibre. Exclut les pré-prospections (voir GET /api/pre-prospections). Voir\ninstructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), cette liste ne contient que les prospections de ses projets affectés — filtrage côté\nserveur, en plus des filtres ci-dessus. Le projet d'une prospection est celui de sa tranche visée ;\ncelles sans tranche restent visibles de tous.",
-        "operationId": "findAll_3",
+        "operationId": "findAll_4",
         "parameters": [
           {
             "name": "etape",
@@ -6650,7 +6970,7 @@
         ],
         "summary": "Crée une prospection terrain au premier statut « Nouveau » de l'entité LndLand",
         "description": "Défauts OMRAN : date du jour, superficie 1, Aménagé, pays `AdmParamsGuid.DefaultCountry`, textes `\"\"`, nombres 0,\nbooléens faux ; statut = premier statut de type « Nouveau » de l'entité `LndLand`, validité = date + durée du statut si\nelle est positive ; une ligne d'historique « Création ». Obligatoires (400) : `code`, `description`, `villeId`,\n`categorieId` (nature PROS TER), `typeId` (nature TER), pays (corps ou défaut). 400 aussi : superficie ≤ 0 (« La valeur\nde la supérficie doit être strictement supérieure à 0 ! »), ville d'un autre pays, référence inconnue (le message nomme\nle champ), lien Google ne commençant pas par `https://www.google`, texte trop long, nombre négatif ou hors bornes.",
-        "operationId": "creer_3",
+        "operationId": "creer_4",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6931,7 +7251,7 @@
           "Programmes"
         ],
         "summary": "Liste paginée des programmes des entités actives (colonnes de la liste OMRAN)",
-        "operationId": "findAll_4",
+        "operationId": "findAll_5",
         "parameters": [
           {
             "name": "search",
@@ -6970,7 +7290,7 @@
         ],
         "summary": "Crée un programme",
         "description": "Crée un programme (`CfgProject`). Obligatoires : `entiteId` (entité active), `code`, `description`. Le code est\ncomparé après `trim`, sans casse, à tous les programmes (409 avec le code et le nom du programme existant). Les\ntextes non saisis sont écrits `\"\"` (OMRAN ne supporte pas NULL). Fin ≥ début pour les travaux et la\ncommercialisation (400). Le créateur reçoit l'habilitation OMRAN sur le programme (`AdmUserHabilitation`), sans\nquoi le programme serait invisible dans OMRAN. Trace : `creePar`/`modifiePar` = l'utilisateur connecté.",
-        "operationId": "creer_4",
+        "operationId": "creer_5",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7152,7 +7472,7 @@
         ],
         "summary": "Liste paginée des pré-prospections",
         "description": "Mêmes filtres que GET /api/prospections (étape, origine, commercial, tranche(s), plage de dates,\nrecherche libre, ouvertes) appliqués aux leads non encore qualifiés. Voir\ninstructions/filtres-avances.md point 5.\n\n**Périmètre commercial** : si l'appelant est restreint, cette liste ne contient que les\npré-prospections de ses projets affectés, scopées par le projet de leur tranche visée. Les\npré-prospections sans tranche restent visibles de tous. Le filtre `commercial` s'applique : une\npré-prospection saisie dans OMRAN peut déjà porter un commercial (~780 en base réelle).",
-        "operationId": "findAll_5",
+        "operationId": "findAll_6",
         "parameters": [
           {
             "name": "etape",
@@ -7328,7 +7648,7 @@
         ],
         "summary": "Crée une pré-prospection (lead brut)",
         "description": "Équivalent de l'écran « Pré-prospection » d'OMRAN, dont la trace d'audit fixe la séquence : code\ntiré du compteur `AdmSequence` « Prospection » (format `AA/NNNNN`, **le même compteur que les\nprospections**), type de document `ComPreProspection`, contact saisi en champs libres\n(`TempDescription`, `TempTel`, `TempEMail`) — **aucune fiche prospect n'est créée**.\n\nSeul `nom` est obligatoire. Posés par le serveur : code, date du document (maintenant), `IsClosed =\nfalse`, auteur (utilisateur connecté), vocation `VENTE` si aucune n'est fournie. Jamais de prospect\nni de commercial : c'est l'objet de `POST /api/pre-prospections/{id}/creer-prospect` puis `POST\n/api/prospections/{id}/transformer`.\n\n**Doublons signalés, jamais refusés.** La réponse liste les prospections existantes au même contact\n(même nom, même téléphone sur ses 9 derniers chiffres, même email — un champ absent des deux côtés\ncompte comme égal). OMRAN enregistre lui aussi une ligne par soumission ; à l'écran d'avertir. Seuls\nles doublons **visibles de l'appelant** (périmètre commercial) sont listés : un contact hors\npérimètre n'est jamais révélé.\n\nLa ligne créée apparaît aussitôt dans `GET /api/pre-prospections` et dans le logiciel de bureau.",
-        "operationId": "creer_5",
+        "operationId": "creer_6",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7838,7 +8158,7 @@
           "Notes"
         ],
         "summary": "Ajoute une note en texte simple (échappée en HTML pour OMRAN)",
-        "operationId": "creer_6",
+        "operationId": "creer_7",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7988,7 +8308,7 @@
           "Modèles de documents"
         ],
         "summary": "Crée un modèle et sa version 1",
-        "operationId": "creer_7",
+        "operationId": "creer_8",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8332,7 +8652,7 @@
         ],
         "summary": "Crée un lot de terrain dans une tranche (nature TER, entité « article », sans statut de workflow)",
         "description": "Tranche obligatoire, visible et d'entité active (sinon 400, sans dire si elle existe). Code unique dans la tranche,\ntoutes natures confondues (409). Vocation obligatoire et jamais PROJET ; catégorie et type obligatoires, de nature TER\nou LOT DE TERRAIN (400 nommant le champ). Prix : un seul calcul, celui des articles (prix au m² HT ou TTC exclusifs).",
-        "operationId": "creer_8",
+        "operationId": "creer_9",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8723,7 +9043,7 @@
         ],
         "summary": "Crée une étude au statut « En étude »",
         "description": "`code` (unique → 409), `description`, `dateDocument`, `societeId` (société active, sinon 400) obligatoires ;\n`terrainId` : article de nature TER (sinon 400). Statut initial « En étude », une ligne d'historique au nom de\nl'appelant ; `tauxTvaDefaut` 0,20 et `tauxTvaInterets` 0,10 si absents. Bloc A et phases calculés et stockés ;\n`unites` / `tranches` du corps sont ignorés (grilles par les PUT).",
-        "operationId": "creer_9",
+        "operationId": "creer_10",
         "requestBody": {
           "content": {
             "application/json": {
@@ -9906,7 +10226,7 @@
           "Entités juridiques"
         ],
         "summary": "Crée une entité (habilitation du créateur et 4 compteurs AdmSequence dans la même transaction)",
-        "operationId": "creer_10",
+        "operationId": "creer_11",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10063,7 +10383,7 @@
         ],
         "summary": "Liste paginée des dossiers de vente",
         "description": "Filtre optionnellement par statut (codes `StrStatus`, multi-sélection, plus `sansStatut`), commercial, société, projet, tranche(s), période sur une des 47 dates d'OMRAN (`GET /api/dossiers/champs-date`), fourchette de total à payer (`totalMin` / `totalMax`) et recherche libre. Ces filtres sont les mêmes sur `/groupes`, `/totaux`, `/totaux-colonnes` et `/export`. Une borne de total exclut les lots libres (ils n'ont pas de total).\n\n**Dossiers sortis exclus par défaut** : sans filtre `statut`, les dossiers dont le statut est une annulation ou une résiliation (`StrStatus.BoolField002` / `BoolField003`) n'apparaissent pas, comme dans OMRAN. `inclureSortis=true` les réintègre ; un `statut` explicite (par exemple `ANNULATION`) est toujours servi tel quel.\n\n**Lots libres** : `lignes=DOSSIERS_ET_LIBRES` ajoute, après les dossiers, une ligne par article racine sans dossier (`StkItem.ComFolderId` vide, hors annexes) ; `lignes=LIBRES` ne sert qu'eux. Sur ces lignes `libre = true` et `id` est l'id de l'article (à ouvrir sur la fiche article, pas sur la fiche dossier). Un article principal d'un dossier non sorti n'est jamais libre, même sans `StkItem.ComFolderId`. Le filtre commercial les écarte ; la période (`champDate`, `dateDebut`, `dateFin`, `dateVide`) ne les filtre pas, faute de date de dossier. La pagination court sur la concaténation dossiers puis lots libres.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seuls les dossiers et lots de ses projets affectés sont servis. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
-        "operationId": "findAll_6",
+        "operationId": "findAll_7",
         "parameters": [
           {
             "name": "statut",
@@ -10812,7 +11132,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_11",
+        "operationId": "creer_12",
         "parameters": [
           {
             "name": "id",
@@ -11980,7 +12300,7 @@
         ],
         "summary": "Crée un désistement (brouillon) sur le dossier",
         "description": "Statut du dossier sans « Peut effectuer un désistement » (`StrStatus.BoolField010`) : 409. Un seul désistement non légalisé par dossier : 409. Les montants sont calculés comme la simulation et enregistrés ; le N° de demande vient de la séquence « Désistement ».",
-        "operationId": "creer_12",
+        "operationId": "creer_13",
         "parameters": [
           {
             "name": "id",
@@ -12208,7 +12528,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_13",
+        "operationId": "creer_14",
         "parameters": [
           {
             "name": "id",
@@ -13147,7 +13467,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_14",
+        "operationId": "creer_15",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13443,7 +13763,7 @@
         ],
         "summary": "Catalogue transverse des articles, à colonnes choisies",
         "description": "Liste paginée de tous les articles racine et sous-articles, toutes tranches confondues — pour\nparcourir/rechercher le patrimoine sans devoir d'abord choisir une Tranche (contrairement à `GET\n/api/tranches/{id}/articles`, point d'entrée à privilégier quand la tranche est déjà connue).\nColonnes à la demande : `colonnes` prend des noms du catalogue `GET /api/referentiels/colonnes/articles` (absent =\nles champs historiques d'`ArticleListItemDto`, nom inconnu → 400 listant les noms valides) ; les colonnes calculées\n(sommes des sous-articles, codes des sous-articles, parent) ne sont lues que si elles sont demandées.\n`search` filtre en sous-chaîne, sans casse et espaces ignorés des deux côtés, sur le code, la description, le code\nde l'article parent, le code de la tranche, du programme et de l'entité, le N° de dossier de vente, le titre\nfoncier, l'adresse, les notes et les libellés de catégorie, type, immeuble, étage et vocation. `codeParent` et `etat` : voir `GET /api/sous-articles`. `trancheId`\nrestreint à une ou plusieurs tranches (OR) sans changer d'écran. `statut` filtre sur la\ndisponibilité mais, à la différence des autres endpoints Article, **n'a pas de valeur par défaut\nici** : absent = tous les statuts (DISPONIBLE + OCCUPE), pour une vraie vue catalogue. Restreint aux\nentités juridiques actives (ADMOD/GHRIZA), comme les autres listings Projet/Tranche/Article. Filtres\nde parité avec la grille legacy \"Articles\" (instructions/from_front.md #4) : `entiteId` (CfgCompany,\nvoir `GET /api/referentiels/entites`), `natureId` (StkKind, voir `GET /api/referentiels/natures`),\n`vocationId` (StkVocation, voir `GET /api/referentiels/vocations`), `etageId` (StkFloor, voir `GET\n/api/referentiels/etages`), et les plages `prixDe`/`prixA` (sur `comSalePrice`) et\n`surfaceDe`/`surfaceA` (sur `area`), bornes inclusives et indépendamment optionnelles.",
-        "operationId": "findAll_7",
+        "operationId": "findAll_8",
         "parameters": [
           {
             "name": "search",
@@ -13651,7 +13971,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_15",
+        "operationId": "creer_16",
         "requestBody": {
           "content": {
             "application/json": {
@@ -14088,7 +14408,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_16",
+        "operationId": "creer_17",
         "parameters": [
           {
             "name": "id",
@@ -14232,7 +14552,7 @@
           "Tâches (administration)"
         ],
         "summary": "Crée une tâche",
-        "operationId": "creer_17",
+        "operationId": "creer_18",
         "requestBody": {
           "content": {
             "application/json": {
@@ -14366,7 +14686,7 @@
           "Rôles (administration)"
         ],
         "summary": "Crée un rôle",
-        "operationId": "creer_18",
+        "operationId": "creer_19",
         "requestBody": {
           "content": {
             "application/json": {
@@ -14482,7 +14802,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Crée un rendez-vous, code issu de la séquence AdmTask",
-        "operationId": "creer_19",
+        "operationId": "creer_20",
         "requestBody": {
           "content": {
             "application/json": {
@@ -14596,6 +14916,98 @@
         }
       }
     },
+    "/api/utilisateurs/{id}": {
+      "get": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Fiche d'un compte",
+        "operationId": "detail_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du compte AdmUser.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le compte.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurFicheDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Compte inconnu."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Modifie un compte (null = inchangé, \"\" = vidé pour les textes, code ignoré)",
+        "operationId": "modifier_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du compte AdmUser.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UtilisateurEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Fiche relue. Sans effet : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurFicheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Description vide ou trop longue, ou référence inconnue."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Compte inconnu."
+          },
+          "409": {
+            "description": "Soi-même, ou dernier Administrateur actif : rien n'est écrit, message à afficher tel quel."
+          }
+        }
+      }
+    },
     "/api/tranches/{id}": {
       "get": {
         "tags": [
@@ -14668,7 +15080,7 @@
         ],
         "summary": "Modifie une tranche (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé. Pour vider : `champsAVider: [\"dateOctroiTitresFonciers\", \"standingId\"]` — date\net référence → NULL, nombre → 0, case → faux, texte → `\"\"` (jamais NULL là où OMRAN écrit une valeur). Nom inconnu,\nchamp obligatoire (`code`, `description`, `projetId`) ou champ à la fois listé et renseigné → 400 dont le `detail`\nnomme `champsAVider`. Une référence inconnue (standing, niveau, rubrique, personnel, tiers, projet de facturation,\nplan comptable) → 400 nommant le champ. Crédit max > 100 % → 400.",
-        "operationId": "modifier_3",
+        "operationId": "modifier_4",
         "parameters": [
           {
             "name": "id",
@@ -14821,7 +15233,7 @@
         ],
         "summary": "Modifie un terrain (champ absent ou null = inchangé)",
         "description": "Mêmes contrôles qu'à la création. Terrain occupé (dossier de vente ou de location) : surfaces, prix au m² HT/TTC,\nTVA et titre foncier → 409, ligne inchangée. `estTermine` ne se modifie pas sur un sous-terrain ou un terrain issu\nd'une prospection foncière (400). `champsAVider` : `niveauId`, `vocationTerrainId`, `orientationId`,\n`categorieChargeId`, `fournisseurId`, les dates et les textes facultatifs.",
-        "operationId": "modifier_4",
+        "operationId": "modifier_5",
         "parameters": [
           {
             "name": "id",
@@ -14939,7 +15351,7 @@
         ],
         "summary": "Modifie un sous-article libre (champ absent ou null = inchangé), ou le rattache",
         "description": "Sous-article **libre** seulement : un rattaché → 409 (lecture seule, voir l'en-tête) ; un article principal → 404.\nMêmes champs que `PATCH /api/articles/{id}`, `vocationId` compris. `parentId` rattache le sous-article (mêmes règles\nqu'à la création, prix du parent recalculé) ; `toujoursAffecte` vrai exige `parentId` (400) ; `parentId` dans\n`champsAVider` → 400 (désaffecter par la route de la fiche parent).",
-        "operationId": "modifier_5",
+        "operationId": "modifier_6",
         "parameters": [
           {
             "name": "id",
@@ -15705,7 +16117,7 @@
         ],
         "summary": "Modifie une prospection terrain (champ absent ou null = inchangé)",
         "description": "Mêmes contrôles sur la valeur résultante (corps sinon base), dont le total des zones ≤ superficie nette (« la\nsuperficies des zones ne doit pas dépasser la superficie nette du terrain ! »). Paire coefficient / montant : un montant\nenvoyé sans son coefficient en dérive le coefficient, sinon le montant suit le coefficient ; `coefEquipements`,\n`superficieNette`, `superficieHabitat` sont ignorés. Statut d'échec ou d'annulation : la prospection est réarchivée, sauf\n`estArchivee` explicite dans le corps. `champsAVider` : références facultatives, dates, textes facultatifs. 409 si le\nstatut courant est en lecture seule (« Cette prospection est en lecture seule dans le statut [X]. »).",
-        "operationId": "modifier_6",
+        "operationId": "modifier_7",
         "parameters": [
           {
             "name": "id",
@@ -15854,7 +16266,7 @@
         ],
         "summary": "Modifie un programme (champ absent ou null = inchangé)",
         "description": "Modifie un programme. Champ absent ou `null` = inchangé, `\"\"` = vidé (sauf code et description, obligatoires).\nPour vider une date, le pays, le signataire ou un responsable : `champsAVider: [\"dateDebutTravaux\", \"paysId\"]`\n(NULL en base ; un texte listé est écrit `\"\"`). Nom inconnu, champ obligatoire, ou champ à la fois listé et\nrenseigné → 400 dont le `detail` nomme `champsAVider`. Signataire et responsables : un tiers inconnu → 400 nommant\nle champ. La règle fin ≥ début porte sur la valeur résultante (corps, sinon base). Programme d'une entité inactive\n→ 404, comme toutes les routes `/api/projets/{id}…`.",
-        "operationId": "modifier_7",
+        "operationId": "modifier_8",
         "parameters": [
           {
             "name": "id",
@@ -16175,7 +16587,7 @@
         ],
         "summary": "Modifie un lot de terrain (champ absent ou null = inchangé)",
         "description": "Lot occupé : code, surfaces, prix, TVA, remises, classification, titre foncier et tranche → 409. Changer de tranche\nvide la présentation ; refusé (409) si le lot a des prospections. Une présentation d'une autre tranche → 400.",
-        "operationId": "modifier_8",
+        "operationId": "modifier_9",
         "parameters": [
           {
             "name": "id",
@@ -16491,7 +16903,7 @@
         ],
         "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
         "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel.\n`pourcentageConcretisation` et `tauxIs` : fractions entre 0 et 1 (400) ; écarts-types ≥ 0,5 (400, message OMRAN « la\nvaleur de l'écart type doit être supérieur ou égal à 0.5 ») ; `nombreArticlesAVendre` reçu est ignoré.",
-        "operationId": "modifier_9",
+        "operationId": "modifier_10",
         "parameters": [
           {
             "name": "id",
@@ -16638,7 +17050,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_10",
+        "operationId": "modifier_11",
         "parameters": [
           {
             "name": "id",
@@ -16764,7 +17176,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_11",
+        "operationId": "modifier_12",
         "parameters": [
           {
             "name": "id",
@@ -17283,7 +17695,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_12",
+        "operationId": "modifier_13",
         "parameters": [
           {
             "name": "id",
@@ -17423,7 +17835,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_13",
+        "operationId": "modifier_14",
         "parameters": [
           {
             "name": "id",
@@ -17476,7 +17888,7 @@
         ],
         "summary": "Fiche d'un désistement",
         "description": "Mêmes montants que la liste, plus `resteARembourser` = reste dû de la pièce de remboursement générée à la validation (à rembourser − décaissements enregistrés), 0 avant validation.",
-        "operationId": "detail_1",
+        "operationId": "detail_2",
         "parameters": [
           {
             "name": "id",
@@ -17544,7 +17956,7 @@
         ],
         "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
         "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` (≥ 0) la conserve au centime et recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` (fraction entre 0 et 1) recalcule la pénalité ; les montants du dossier sont relus, et une pénalité saisie est gardée tant que la base (prix, réglé, taux) ne change pas. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
-        "operationId": "modifier_14",
+        "operationId": "modifier_15",
         "parameters": [
           {
             "name": "id",
@@ -18090,7 +18502,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_15",
+        "operationId": "modifier_16",
         "parameters": [
           {
             "name": "id",
@@ -18173,7 +18585,7 @@
           "Tâches (administration)"
         ],
         "summary": "Fiche d'une tâche",
-        "operationId": "detail_2",
+        "operationId": "detail_3",
         "parameters": [
           {
             "name": "id",
@@ -18240,7 +18652,7 @@
           "Tâches (administration)"
         ],
         "summary": "Modifie une tâche (champ absent ou null = inchangé)",
-        "operationId": "modifier_16",
+        "operationId": "modifier_17",
         "parameters": [
           {
             "name": "id",
@@ -18292,7 +18704,7 @@
           "Rôles (administration)"
         ],
         "summary": "Fiche d'un rôle",
-        "operationId": "detail_3",
+        "operationId": "detail_4",
         "parameters": [
           {
             "name": "id",
@@ -18363,7 +18775,7 @@
           "Rôles (administration)"
         ],
         "summary": "Modifie description et restrictions (champ absent ou null = inchangé, code ignoré)",
-        "operationId": "modifier_17",
+        "operationId": "modifier_18",
         "parameters": [
           {
             "name": "id",
@@ -18418,7 +18830,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Fiche d'un rendez-vous",
-        "operationId": "detail_4",
+        "operationId": "detail_5",
         "parameters": [
           {
             "name": "id",
@@ -18486,7 +18898,7 @@
         ],
         "summary": "Modifie un rendez-vous (champ absent ou null = inchangé)",
         "description": "Les dates comparées sont les valeurs fusionnées : un champ absent vaut la date déjà en base. La source (`sourceId`, `sourceLibelle`, `sourceEntite`) ne bouge jamais.",
-        "operationId": "modifier_18",
+        "operationId": "modifier_19",
         "parameters": [
           {
             "name": "id",
@@ -18728,19 +19140,42 @@
         }
       }
     },
-    "/api/utilisateurs": {
+    "/api/utilisateurs/references": {
       "get": {
         "tags": [
           "Utilisateurs (admin)"
         ],
-        "summary": "Liste les comptes utilisateurs",
-        "description": "Tous les comptes (AdmUser) avec leurs informations (identifiant, coordonnées, statut\nactivé/désactivé), la fiche employé (CfgTier) liée et les rôles (AdmRole) assignés — écran\nd'administration des comptes. `search` filtre (insensible à la casse, sous-chaîne) sur\nidentifiant/description/email. `disabled` filtre sur le statut activé/désactivé ; absent = tous les\ncomptes. Réservé au rôle Administrateur.",
-        "operationId": "findAll_8",
+        "summary": "Rôles, cultures web, personnels et comptes de dépôt pour la fiche",
+        "operationId": "references",
+        "responses": {
+          "200": {
+            "description": "Listes de choix.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurReferencesDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/utilisateurs/export": {
+      "get": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Export Excel des comptes, mêmes filtres que la liste",
+        "operationId": "exporter",
         "parameters": [
           {
             "name": "search",
             "in": "query",
-            "description": "Recherche sous-chaîne sur identifiant/description/email.",
+            "description": "Sous-chaîne sur code, description ou email, casse ignorée.",
             "required": false,
             "schema": {
               "type": "string"
@@ -18756,34 +19191,40 @@
             }
           },
           {
-            "name": "pageable",
+            "name": "roleId",
             "in": "query",
-            "required": true,
+            "description": "Comptes portant ce rôle (AdmUserRole).",
+            "required": false,
             "schema": {
-              "$ref": "#/components/schemas/Pageable"
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "personnelId",
+            "in": "query",
+            "description": "Comptes liés à ce personnel (CfgEmployeeId).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Liste (éventuellement vide) des comptes.",
+            "description": "Classeur .xlsx.",
             "content": {
-              "*/*": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
+                  "type": "string",
+                  "format": "binary"
                 }
               }
             }
           },
           "403": {
-            "description": "L'appelant n'a pas le rôle Administrateur.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
-                }
-              }
-            }
+            "description": "L'appelant n'a pas le rôle Administrateur."
           }
         }
       }
@@ -19490,7 +19931,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des tranches, colonnes du catalogue",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter",
+        "operationId": "exporter_1",
         "parameters": [
           {
             "name": "format",
@@ -19623,7 +20064,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des terrains",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_1",
+        "operationId": "exporter_2",
         "parameters": [
           {
             "name": "search",
@@ -19763,7 +20204,7 @@
         ],
         "summary": "Export Excel de l'écran : une feuille par section",
         "description": "Classeur `SuiviPrevisionsVente_<aaaaMMjj_HHmmss>.xlsx`, une feuille par section de `/suivi-previsions` (nom = titre sans\n`[]:*?/\\`, 31 caractères au plus), ligne « Total » en gras. Mêmes paramètres que `/suivi-previsions`.",
-        "operationId": "exporter_2",
+        "operationId": "exporter_3",
         "parameters": [
           {
             "name": "format",
@@ -19802,7 +20243,7 @@
         ],
         "summary": "Détail d'un mois : dossiers, mouvements et échéances qui font les cellules",
         "description": "Code `SuiviPrevisionsVenteMois`, mêmes paramètres plus `mois` (1 à 12, obligatoire). Trois sections, triées par date\ndécroissante, faites des lignes sources exactes des cellules du mois : `dossiers` (projet, tranche, article, dossier,\ndateConcretisation, prixVente, regle, client ; leur nombre = `quantites.reel` du mois), `mouvements` (projet, tranche,\narticle, dateDossier, dateMouvement, categorie, montant, libelle, client ; Σ montant = `montants.reel`), `echeances`\n(client, date, categorie, montant, regle, reste ; Σ montant = `schemaFinancement`). `regle` d'une échéance = ses lignes\nde règlement comptées en encaissement, toutes dates ; `reste` = montant − regle.",
-        "operationId": "detail_5",
+        "operationId": "detail_6",
         "responses": {
           "200": {
             "description": "Trois sections : dossiers, mouvements, echeances.",
@@ -20374,7 +20815,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Export Excel des interactions, filtres et colonnes appliqués",
-        "operationId": "exporter_3",
+        "operationId": "exporter_4",
         "parameters": [
           {
             "name": "format",
@@ -21148,7 +21589,7 @@
           "Suivi des affectations"
         ],
         "summary": "Export Excel du suivi des affectations, filtres et colonnes appliqués",
-        "operationId": "exporter_4",
+        "operationId": "exporter_5",
         "parameters": [
           {
             "name": "entiteId",
@@ -21678,7 +22119,7 @@
         ],
         "summary": "Export Excel du suivi des actions, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/suivi-actions`, sans pagination, même portée (un non-administrateur n'exporte que ses actions) et même périmètre commercial. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Suivi des actions », fichier `suivi-actions_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille ne sont pas transmis.",
-        "operationId": "exporter_5",
+        "operationId": "exporter_6",
         "parameters": [
           {
             "name": "format",
@@ -21815,7 +22256,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des sous-articles, colonnes du catalogue",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_6",
+        "operationId": "exporter_7",
         "parameters": [
           {
             "name": "search",
@@ -24152,7 +24593,7 @@
         ],
         "summary": "Export Excel ou PDF d'un rapport : une feuille ou un tableau par section",
         "description": "Classeur `.xlsx` du même résultat, fichier `<code>_<aaaaMMjj_HHmmss>.xlsx` : une feuille par section (nom = titre sans\n`[]:*?/\\`, 31 caractères au plus, dédoublonné), en-tête en gras figé, colonnes reçues dans l'ordre, dernière ligne\n« Total » en gras quand la section a des totaux. Mêmes paramètres que `/resultat`.\n\n`format=pdf` : mêmes sections et mêmes totaux, `application/pdf`, fichier `<code>_<aaaaMMjj_HHmmss>.pdf`, A4 paysage, un\ntableau par section (sous-titre si plusieurs), en-tête de colonnes répété, pied « Page n / m ». Sous le titre : « Édité le\njj/MM/aaaa par <utilisateur> », une ligne « libellé : valeurs » par paramètre appliqué (tranches et commerciaux réduits au\nvisible, libellés lisibles), puis une ligne « Avertissement : … » par avertissement du résultat.",
-        "operationId": "exporter_7",
+        "operationId": "exporter_8",
         "parameters": [
           {
             "name": "module",
@@ -24431,7 +24872,7 @@
         ],
         "summary": "Export Excel de la liste des prospects, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/prospects` (`search`, `type`), sans pagination. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Prospects », fichier `prospects_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_8",
+        "operationId": "exporter_9",
         "parameters": [
           {
             "name": "format",
@@ -25426,7 +25867,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des prospections terrain",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_9",
+        "operationId": "exporter_10",
         "parameters": [
           {
             "name": "search",
@@ -25620,7 +26061,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des programmes",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_10",
+        "operationId": "exporter_11",
         "parameters": [
           {
             "name": "format",
@@ -26895,7 +27336,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des lots de terrain",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_11",
+        "operationId": "exporter_12",
         "parameters": [
           {
             "name": "search",
@@ -27443,7 +27884,7 @@
         ],
         "summary": "Export Excel de la liste des impayés, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres et même tri que `GET /api/impayes`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Fichier `impayes_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_12",
+        "operationId": "exporter_13",
         "parameters": [
           {
             "name": "format",
@@ -27840,7 +28281,7 @@
         ],
         "summary": "Export Excel de l'étude en 11 feuilles (étude bloquée comprise)",
         "description": "11 feuilles : Identité, Bilan, Terrain, Exécution, Délais, Financement, Données, Unités, Tranches, Unités par tranche,\nBilan détaillé. Valeurs du calcul partagé (bilan stocké, prévisions, trésorerie), jamais recalculées dans l'export.\nSans tranche, « Tranches » et « Unités par tranche » n'ont que leurs titres. Permis sur une étude bloquée.",
-        "operationId": "exporter_13",
+        "operationId": "exporter_14",
         "parameters": [
           {
             "name": "id",
@@ -27897,7 +28338,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des études, mêmes droits que la liste",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_14",
+        "operationId": "exporter_15",
         "parameters": [
           {
             "name": "format",
@@ -28901,7 +29342,7 @@
           "État des ventes"
         ],
         "summary": "Export Excel de l'état des ventes, filtres et colonnes appliqués",
-        "operationId": "exporter_15",
+        "operationId": "exporter_16",
         "parameters": [
           {
             "name": "format",
@@ -29554,7 +29995,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des entités (même droit que la liste)",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_16",
+        "operationId": "exporter_17",
         "parameters": [
           {
             "name": "format",
@@ -30619,7 +31060,7 @@
         ],
         "summary": "Export Excel de la liste des encaissements, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/encaissements`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Encaissements », fichier `encaissements_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_17",
+        "operationId": "exporter_18",
         "parameters": [
           {
             "name": "format",
@@ -32739,7 +33180,7 @@
         ],
         "summary": "Export Excel de la liste des dossiers, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/dossiers`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Auteur du classeur = utilisateur connecté, titre « Dossiers de vente », fichier `dossiers_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_18",
+        "operationId": "exporter_19",
         "parameters": [
           {
             "name": "format",
@@ -34758,7 +35199,7 @@
         ],
         "summary": "Export xlsx ou pdf du catalogue des articles, colonnes du catalogue",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_19",
+        "operationId": "exporter_20",
         "parameters": [
           {
             "name": "search",
@@ -34987,7 +35428,7 @@
           "Rôles (administration)"
         ],
         "summary": "Export Excel des rôles filtrés, triés par code",
-        "operationId": "exporter_20",
+        "operationId": "exporter_21",
         "parameters": [
           {
             "name": "texte",
@@ -35050,7 +35491,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Export Excel des rendez-vous filtrés, date croissante",
-        "operationId": "exporter_21",
+        "operationId": "exporter_22",
         "parameters": [
           {
             "name": "texte",
@@ -35350,7 +35791,7 @@
         ],
         "summary": "Export Excel des lignes filtrées",
         "description": "Mêmes filtres et même tri que la liste, sans pagination : au plus 20 000 lignes. Date au format `dd/MM/yyyy HH:mm` ; `Details` et `Description` ne sont pas exportés.",
-        "operationId": "exporter_22",
+        "operationId": "exporter_23",
         "parameters": [
           {
             "name": "dateDebut",
@@ -35539,7 +35980,7 @@
         ],
         "summary": "Fiche d'un e-mail",
         "description": "Mêmes champs que la ligne, plus `copie`, `copieCachee`, `corps` et `html`. `corps` est le `Body` brut, balises comprises : l'écran l'affiche en texte, jamais comme du HTML.",
-        "operationId": "detail_6",
+        "operationId": "detail_7",
         "parameters": [
           {
             "name": "id",
@@ -36294,6 +36735,251 @@
   },
   "components": {
     "schemas": {
+      "RolesUtilisateurEcritureDto": {
+        "type": "object",
+        "properties": {
+          "roleIds": {
+            "type": "array",
+            "description": "État final des rôles. Absent ou null = 400 ; [] retire tout.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "RestrictionsRoleDto": {
+        "type": "object",
+        "description": "Les 10 restrictions d'un rôle, stockées sans être appliquées. Jamais null à la lecture : NULL en base = true.",
+        "properties": {
+          "ajoutPiecesJointes": {
+            "type": "boolean",
+            "description": "Restriction sur l'ajout des fichiers attachés."
+          },
+          "modificationPiecesJointes": {
+            "type": "boolean",
+            "description": "Restriction sur la modification des fichiers attachés."
+          },
+          "suppressionPiecesJointes": {
+            "type": "boolean",
+            "description": "Restriction sur la suppression des fichiers attachés."
+          },
+          "ajoutActions": {
+            "type": "boolean",
+            "description": "Restriction sur l'ajout des actions."
+          },
+          "modificationActions": {
+            "type": "boolean",
+            "description": "Restriction sur la modification des actions."
+          },
+          "suppressionActions": {
+            "type": "boolean",
+            "description": "Restriction sur la suppression des actions."
+          },
+          "rapports": {
+            "type": "boolean",
+            "description": "Restriction sur les éditions des rapports, lue par l'accès aux rapports."
+          },
+          "audits": {
+            "type": "boolean",
+            "description": "Restriction sur les audits."
+          },
+          "champsSpecifiques": {
+            "type": "boolean",
+            "description": "Restriction sur les champs spécifiques."
+          },
+          "sequences": {
+            "type": "boolean",
+            "description": "Restriction sur la modification des séquences."
+          }
+        }
+      },
+      "UtilisateurFicheDto": {
+        "type": "object",
+        "description": "Fiche d'un compte AdmUser. Aucun mot de passe n'y figure.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "description": "Identifiant de connexion, immuable."
+          },
+          "description": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "description": "null si vide."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "null si vide."
+          },
+          "mobile": {
+            "type": "string",
+            "description": "null si vide."
+          },
+          "personnelId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "CfgEmployeeId."
+          },
+          "personnelNom": {
+            "type": "string",
+            "description": "Libellé du tiers lié."
+          },
+          "inactif": {
+            "type": "boolean"
+          },
+          "avecNotification": {
+            "type": "boolean"
+          },
+          "peutMasquerNotification": {
+            "type": "boolean"
+          },
+          "accesMobile": {
+            "type": "boolean"
+          },
+          "smtpServeur": {
+            "type": "string"
+          },
+          "smtpPort": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "smtpSsl": {
+            "type": "boolean"
+          },
+          "cultureWebId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "roleWebId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ne donne aucun droit."
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "compteDepotIds": {
+            "type": "array",
+            "description": "PKey des StlDeposit de l'utilisateur.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "restrictions": {
+            "$ref": "#/components/schemas/RestrictionsRoleDto",
+            "description": "Calculées : une restriction est levée si au moins un rôle a false. Lecture seule."
+          },
+          "compteWeb": {
+            "type": "boolean",
+            "description": "true si des identifiants Arpent existent."
+          },
+          "creePar": {
+            "type": "string"
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "modifiePar": {
+            "type": "string"
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CibleHabilitationDto": {
+        "type": "object",
+        "description": "Nœud de l'arbre : le couple type et id doit exister.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "SOCIETE",
+              "PROJET",
+              "TRANCHE",
+              "PROJET_TRAVAUX"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "HabilitationsEcritureDto": {
+        "type": "object",
+        "properties": {
+          "noeuds": {
+            "type": "array",
+            "description": "Nœuds cochés. Absent ou null = 400. Un nœud figé est ignoré, envoyé ou non.",
+            "items": {
+              "$ref": "#/components/schemas/CibleHabilitationDto"
+            }
+          }
+        }
+      },
+      "NoeudHabilitationDto": {
+        "type": "object",
+        "description": "Société > Projet > Tranche et Société > Projet travaux, sociétés inactives comprises.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "SOCIETE",
+              "PROJET",
+              "TRANCHE",
+              "PROJET_TRAVAUX"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "libelle": {
+            "type": "string"
+          },
+          "coche": {
+            "type": "boolean",
+            "description": "Une ligne AdmUserHabilitation du compte vise ce nœud."
+          },
+          "figee": {
+            "type": "boolean",
+            "description": "Porté par une ligne à plusieurs cibles, gérée dans OMRAN : coché, non modifiable."
+          },
+          "enfants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoeudHabilitationDto"
+            }
+          }
+        }
+      },
+      "ComptesDepotEcritureDto": {
+        "type": "object",
+        "properties": {
+          "compteIds": {
+            "type": "array",
+            "description": "État final des comptes de dépôt. Absent ou null = 400 ; [] retire tout.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "AffecterProjetsRequest": {
         "type": "object",
         "description": "Corps de PUT /api/utilisateurs/{admUserId}/projets — remplacement intégral du périmètre projet d'un\nutilisateur (le front envoie l'état final de ses cases à cocher, pas un delta).",
@@ -38785,52 +39471,6 @@
           }
         }
       },
-      "RestrictionsRoleDto": {
-        "type": "object",
-        "description": "Les 10 restrictions d'un rôle, stockées sans être appliquées. Jamais null à la lecture : NULL en base = true.",
-        "properties": {
-          "ajoutPiecesJointes": {
-            "type": "boolean",
-            "description": "Restriction sur l'ajout des fichiers attachés."
-          },
-          "modificationPiecesJointes": {
-            "type": "boolean",
-            "description": "Restriction sur la modification des fichiers attachés."
-          },
-          "suppressionPiecesJointes": {
-            "type": "boolean",
-            "description": "Restriction sur la suppression des fichiers attachés."
-          },
-          "ajoutActions": {
-            "type": "boolean",
-            "description": "Restriction sur l'ajout des actions."
-          },
-          "modificationActions": {
-            "type": "boolean",
-            "description": "Restriction sur la modification des actions."
-          },
-          "suppressionActions": {
-            "type": "boolean",
-            "description": "Restriction sur la suppression des actions."
-          },
-          "rapports": {
-            "type": "boolean",
-            "description": "Restriction sur les éditions des rapports, lue par l'accès aux rapports."
-          },
-          "audits": {
-            "type": "boolean",
-            "description": "Restriction sur les audits."
-          },
-          "champsSpecifiques": {
-            "type": "boolean",
-            "description": "Restriction sur les champs spécifiques."
-          },
-          "sequences": {
-            "type": "boolean",
-            "description": "Restriction sur la modification des séquences."
-          }
-        }
-      },
       "RoleDto": {
         "type": "object",
         "description": "Fiche d'un rôle.",
@@ -38907,6 +39547,79 @@
           "groupe": {
             "type": "string",
             "description": "Groupe libre de la pièce (AdmAttachedFile.FoderGroup, ex. « PLAN ») ; null si aucun."
+          }
+        }
+      },
+      "UtilisateurEcritureDto": {
+        "type": "object",
+        "description": "Corps du POST et du PATCH. PATCH : absent ou null = inchangé, \"\" = vidé pour les textes.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Obligatoire au POST, 100 caractères au plus, unique casse ignorée. Ignoré au PATCH."
+          },
+          "description": {
+            "type": "string",
+            "description": "Obligatoire au POST, jamais vide, 255 caractères au plus."
+          },
+          "email": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "personnelId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers de type Employé (voir /references). Contrôlé seulement s'il change."
+          },
+          "inactif": {
+            "type": "boolean",
+            "description": "POST : vrai si absent. true coupe chat et mobile, et la session du compte."
+          },
+          "avecNotification": {
+            "type": "boolean",
+            "description": "IsVisibleForChat. Toujours faux sur un compte inactif."
+          },
+          "peutMasquerNotification": {
+            "type": "boolean",
+            "description": "CanDisapearNotification. POST : vrai si absent."
+          },
+          "accesMobile": {
+            "type": "boolean",
+            "description": "IsMobileUser. Toujours faux sur un compte inactif."
+          },
+          "smtpServeur": {
+            "type": "string",
+            "description": "255 caractères au plus."
+          },
+          "smtpPort": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "smtpSsl": {
+            "type": "boolean"
+          },
+          "cultureWebId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmWebCultures (voir /references)."
+          },
+          "roleWebId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmRole (voir /references). Ne donne aucun droit."
+          },
+          "viderPersonnel": {
+            "type": "boolean",
+            "description": "PATCH : true remet CfgEmployeeId à NULL et prime sur personnelId. Sans effet au POST."
+          },
+          "viderRoleWeb": {
+            "type": "boolean",
+            "description": "PATCH : true remet WebRoleId à NULL et prime sur roleWebId. Sans effet au POST."
           }
         }
       },
@@ -51097,6 +51810,88 @@
             "format": "int32",
             "description": "Nombre de projets affectés à ce compte (périmètre commercial), pour afficher l'état d'affectation\ndirectement dans la liste d'administration sans un appel par ligne. 0 = aucune restriction : ce\ncompte voit tout (un périmètre vide signifie \"pas de restriction\", jamais \"ne voit rien\"). Le détail\ndes projets s'obtient par GET /api/utilisateurs/{admUserId}/projets. À noter : ce compteur ne tient\npas compte des rôles d'exemption — un Administrateur affecté à 2 projets affiche 2 mais n'est de\nfait jamais filtré.",
             "example": 2
+          },
+          "accesMobile": {
+            "type": "boolean",
+            "description": "AdmUser.IsMobileUser."
+          },
+          "accesMessagerie": {
+            "type": "boolean",
+            "description": "AdmUser.IsVisibleForChat."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "AdmUser.UserCreate."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "AdmUser.UserUpdate."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "AdmUser.UserUpdateDateTime."
+          }
+        }
+      },
+      "PersonnelReferenceDto": {
+        "type": "object",
+        "description": "Tiers de type Employé : coordonnées copiées dans la fiche si l'écran le propose (R11).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "description": "CfgTier.EMail, null si vide."
+          },
+          "mobile": {
+            "type": "string",
+            "description": "CfgTier.Mobile, null si vide."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "CfgTier.Phone, null si vide."
+          }
+        }
+      },
+      "UtilisateurReferencesDto": {
+        "type": "object",
+        "description": "Listes de choix de la fiche utilisateur.",
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReferentielItemDto"
+            }
+          },
+          "cultures": {
+            "type": "array",
+            "description": "AdmWebCultures : code seul.",
+            "items": {
+              "$ref": "#/components/schemas/ReferentielItemDto"
+            }
+          },
+          "personnels": {
+            "type": "array",
+            "description": "Tiers de type Employé.",
+            "items": {
+              "$ref": "#/components/schemas/PersonnelReferenceDto"
+            }
+          },
+          "comptesDepot": {
+            "type": "array",
+            "description": "StlDeposit.",
+            "items": {
+              "$ref": "#/components/schemas/ReferentielItemDto"
+            }
           }
         }
       },
