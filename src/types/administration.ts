@@ -44,6 +44,31 @@ export interface FiltresSessions {
   size?: number;
 }
 
+// FEATURE-admin-fiches-verrouillees.md.
+export type EtatFicheVerrouillee = 'VERROUILLEE' | 'NON_VERROUILLEE';
+
+export interface LigneFicheVerrouilleeDto {
+  id: UUID;
+  entite: string | null;
+  libelle: string | null;
+  dateVerrouillage: string;
+  utilisateur: string | null;
+  etat: EtatFicheVerrouillee;
+}
+
+export interface ResultatDeverrouillageDto {
+  nombre: number;
+}
+
+export interface FiltresFichesVerrouillees {
+  etat?: EtatFicheVerrouillee;
+  dateDebut?: string;
+  dateFin?: string;
+  recherche?: string;
+  page?: number;
+  size?: number;
+}
+
 export interface FiltresEmail {
   dateDebut?: string;
   dateFin?: string;

@@ -4,13 +4,17 @@ import type { PageDto, UUID } from '../types';
 import type {
   EmailDetailDto,
   FiltresEmail,
+  FiltresFichesVerrouillees,
   FiltresSessions,
   LigneEmailDto,
+  LigneFicheVerrouilleeDto,
   LigneSessionDto,
+  ResultatDeverrouillageDto,
 } from '../types/administration';
 
 const RACINE = '/api/administration/emails';
 const RACINE_SESSIONS = '/api/administration/sessions';
+const RACINE_FICHES = '/api/administration/fiches-verrouillees';
 
 /** 400 : date illisible, dateDebut après dateFin, page ou size hors bornes. */
 export function listEmails(filtres: FiltresEmail = {}): Promise<PageDto<LigneEmailDto>> {
@@ -40,4 +44,21 @@ export function listUtilisateursSessions(): Promise<string[]> {
 /** 404 si l'id est inconnu, 409 si la session est déjà fermée. */
 export function fermerSession(id: UUID): Promise<LigneSessionDto> {
   return request('POST', `${RACINE_SESSIONS}/${id}/fermer`);
+}
+
+/** FEATURE-admin-fiches-verrouillees.md. 400 : état ou date illisible, dateDebut après dateFin, page ou size hors bornes. */
+export function listFichesVerrouillees(
+  filtres: FiltresFichesVerrouillees = {},
+): Promise<PageDto<LigneFicheVerrouilleeDto>> {
+  return request('GET', RACINE_FICHES, { query: { ...filtres } });
+}
+
+/** 404 si l'id est inconnu, 409 si la fiche est déjà déverrouillée. */
+export function deverrouillerFiche(id: UUID): Promise<LigneFicheVerrouilleeDto> {
+  return request('POST', `${RACINE_FICHES}/${id}/deverrouiller`);
+}
+
+/** Ignore les filtres, comme OMRAN. `nombre` vaut 0 si aucun verrou n'était actif. */
+export function deverrouillerToutesFiches(): Promise<ResultatDeverrouillageDto> {
+  return request('POST', `${RACINE_FICHES}/deverrouiller-tout`);
 }
