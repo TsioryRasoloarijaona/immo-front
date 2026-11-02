@@ -21,6 +21,29 @@ export interface EmailDetailDto extends LigneEmailDto {
   html: boolean | null;
 }
 
+// FEATURE-admin-sessions.md.
+export type EtatSession = 'OUVERTE' | 'FERMEE' | 'VERROUILLEE';
+
+export interface LigneSessionDto {
+  id: UUID;
+  utilisateur: string | null;
+  dateOuverture: string;
+  dateFermeture: string | null;
+  etat: EtatSession;
+  adresseIp: string | null;
+  version: string | null;
+}
+
+export interface FiltresSessions {
+  dateDebut?: string;
+  dateFin?: string;
+  utilisateur?: string;
+  ip?: string;
+  ouverte?: boolean;
+  page?: number;
+  size?: number;
+}
+
 export interface FiltresEmail {
   dateDebut?: string;
   dateFin?: string;
