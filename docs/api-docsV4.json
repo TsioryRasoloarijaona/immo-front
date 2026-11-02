@@ -36183,7 +36183,7 @@
           {
             "name": "page",
             "in": "query",
-            "description": "Numéro de page, de 0 à 1 000 000.",
+            "description": "Page demandée, de 0 à 1 000 000.",
             "required": false,
             "schema": {
               "type": "integer",
@@ -36196,7 +36196,7 @@
           {
             "name": "size",
             "in": "query",
-            "description": "Lignes par page, de 1 à 200.",
+            "description": "Taille de la page, de 1 à 200.",
             "required": false,
             "schema": {
               "type": "integer",
