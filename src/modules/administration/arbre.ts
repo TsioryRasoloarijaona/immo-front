@@ -1,4 +1,4 @@
-import { Bot, CalendarDays, FileCode2, Gauge, History, KeyRound, ListChecks, Mail, MonitorSmartphone, Settings2, ShieldCheck, Users } from 'lucide-react';
+import { Bot, CalendarDays, FileCode2, Gauge, History, KeyRound, ListChecks, LockOpen, Mail, MonitorSmartphone, Settings2, ShieldCheck, Users } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
 
 export const arbreAdministration: ArbreModule = () => [
@@ -17,6 +17,7 @@ export const arbreAdministration: ArbreModule = () => [
       { to: '/administration/historique', libelle: 'Historique', Icone: History },
       { to: '/administration/email-historique', libelle: 'EMail Historique', Icone: Mail },
       { to: '/administration/sessions', libelle: 'Sessions', Icone: MonitorSmartphone },
+      { to: '/administration/fiches-verrouillees', libelle: 'Fiches verrouillées', Icone: LockOpen },
     ],
   },
   {

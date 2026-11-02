@@ -264,6 +264,10 @@
       "description": "Hub « Rapports » d'un module (Vente › Tableau de bord › Rapports d'OMRAN Estate). Un rapport est listé s'il est implémenté\npar le serveur, présent dans `AdmReportData` pour le module, et visible par l'appelant. Voir\n`instructions/FEATURE-tdb-vente-rapports-socle.md`.\n\n**Droits** : un compte est libre si l'un de ses rôles (`AdmUserRole`, relu à chaque appel, jamais le jeton) a\n`AdmRole.WithReportRestriction = 0` ; libre, il voit tous les rapports ; sinon il ne voit que ceux liés à l'un de ses rôles\ndans `AdmReportDataRole`. Sans rôle, rien. Un rapport absent de la liste répond 403 sur ses autres routes. Ordre des\ncontrôles : module (404), rapport (404), droit (403), paramètres (400). Aucune clé d'API n'a accès à ces routes.\n\n**Données** : un rapport ne lit que les tranches visibles de l'appelant — société active, périmètre commercial, et en vente\npour le module `vente`. Un `trancheId` hors de ces tranches est ignoré sans erreur ; si aucun `trancheId` donné n'est\nvisible, le résultat est vide (jamais « toutes les tranches »)."
     },
     {
+      "name": "Fiches verrouillées (administration)",
+      "description": "Verrous posés par OMRAN sur les fiches en cours d'édition (`AdmWebLockEntities`) : l'écran « Fiches verrouillées » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). Arpent ne pose ni ne lit aucun verrou. Voir `instructions/FEATURE-admin-fiches-verrouillees.md`."
+    },
+    {
       "name": "Dossiers — règlements",
       "description": "Règlements d'un dossier de vente répartis sur plusieurs échéances, comme OMRAN : un règlement (`StlSettlement`) porte une ligne (`StlSettlementLine`) par échéance cochée, et n'appartient au dossier que par ces lignes. Le « reste à affecter » vaut montant − somme des lignes ; il est calculé, jamais stocké (aide OMRAN, page RÈGLEMENTS : « Reste à affecter : Montant base - Montant affecté »). L'ancien `POST .../echeancier/{echeanceId}/reglements` reste disponible : c'est la même écriture avec une seule affectation."
     },
@@ -14876,6 +14880,77 @@
           },
           "400": {
             "description": "Champ obligatoire manquant, fin avant début, ou référence inconnue."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/fiches-verrouillees/{id}/deverrouiller": {
+      "post": {
+        "tags": [
+          "Fiches verrouillées (administration)"
+        ],
+        "summary": "Déverrouiller une fiche",
+        "description": "Pose `State = 2` sur un verrou actif, sans toucher aux autres colonnes ni à la session, qu'elle soit ouverte ou non. Le poste OMRAN n'est pas prévenu : si la fiche y est encore ouverte, un autre utilisateur pourra la modifier en même temps et le dernier enregistrement gagnera. Aucune trace n'est écrite dans le journal. Une ligne dans tout autre état répond 409 et rien n'est écrit, écart volontaire avec OMRAN qui ne ferait rien en silence.",
+        "operationId": "deverrouiller",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du verrou (AdmWebLockEntities.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche déverrouillée, ligne à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LigneFicheVerrouilleeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Identifiant illisible."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Aucun verrou avec cet id."
+          },
+          "409": {
+            "description": "Fiche déjà déverrouillée : rien n'est écrit."
+          }
+        }
+      }
+    },
+    "/api/administration/fiches-verrouillees/deverrouiller-tout": {
+      "post": {
+        "tags": [
+          "Fiches verrouillées (administration)"
+        ],
+        "summary": "Déverrouiller toutes les fiches",
+        "description": "Pose `State = 2` sur toutes les lignes `State = 1`, sans filtre ni corps, comme OMRAN. Mêmes conséquences côté poste OMRAN que `deverrouiller`, aucune trace dans le journal. `nombre` compte les lignes touchées ; aucun verrou actif répond 200 avec 0.",
+        "operationId": "deverrouillerTout",
+        "responses": {
+          "200": {
+            "description": "Nombre de fiches déverrouillées, 0 si aucun verrou n'était actif.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatDeverrouillageDto"
+                }
+              }
+            }
           },
           "403": {
             "description": "L'appelant n'a pas le rôle Administrateur."
@@ -36052,6 +36127,106 @@
         }
       }
     },
+    "/api/administration/fiches-verrouillees": {
+      "get": {
+        "tags": [
+          "Fiches verrouillées (administration)"
+        ],
+        "summary": "Fiches verrouillées par OMRAN, page par page",
+        "description": "Lignes triées par date de verrouillage décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`LockDate < dateFin + 1 jour`). `recherche` cherche une sous-chaîne dans `Code`, `Description` et `UserDesc`, `%`, `_` et `[` pris à la lettre. Une ligne dont la session n'existe plus reste listée, `utilisateur` à null. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
+        "operationId": "lister_29",
+        "parameters": [
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "VERROUILLEE = State 1, NON_VERROUILLEE = tout le reste ; absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "VERROUILLEE",
+                "NON_VERROUILLEE"
+              ]
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Premier jour de verrouillage inclus, ISO ; absent = pas de borne basse.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-01"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Dernier jour de verrouillage inclus, ISO ; absent = pas de borne haute.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-31"
+          },
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Sous-chaîne de l'entité, du libellé ou de l'utilisateur ; vide ou blanc = pas de filtre.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page demandée, de 0 à 1 000 000.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Taille de la page, de 1 à 200.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes, date de verrouillage décroissante puis PKey.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneFicheVerrouilleeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "État ou date illisible, dateDebut après dateFin, page ou size hors bornes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/administration/emails": {
       "get": {
         "tags": [
@@ -36059,7 +36234,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_29",
+        "operationId": "lister_30",
         "parameters": [
           {
             "name": "dateDebut",
@@ -36234,7 +36409,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_30",
+        "operationId": "lister_31",
         "parameters": [
           {
             "name": "portee",
@@ -50406,6 +50581,54 @@
           }
         }
       },
+      "LigneFicheVerrouilleeDto": {
+        "type": "object",
+        "description": "Ligne de la liste des fiches verrouillées par OMRAN.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du verrou (AdmWebLockEntities.PKey)."
+          },
+          "entite": {
+            "type": "string",
+            "description": "Entité, code OMRAN tel quel (Settlement, COMFOLDER…)."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé de la fiche, tel qu'enregistré par OMRAN (Description)."
+          },
+          "dateVerrouillage": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de verrouillage, ISO locale.",
+            "example": "2026-03-10T09:15:30"
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Utilisateur de la session (UserDesc) ; null si la session n'existe plus."
+          },
+          "etat": {
+            "type": "string",
+            "description": "État : State 1 = VERROUILLEE, toute autre valeur = NON_VERROUILLEE.",
+            "enum": [
+              "VERROUILLEE",
+              "NON_VERROUILLEE"
+            ]
+          }
+        }
+      },
+      "ResultatDeverrouillageDto": {
+        "type": "object",
+        "description": "Résultat de « Déverrouiller tout ».",
+        "properties": {
+          "nombre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de fiches déverrouillées ; 0 si aucun verrou n'était actif."
+          }
+        }
+      },
       "ActionnaireEcritureDto": {
         "type": "object",
         "description": "Création ou modification d'un actionnaire ; en PATCH, absent ou null = inchangé.",
@@ -60875,6 +61098,33 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/LigneHistoriqueDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PageDtoLigneFicheVerrouilleeDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneFicheVerrouilleeDto"
             }
           },
           "page": {
