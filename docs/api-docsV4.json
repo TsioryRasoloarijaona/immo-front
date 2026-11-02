@@ -324,6 +324,10 @@
       "description": "Compteurs eau, électricité et gaz de l'article du dossier (bouton « Compteurs »)."
     },
     {
+      "name": "Sessions (administration)",
+      "description": "Sessions OMRAN (`AdmWebSessions`) : l'écran « Sessions » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). L'identifiant de session (`WebSession`) n'est jamais exposé. Voir `instructions/FEATURE-admin-sessions.md`."
+    },
+    {
       "name": "Plans des tranches",
       "description": "Plans d'étage interactifs : méta, image, tracés colorés par statut, import SVG et purge (Administrateur)."
     },
@@ -14635,6 +14639,52 @@
           },
           "409": {
             "description": "Transition non permise ; transitionsAutorisees liste les codes des statuts permis."
+          }
+        }
+      }
+    },
+    "/api/administration/sessions/{id}/fermer": {
+      "post": {
+        "tags": [
+          "Sessions (administration)"
+        ],
+        "summary": "Fermer une session",
+        "description": "Pose `State = 4` et `EndDate = maintenant` sur une session ouverte ou verrouillée, sans toucher aux autres colonnes ; une date de fin déjà posée sur une session ouverte est remplacée. Le poste OMRAN n'est pas déconnecté, aucun compte Arpent n'est touché, aucun verrou de fiche n'est libéré et aucune trace n'est écrite dans le journal. Une session dans tout autre état répond 409 et rien n'est écrit, écart volontaire avec OMRAN qui réécrirait la date.",
+        "operationId": "fermer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la session (AdmWebSessions.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session fermée, ligne à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LigneSessionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Identifiant illisible."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Aucune session avec cet id."
+          },
+          "409": {
+            "description": "Session déjà fermée : rien n'est écrit."
           }
         }
       }
@@ -35422,6 +35472,139 @@
         }
       }
     },
+    "/api/administration/sessions": {
+      "get": {
+        "tags": [
+          "Sessions (administration)"
+        ],
+        "summary": "Sessions OMRAN, page par page",
+        "description": "Lignes triées par date d'ouverture décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`StartDate < dateFin + 1 jour`). `utilisateur` est une égalité exacte sur `UserDesc`. `ip` cherche une sous-chaîne, `%`, `_` et `[` pris à la lettre. `ouverte=true` ne rend que `State = 2`, `ouverte=false` tout le reste, verrouillées comprises. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
+        "operationId": "lister_27",
+        "parameters": [
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Premier jour d'ouverture inclus, ISO ; absent = pas de borne basse.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-01"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Dernier jour d'ouverture inclus, ISO ; absent = pas de borne haute.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-31"
+          },
+          {
+            "name": "utilisateur",
+            "in": "query",
+            "description": "Utilisateur exact, valeur de GET /api/administration/sessions/utilisateurs ; vide = tous.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ip",
+            "in": "query",
+            "description": "Sous-chaîne de l'adresse IP, prise à la lettre ; vide ou blanc = pas de filtre.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ouverte",
+            "in": "query",
+            "description": "Vrai = sessions ouvertes, faux = toutes les autres ; absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Numéro de page, de 0 à 1 000 000.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Lignes par page, de 1 à 200.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes, date d'ouverture décroissante puis PKey.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneSessionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date ou booléen illisible, dateDebut après dateFin, page ou size hors bornes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/sessions/utilisateurs": {
+      "get": {
+        "tags": [
+          "Sessions (administration)"
+        ],
+        "summary": "Utilisateurs présents dans les sessions, pour la liste déroulante",
+        "description": "Valeurs distinctes de `UserDesc`, triées. Tableau JSON de chaînes, pas une page.",
+        "operationId": "utilisateurs",
+        "responses": {
+          "200": {
+            "description": "Tableau de chaînes distinctes, triées, sans null ni vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/administration/roles/export": {
       "get": {
         "tags": [
@@ -35627,7 +35810,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes de la période, date décroissante, à date égale par `PKey`. Sans date : les 30 derniers jours. `dateFin` est incluse jusqu'à 23:59:59. `texte` cherche dans `ObjectType` et `ObjectLabel` seulement, `%`, `_` et `[` pris à la lettre ; `utilisateur` est une égalité exacte. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_27",
+        "operationId": "lister_28",
         "parameters": [
           {
             "name": "dateDebut",
@@ -35736,7 +35919,7 @@
         ],
         "summary": "Utilisateurs présents sur la période, pour la liste déroulante",
         "description": "Valeurs distinctes de `UserDescription` sur la période, triées, sans null ni vide. Mêmes règles de période que la liste : sans date, les 30 derniers jours.",
-        "operationId": "utilisateurs",
+        "operationId": "utilisateurs_1",
         "parameters": [
           {
             "name": "dateDebut",
@@ -35876,7 +36059,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_28",
+        "operationId": "lister_29",
         "parameters": [
           {
             "name": "dateDebut",
@@ -36023,7 +36206,7 @@
         ],
         "summary": "Utilisateurs présents au journal, pour la liste déroulante",
         "description": "Valeurs distinctes de `AdmUserDescription`, triées. Tableau JSON de chaînes, pas une page.",
-        "operationId": "utilisateurs_1",
+        "operationId": "utilisateurs_2",
         "responses": {
           "200": {
             "description": "Tableau de chaînes distinctes, triées, sans null ni vide.",
@@ -36051,7 +36234,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_29",
+        "operationId": "lister_30",
         "parameters": [
           {
             "name": "portee",
@@ -50027,6 +50210,49 @@
           }
         }
       },
+      "LigneSessionDto": {
+        "type": "object",
+        "description": "Ligne de la liste des sessions OMRAN.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la session (AdmWebSessions.PKey)."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Utilisateur, tel qu'enregistré par OMRAN (UserDesc)."
+          },
+          "dateOuverture": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'ouverture, ISO locale.",
+            "example": "2026-03-10T09:15:30"
+          },
+          "dateFermeture": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fermeture, ISO locale ; null si jamais posée."
+          },
+          "etat": {
+            "type": "string",
+            "description": "État : State 2 = OUVERTE, 8 = VERROUILLEE, toute autre valeur = FERMEE.",
+            "enum": [
+              "OUVERTE",
+              "FERMEE",
+              "VERROUILLEE"
+            ]
+          },
+          "adresseIp": {
+            "type": "string",
+            "description": "Adresse du poste, souvent NOMHOTE/10.0.0.x."
+          },
+          "version": {
+            "type": "string",
+            "description": "Version du client OMRAN (SystemVersion)."
+          }
+        }
+      },
       "RoleEcritureDto": {
         "type": "object",
         "description": "Saisie d'un rôle. En modification, champ absent ou null = inchangé.",
@@ -60469,6 +60695,33 @@
           "reste": {
             "type": "number",
             "description": "Vente : `total` − `regle`, 0 sur un dossier sorti. Location et syndic : null."
+          }
+        }
+      },
+      "PageDtoLigneSessionDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneSessionDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

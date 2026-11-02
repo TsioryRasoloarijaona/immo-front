@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useDeferredValue, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Sigma, SquareMinus, SquarePlus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './ui/table';
 import { sansAccents, useOrdreColonnes } from '../lib/colonnes';
@@ -247,6 +247,7 @@ export default function DataGrid<T extends { id: string }>({
   actions,
   groupes,
   totauxServeur,
+  onLignesVisibles,
 }: Readonly<{
   rows: T[];
   colonnes: ColonneGrille<T>[];
@@ -272,6 +273,8 @@ export default function DataGrid<T extends { id: string }>({
   /** Fourni, remplace le Σ client (lignes chargées) par un menu de fonctions calculées par le serveur
    * sur tout le filtre, affichées dans une bande sous l'en-tête. */
   totauxServeur?: TotauxServeurGrille;
+  /** Appelé avec les ids qui survivent au filtre de colonne (callback stable). */
+  onLignesVisibles?: (ids: string[]) => void;
 }>) {
   // Un plafond, pas une largeur : en `table-auto`, `max-width` ne mord que sur les colonnes qui dépassent.
   const plafondColonne = (c: ColonneGrille<T>) => `${Math.max(120, (c.largeur ?? 10) * 20)}px`;
@@ -338,6 +341,9 @@ export default function DataGrid<T extends { id: string }>({
   );
 
   const visibles = useMemo(() => appliquer(rows), [appliquer, rows]);
+  useEffect(() => {
+    onLignesVisibles?.(visibles.map((r) => r.id));
+  }, [onLignesVisibles, visibles]);
   const filtreActif = colonnes.some((c) => (filtresDiff[c.nom] ?? '').trim() !== '');
 
   // En mode groupé `rows` est vide : Σ et compteur portent sur les lignes des groupes ouverts.
