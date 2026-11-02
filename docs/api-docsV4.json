@@ -324,6 +324,10 @@
       "description": "Dossiers de vente (ComFolder) — cycle de vie, échéancier, pièces jointes et génération de documents.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de dossier — y compris les routes imbriquées (échéancier, règlements, pièces jointes, historique, générateurs de documents) — un dossier hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Cette collection ne renvoie que les dossiers rattachés à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, y compris aux rôles qui en sont exemptés (dont Administrateur). Un dossier masqué renvoie 404 sur toutes les routes portant son identifiant, exactement comme un dossier inexistant."
     },
     {
+      "name": "Actions (administration)",
+      "description": "Journal, en lecture seule, de ce qui a été créé ou modifié dans les principaux objets (actions commerciales, prospections, dossiers, règlements, stock…) : l'écran « Actions » du groupe Sécurité d'OMRAN Estate, lu sur la vue `AdmActionsView`. Réservé au rôle Administrateur (403 avant tout 400). Aucune écriture, aucune route annexe. Voir `instructions/FEATURE-admin-actions.md`."
+    },
+    {
       "name": "Dossiers — compteurs",
       "description": "Compteurs eau, électricité et gaz de l'article du dossier (bouton « Compteurs »)."
     },
@@ -36402,6 +36406,115 @@
         }
       }
     },
+    "/api/administration/actions": {
+      "get": {
+        "tags": [
+          "Actions (administration)"
+        ],
+        "summary": "Journal des actions, page par page",
+        "description": "Lignes triées par date de création décroissante, les lignes sans date en dernier ; à date égale, par `PKey` puis `action`, ordre stable entre les pages. Sans filtre : toute la vue, aucune période préréglée. Deux lignes de même `PKey` et d'`action` différente restent deux lignes, comptées toutes deux dans `totalElements`. `recherche` cherche une sous-chaîne dans `code`, `action`, `description`, `creePar` et `modifiePar`, espaces ignorés des deux côtés, `%`, `_` et `[` pris à la lettre ; vide ou blanche = pas de filtre. Les périodes de création et de modification se cumulent, leurs bornes sont des jours inclus ; une ligne sans date est exclue dès qu'une borne de sa période est posée. Les valeurs vides sont rendues telles quelles. `id` sert de clé de ligne, il n'ouvre aucun objet.",
+        "operationId": "lister_31",
+        "parameters": [
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Contient sur code, action, description, créateur, modificateur ; espaces ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "creationDebut",
+            "in": "query",
+            "description": "Premier jour de création inclus, ISO ; exclut les lignes sans date.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-01"
+          },
+          {
+            "name": "creationFin",
+            "in": "query",
+            "description": "Dernier jour de création inclus, ISO ; exclut les lignes sans date.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-31"
+          },
+          {
+            "name": "modificationDebut",
+            "in": "query",
+            "description": "Premier jour de modification inclus, ISO ; exclut les lignes sans date.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-01"
+          },
+          {
+            "name": "modificationFin",
+            "in": "query",
+            "description": "Dernier jour de modification inclus, ISO ; exclut les lignes sans date.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-31"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page demandée, de 0 à 1 000 000.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Taille de la page, de 1 à 200.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes, date de création décroissante, sans date en dernier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneActionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date illisible, début de période après sa fin, page ou size hors bornes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/actions-recentes": {
       "get": {
         "tags": [
@@ -36409,7 +36522,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_31",
+        "operationId": "lister_32",
         "parameters": [
           {
             "name": "portee",
@@ -61283,6 +61396,75 @@
           "html": {
             "type": "boolean",
             "description": "Vrai si le corps est du HTML (IsBodyHtml)."
+          }
+        }
+      },
+      "LigneActionDto": {
+        "type": "object",
+        "description": "Ligne du journal des actions (vue AdmActionsView).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Clé de ligne seulement, <PKey>:<ActionLabel> : PKey seul n'est pas unique."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de l'objet ; peut être null ou vide."
+          },
+          "action": {
+            "type": "string",
+            "description": "Famille de l'objet (ActionLabel)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de l'objet ; peut être null ou vide."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Créateur ; peut être null ou vide."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création, ISO locale ; peut être null.",
+            "example": "2026-03-10T09:15:30"
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Dernier modificateur ; peut être null ou vide."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de modification, ISO locale ; peut être null.",
+            "example": "2026-03-10T09:15:30"
+          }
+        }
+      },
+      "PageDtoLigneActionDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneActionDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

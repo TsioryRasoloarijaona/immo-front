@@ -3,9 +3,11 @@ import { request } from './api';
 import type { PageDto, UUID } from '../types';
 import type {
   EmailDetailDto,
+  FiltresActions,
   FiltresEmail,
   FiltresFichesVerrouillees,
   FiltresSessions,
+  LigneActionDto,
   LigneEmailDto,
   LigneFicheVerrouilleeDto,
   LigneSessionDto,
@@ -61,4 +63,9 @@ export function deverrouillerFiche(id: UUID): Promise<LigneFicheVerrouilleeDto> 
 /** Ignore les filtres, comme OMRAN. `nombre` vaut 0 si aucun verrou n'était actif. */
 export function deverrouillerToutesFiches(): Promise<ResultatDeverrouillageDto> {
   return request('POST', `${RACINE_FICHES}/deverrouiller-tout`);
+}
+
+/** FEATURE-admin-actions.md. 400 : date illisible, début de période après sa fin, page ou size hors bornes. */
+export function listActions(filtres: FiltresActions = {}): Promise<PageDto<LigneActionDto>> {
+  return request('GET', '/api/administration/actions', { query: { ...filtres } });
 }
