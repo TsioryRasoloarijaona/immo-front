@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { MonitorSmartphone } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import Pagination from '../../components/Pagination';
@@ -6,7 +6,9 @@ import FiltresSessionsPanneau from '../../components/administration/FiltresSessi
 import SessionsTable from '../../components/administration/SessionsTable';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { fermerSession, listSessions, listUtilisateursSessions } from '../../lib/apiAdministration';
+import { oublierLecturesRecentes } from '../../lib/api';
 import { useConfirm } from '../../lib/confirmContext';
+import { formatDateTime, formatNumber } from '../../lib/format';
 import { FILTRES_SESSIONS_VIDES, versFiltresSessions, type EtatFiltresSessions } from '../../lib/sessions';
 import { useToast } from '../../lib/toastContext';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
@@ -22,6 +24,7 @@ export default function SessionsList() {
   const [rafraichir, setRafraichir] = useState(0);
   const [choisie, setChoisie] = useState<string>();
   const [echec, setEchec] = useState<string>();
+  const [enCours, setEnCours] = useState(false);
   const ip = useDebouncedValue(filtres.ip);
   const effectifs = { ...filtres, ip };
 
@@ -31,27 +34,46 @@ export default function SessionsList() {
     [effectifs.debut, effectifs.fin, effectifs.utilisateur, effectifs.ouverte, ip, page, rafraichir],
   );
 
+  // Dernière page vidée par une fermeture : on recule (ajustement pendant le rendu).
+  if (data && data.totalPages > 0 && data.page >= data.totalPages) setPage(data.totalPages - 1);
+
   function changer(f: EtatFiltresSessions) {
     setFiltres(f);
     setPage(0);
     setChoisie(undefined);
+    setEchec(undefined);
   }
+
+  function recharger() {
+    oublierLecturesRecentes();
+    setRafraichir((n) => n + 1);
+  }
+
+  const garderVisible = useCallback((ids: string[]) => {
+    setChoisie((c) => (c !== undefined && ids.includes(c) ? c : undefined));
+  }, []);
 
   const ligne = data?.content.find((l) => l.id === choisie);
 
   async function fermer() {
-    if (!ligne || !(await confirmer({ message: MESSAGE_CONFIRMATION, confirmLabel: 'Fermer la session', cancelLabel: 'Annuler' }))) return;
+    if (!ligne) return;
+    const message = `${MESSAGE_CONFIRMATION} Utilisateur : ${ligne.utilisateur ?? 'inconnu'}, ouverte le ${formatDateTime(ligne.dateOuverture)}.`;
+    if (!(await confirmer({ message, confirmLabel: 'Fermer la session', cancelLabel: 'Annuler' }))) return;
     setEchec(undefined);
+    setEnCours(true);
     try {
       await fermerSession(ligne.id);
+      setChoisie(undefined);
       toast('Session fermée.');
     } catch (err) {
       setEchec(err instanceof Error ? err.message : 'Échec de la fermeture.');
+    } finally {
+      setEnCours(false);
     }
-    setRafraichir((n) => n + 1);
+    recharger();
   }
 
-  const titre = data ? `Sessions (${data.totalElements})` : 'Sessions';
+  const titre = data ? `Sessions (${formatNumber(data.totalElements)})` : 'Sessions';
 
   return (
     <PageShell title={titre} icon={<MonitorSmartphone />} fullHeight
@@ -60,9 +82,12 @@ export default function SessionsList() {
         <FiltresSessionsPanneau
           filtres={filtres}
           utilisateurs={utilisateurs.data ?? []}
-          fermable={!!ligne && ligne.etat !== 'FERMEE'}
+          fermable={!!ligne && ligne.etat !== 'FERMEE' && !enCours}
           onChange={changer}
-          onRafraichir={() => setRafraichir((n) => n + 1)}
+          onRafraichir={() => {
+            setEchec(undefined);
+            recharger();
+          }}
           onEffacer={() => changer(FILTRES_SESSIONS_VIDES)}
           onFermer={() => void fermer()}
         />
@@ -76,8 +101,20 @@ export default function SessionsList() {
         {!error && data && data.content.length === 0 && <EmptyState title="Aucune session" />}
         {!error && data && data.content.length > 0 && (
           <>
-            <SessionsTable rows={data.content} selection={{ id: choisie, onChoisir: setChoisie }} />
-            <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
+            <SessionsTable
+              rows={data.content}
+              selection={{ id: choisie, onChoisir: setChoisie }}
+              onLignesVisibles={garderVisible}
+            />
+            <Pagination
+              page={data.page}
+              totalPages={data.totalPages}
+              totalElements={data.totalElements}
+              onPageChange={(p) => {
+                setPage(p);
+                setChoisie(undefined);
+              }}
+            />
           </>
         )}
       </div>

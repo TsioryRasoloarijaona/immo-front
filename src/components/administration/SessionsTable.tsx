@@ -22,13 +22,19 @@ const COLONNES: ColonneGrille<LigneSessionDto>[] = [
 export default function SessionsTable({
   rows,
   selection,
-}: Readonly<{ rows: LigneSessionDto[]; selection: { id: string | undefined; onChoisir: (id: string | undefined) => void } }>) {
+  onLignesVisibles,
+}: Readonly<{
+  rows: LigneSessionDto[];
+  selection: { id: string | undefined; onChoisir: (id: string | undefined) => void };
+  onLignesVisibles: (ids: string[]) => void;
+}>) {
   const ids = new Set(selection.id ? [selection.id] : []);
   return (
     <DataGrid
       rows={rows}
       colonnes={COLONNES}
       cleOrdre="admin-sessions"
+      onLignesVisibles={onLignesVisibles}
       libelleLigne={(r) => r.utilisateur ?? 'Session'}
       selection={{
         ids,
