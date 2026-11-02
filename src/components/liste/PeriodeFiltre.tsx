@@ -7,7 +7,9 @@ export default function PeriodeFiltre({
   debut,
   fin,
   onChange,
-}: Readonly<{ debut: string; fin: string; onChange: (debut: string, fin: string) => void }>) {
+  etiquette,
+}: Readonly<{ debut: string; fin: string; onChange: (debut: string, fin: string) => void; etiquette?: string }>) {
+  const prefixe = etiquette ? `${etiquette} · ` : '';
   const courante = periodeDepuis(debut, fin);
   const items = PERIODES.filter((p) => p.code !== 'perso' || courante === 'perso').map((p) => ({
     label: p.libelle,
@@ -22,7 +24,7 @@ export default function PeriodeFiltre({
   return (
     <>
       <Select items={items} value={courante} onValueChange={(v) => choisir(v as CodePeriode)}>
-        <SelectTrigger className="w-36" aria-label="Période">
+        <SelectTrigger className="w-36" aria-label={`${prefixe}Période`}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -37,11 +39,11 @@ export default function PeriodeFiltre({
       </Select>
       <span className="flex items-center gap-1.5 text-body text-muted-foreground">
         du
-        <Input type="date" aria-label="Du" className="w-32.5" value={debut} onChange={(e) => onChange(e.target.value, fin)} />
+        <Input type="date" aria-label={`${prefixe}Du`} className="w-32.5" value={debut} onChange={(e) => onChange(e.target.value, fin)} />
       </span>
       <span className="flex items-center gap-1.5 text-body text-muted-foreground">
         au
-        <Input type="date" aria-label="Au" className="w-32.5" value={fin} onChange={(e) => onChange(debut, e.target.value)} />
+        <Input type="date" aria-label={`${prefixe}Au`} className="w-32.5" value={fin} onChange={(e) => onChange(debut, e.target.value)} />
       </span>
     </>
   );
