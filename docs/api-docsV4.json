@@ -35533,12 +35533,13 @@
           {
             "name": "page",
             "in": "query",
-            "description": "Numéro de page, à partir de 0.",
+            "description": "Numéro de page, de 0 à 1 000 000.",
             "required": false,
             "schema": {
               "type": "integer",
               "format": "int32",
               "default": 0,
+              "maximum": 1000000,
               "minimum": 0
             }
           },
