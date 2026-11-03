@@ -1,5 +1,16 @@
-import { Bot, Building2, CalendarDays, Contact, FileCode2, Gauge, History, KeyRound, Landmark, ListChecks, LockOpen, Mail, MonitorSmartphone, Settings2, ShieldCheck, Truck, UserRound, Users, Zap } from 'lucide-react';
+import { Bot, Building2, CalendarDays, Contact, FileCode2, Gauge, History, KeyRound, Landmark, ListChecks, LockOpen, Mail, MonitorSmartphone, Settings2, ShieldCheck, Truck, UserRound, Users, Zap, Globe, MapPin, Tags } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
+
+const REFERENTIELS = '/administration/referentiels/';
+
+/** Listes des tiers (FEATURE-admin-referentiels-tiers.md), dans l'ordre du menu OMRAN. */
+const LISTES_TIERS: [string, string][] = [
+  ['sexes', 'Sexes'], ['titres', 'Titres'], ['formes-sociales', 'Formes sociales'], ['types-tiers', 'Types de tiers'],
+  ['natures-tiers', 'Natures'], ['assujettissements', 'Assujettissements'], ['situations-familiales', 'Situations familiales'],
+  ['types-residence', 'Types de résidence'], ['regimes-matrimoniaux', 'Régimes matrimoniaux'],
+  ['types-piece-identite', "Types de pièce d'identité"], ['nationalites', 'Nationalités'], ['professions', 'Professions'],
+  ['salaires', 'Salaires'], ['types-relation', 'Types de relation'],
+];
 
 export const arbreAdministration: ArbreModule = () => [
   {
@@ -35,7 +46,11 @@ export const arbreAdministration: ArbreModule = () => [
   {
     cle: 'configuration',
     titre: 'Configuration',
-    entrees: [{ to: '/modeles-documents', libelle: 'Mail models', Icone: FileCode2 }],
+    entrees: [
+      { to: '/modeles-documents', libelle: 'Mail models', Icone: FileCode2 },
+      { to: `${REFERENTIELS}pays`, libelle: 'Pays', Icone: Globe },
+      { to: `${REFERENTIELS}villes`, libelle: 'Villes', Icone: MapPin },
+    ],
   },
   {
     cle: 'configuration-taches',
@@ -46,6 +61,11 @@ export const arbreAdministration: ArbreModule = () => [
       { to: '/administration/type-tache', libelle: 'Type', Icone: Settings2 },
       { to: '/administration/priorite-tache', libelle: 'Priorité', Icone: Gauge },
     ],
+  },
+  {
+    cle: 'configuration-tiers',
+    titre: 'Configuration · Tiers',
+    entrees: LISTES_TIERS.map(([slug, libelle]) => ({ to: REFERENTIELS + slug, libelle, Icone: Tags })),
   },
   {
     cle: 'arpent',

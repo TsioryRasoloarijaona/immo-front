@@ -1,7 +1,7 @@
 // Miroir des DTO de FEATURE-patrimoine-referentiels.md (référentiels administrables, /api/referentiels-admin).
 import type { UUID } from '../types';
 
-export type FamilleReferentiel = 'ARTICLES' | 'PROSPECTIONS_TERRAINS' | 'AUTRES' | 'TACHES';
+export type FamilleReferentiel = 'ARTICLES' | 'PROSPECTIONS_TERRAINS' | 'AUTRES' | 'TACHES' | 'TIERS';
 
 export type TypeChampReferentiel =
   | 'TEXTE'
@@ -35,6 +35,8 @@ export interface ChampReferentielDto {
   options?: OptionDto[] | null;
   /** LIGNES seulement : champs de chaque ligne enfant. */
   champs?: ChampReferentielDto[] | null;
+  /** Faux : saisi à la création seulement (PATCH d'une autre valeur → 400). */
+  modifiable: boolean;
 }
 
 export interface DescripteurReferentielDto {
@@ -46,6 +48,8 @@ export interface DescripteurReferentielDto {
   /** Ni supprimés ni recodés (description modifiable). */
   codesProteges: string[];
   champs: ChampReferentielDto[];
+  /** POST, PATCH et DELETE répondent 409 (types de tiers). */
+  lectureSeule: boolean;
 }
 
 /** Valeur d'un champ sur le fil : texte, nombre, booléen, PKey (REFERENCE) ou lignes enfants (LIGNES). */
