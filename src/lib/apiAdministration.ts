@@ -105,6 +105,11 @@ export function supprimerTiers(famille: FamilleTiers, id: UUID): Promise<void> {
   return request('DELETE', `${RACINE_TIERS}/${famille}/${id}`);
 }
 
+/** 409 : employé lié à un compte ou commercial d'un dossier actif, message serveur à afficher. */
+export function transformerEnContact(id: UUID): Promise<FicheTiersDto> {
+  return request('POST', `${RACINE_TIERS}/personnels/${id}/transformer-en-contact`);
+}
+
 export function listNaturesTiers(famille: FamilleTiers): Promise<NatureTiersDto[]> {
   return request('GET', `${RACINE_TIERS}/${famille}/natures`);
 }
