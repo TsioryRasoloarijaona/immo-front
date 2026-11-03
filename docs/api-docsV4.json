@@ -5502,7 +5502,7 @@
             }
           },
           "400": {
-            "description": "Champ inconnu, obligatoire manquant, valeur ou référence invalide.",
+            "description": "Champ inconnu ou non modifiable, obligatoire manquant, valeur ou référence invalide.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5535,7 +5535,7 @@
             }
           },
           "409": {
-            "description": "Doublon de la clé d'unicité, ou code d'une ligne protégée modifié.",
+            "description": "Doublon de la clé d'unicité, code d'une ligne protégée modifié, ou référentiel en lecture seule.",
             "content": {
               "*/*": {
                 "schema": {
@@ -16065,7 +16065,7 @@
           "Référentiels (administration)"
         ],
         "summary": "Supprime une ligne",
-        "description": "Refusée (409) pour une ligne protégée, pour une ligne encore citée par une autre table (le `detail` nomme la\ncontrainte), et quand la base effacerait en cascade des données d'article : tracés de plan d'un étage, vues ou\ncontenances d'article, catégories et types d'une nature (le `detail` nomme la table enfant et le nombre de lignes).\nSeule exception : les contenances d'un type de présentation partent avec lui.",
+        "description": "Refusée (409) pour une ligne protégée, pour une ligne encore citée par une autre table (le `detail` nomme la\ncontrainte), et quand la base effacerait en cascade des données d'article : tracés de plan d'un étage, vues ou\ncontenances d'article, catégories et types d'une nature (le `detail` nomme la table enfant et le nombre de lignes).\nSeule exception : les contenances d'un type de présentation partent avec lui. Tiers : refusée aussi pour un pays qui\na des villes, une ville d'une prospection, un type de relation d'un contact, et un pays ou une forme sociale valeur\npar défaut (`AdmParamsGuid`).",
         "operationId": "supprimerLigne",
         "parameters": [
           {
@@ -16099,7 +16099,7 @@
             "description": "Slug inconnu, ligne inconnue, hors écran ou d'une tranche non visible."
           },
           "409": {
-            "description": "Ligne protégée, référencée ailleurs, ou porteuse de lignes en cascade."
+            "description": "Lecture seule, ligne protégée, référencée ailleurs, ou porteuse de lignes en cascade."
           }
         }
       },
@@ -16108,7 +16108,7 @@
           "Référentiels (administration)"
         ],
         "summary": "Modifie une ligne (champ absent = inchangé)",
-        "description": "Seuls les champs présents changent ; `null` vide un champ facultatif et un obligatoire refuse d'être vidé (400). Mêmes\ncontrôles qu'à la création, sur la ligne résultante. Le code d'une ligne protégée (vocations `VENTE`, `PROJET` ; natures\n`BAT`, `TER`, `PROS TER`, `LOT DE TERRAIN`, reconnues par PKey comme par code) ne change pas → 409 ; sa description\nreste modifiable. `contenances` présent remplace toutes les lignes de contenance de la présentation.",
+        "description": "Seuls les champs présents changent ; `null` vide un champ facultatif et un obligatoire refuse d'être vidé (400). Mêmes\ncontrôles qu'à la création, sur la ligne résultante. Le code d'une ligne protégée (vocations `VENTE`, `PROJET` ; natures\n`BAT`, `TER`, `PROS TER`, `LOT DE TERRAIN`, reconnues par PKey comme par code) ne change pas → 409 ; sa description\nreste modifiable. `contenances` présent remplace toutes les lignes de contenance de la présentation. Un champ\n`modifiable: false` envoyé avec une autre valeur → 400 nommant le champ (la même valeur est acceptée). Famille `TIERS` :\nun champ obligatoire vide en base (ville sans pays) doit être envoyé → 400 sinon. Référentiel en lecture seule → 409\navant toute lecture du corps (aussi pour la création et la suppression).",
         "operationId": "modifierLigne",
         "parameters": [
           {
@@ -16155,7 +16155,7 @@
             }
           },
           "400": {
-            "description": "Champ inconnu, obligatoire manquant, valeur ou référence invalide.",
+            "description": "Champ inconnu ou non modifiable, obligatoire manquant, valeur ou référence invalide.",
             "content": {
               "*/*": {
                 "schema": {
@@ -16188,7 +16188,7 @@
             }
           },
           "409": {
-            "description": "Doublon de la clé d'unicité, ou code d'une ligne protégée modifié.",
+            "description": "Doublon de la clé d'unicité, code d'une ligne protégée modifié, ou référentiel en lecture seule.",
             "content": {
               "*/*": {
                 "schema": {
@@ -24876,7 +24876,7 @@
           "Référentiels (administration)"
         ],
         "summary": "Descripteurs des référentiels administrables (champs, types, choix)",
-        "description": "Les 19 référentiels, dans l'ordre des menus OMRAN. Pour chacun : ses champs (type, obligatoire, appartenance à la clé\nd'unicité, longueur maximale), la route de la liste de choix de chaque référence, les valeurs d'un opérateur, les\nchamps des lignes enfants (`LIGNES`), et les codes protégés.",
+        "description": "Les référentiels, dans l'ordre des menus OMRAN. Pour chacun : ses champs (type, obligatoire, appartenance à la clé\nd'unicité, longueur maximale, modifiable après création), la route de la liste de choix de chaque référence, les\nvaleurs d'un opérateur, les champs des lignes enfants (`LIGNES`), les codes protégés, et s'il est en lecture seule.\nFamille `TIERS` : pays, villes et listes des fiches tiers (`FEATURE-admin-referentiels-tiers.md`) ; leur code et les\nchamps propres à OMRAN se saisissent à la création seulement, les types de tiers sont en lecture seule.",
         "operationId": "descripteurs",
         "responses": {
           "200": {
@@ -56232,6 +56232,10 @@
             "items": {
               "$ref": "#/components/schemas/ChampReferentielDto"
             }
+          },
+          "modifiable": {
+            "type": "boolean",
+            "description": "Faux si le champ se saisit à la création seulement (PATCH d'une autre valeur → 400)."
           }
         }
       },
@@ -56256,7 +56260,8 @@
               "ARTICLES",
               "PROSPECTIONS_TERRAINS",
               "AUTRES",
-              "TACHES"
+              "TACHES",
+              "TIERS"
             ]
           },
           "parTranche": {
@@ -56280,6 +56285,10 @@
             "items": {
               "$ref": "#/components/schemas/ChampReferentielDto"
             }
+          },
+          "lectureSeule": {
+            "type": "boolean",
+            "description": "Vrai si le référentiel se lit seulement : POST, PATCH et DELETE répondent 409."
           }
         }
       },

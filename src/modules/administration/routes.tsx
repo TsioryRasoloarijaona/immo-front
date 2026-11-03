@@ -19,6 +19,7 @@ const TachesList =lazy(() => import('../../pages/administration/TachesList'));
 const CalendrierRendezVous = lazy(() => import('../../pages/administration/CalendrierRendezVous'));
 const TiersList = lazy(() => import('../../pages/tiers/TiersList'));
 const TiersFiche = lazy(() => import('../../pages/tiers/TiersFiche'));
+const ReferentielTiersPage = lazy(() => import('../../pages/administration/ReferentielTiersPage'));
 
 const administration: ModuleApp = {
   slug: 'administration',
@@ -60,6 +61,7 @@ const administration: ModuleApp = {
     { path: '/administration/personnels', element: <TiersList famille="personnels" /> },
     { path: '/administration/personnels/nouveau', element: <TiersFiche famille="personnels" /> },
     { path: '/administration/personnels/:id', element: <TiersFiche famille="personnels" /> },
+    { path: '/administration/referentiels/:slug', element: <ReferentielTiersPage /> },
   ],
 };
 
