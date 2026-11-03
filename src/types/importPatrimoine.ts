@@ -2,7 +2,13 @@
 import type { UUID } from '../types';
 
 /** Types à mapping (FEATURE-patrimoine-import-generique.md) : `/colonnes`, `/analyse`, champ `mapping` de l'import. */
-export type TypeImportGenerique = 'entites-juridiques' | 'projets' | 'tranches' | 'prospections-terrain';
+export type TypeImportGenerique =
+  | 'entites-juridiques'
+  | 'projets'
+  | 'tranches'
+  | 'prospections-terrain'
+  | 'fournisseurs'
+  | 'contacts';
 
 export type TypeImportPatrimoine =
   | 'articles'
