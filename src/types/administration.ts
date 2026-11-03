@@ -103,9 +103,9 @@ export interface FiltresEmail {
 }
 
 // FEATURE-admin-tiers.md
-export type FamilleTiers = 'fournisseurs' | 'contacts';
+export type FamilleTiers = 'fournisseurs' | 'contacts' | 'banques' | 'organismes';
 
-export type ListeReferentielTiers = 'formes-sociales' | 'assujettissements' | 'notes';
+export type ListeReferentielTiers = 'formes-sociales' | 'assujettissements' | 'notes' | 'journaux';
 
 export interface FiltresTiers {
   recherche?: string;
@@ -143,22 +143,25 @@ export interface LigneTiersDto {
   codeComptable: string | null;
   codeComptableCollectif: string | null;
   assujettissement: string | null;
+  telephone1: string | null;
+  telephone2: string | null;
 }
 
 /** PUT : un champ omis est vidé. Le serveur ignore `raisonSociale` d'une personne physique, `prenom` et `nom` d'une morale. */
 export interface EcritureTiersRequest {
-  personneMorale: boolean;
+  /** Absent d'une fiche réduite (banques, organismes). */
+  personneMorale?: boolean;
   raisonSociale?: string | null;
   prenom?: string | null;
   nom?: string | null;
   titreId?: UUID | null;
   sexeId?: UUID | null;
   natureId?: UUID | null;
-  formeSocialeId: UUID | null;
-  deviseId: UUID | null;
+  formeSocialeId?: UUID | null;
+  deviseId?: UUID | null;
   assujettissementId?: UUID | null;
   paysId?: UUID | null;
-  paysResidenceId: UUID | null;
+  paysResidenceId?: UUID | null;
   villeId?: UUID | null;
   ville?: string | null;
   codePostal?: string | null;
@@ -200,6 +203,14 @@ export interface EcritureTiersRequest {
   professionId?: UUID | null;
   typePieceId?: UUID | null;
   numeroPiece?: string | null;
+  /** Banques, organismes : requis, unique dans le type. Ignoré ailleurs. */
+  code?: string | null;
+  /** Banques, organismes : requise, enregistrée en majuscules. Ignorée ailleurs. */
+  description?: string | null;
+  /** Banques et organismes seulement. */
+  compteComptableId?: UUID | null;
+  /** Banques et organismes seulement. */
+  journalId?: UUID | null;
 }
 
 export interface FicheTiersDto extends EcritureTiersRequest {

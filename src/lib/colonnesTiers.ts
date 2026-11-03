@@ -19,7 +19,21 @@ export interface ConfigTiers {
   champsFournisseur: boolean;
   /** Personne morale cochée sur une fiche vide. */
   moraleParDefaut: boolean;
+  /** Fiche réduite : sections propres, sans bascule morale/physique ni onglet Autres. */
+  ficheReduite: boolean;
+  /** Champs requis d'une fiche réduite ; sans effet sur les autres fiches. */
+  requis: string[];
+  /** Mobile ou e-mail requis (règle 8 des fiches complètes). */
+  contactRequis: boolean;
+  /** Listes déroulantes à charger : clés de `CHARGEURS_LISTES` (saisieTiers). */
+  listes: string[];
 }
+
+const LISTES_COMPLETES = [
+  'titres', 'sexes', 'natures', 'formesSociales', 'devises', 'assujettissements', 'pays', 'banques', 'nationalites',
+  'situations', 'typesPiece', 'professions', 'notes',
+];
+const LISTES_REDUITES = ['natures', 'pays', 'comptes', 'journaux'];
 
 const COMMUNES: ColonneDto[] = [
   colonne('code', 'Code', 'GENERAL', 'TEXTE', true),
@@ -65,6 +79,23 @@ const CONTACTS: ColonneDto[] = [
   colonne('paysResidence', 'Pays de résidence', 'COORDONNEES', 'TEXTE', true),
 ];
 
+const REDUITE: ColonneDto[] = [
+  ...COMMUNES,
+  colonne('nature', 'Nature', 'GENERAL', 'TEXTE', true),
+  colonne('matriculeFiscal', 'Matricule fiscal', 'AUTRES', 'TEXTE', true),
+  colonne('registreCommerce', 'Registre de commerce', 'AUTRES', 'TEXTE', true),
+  colonne('mobile', 'Mobile', 'COORDONNEES', 'TEXTE', true),
+  colonne('telephone', 'Téléphone', 'COORDONNEES', 'TEXTE', true),
+  colonne('telephone1', 'Téléphone 1', 'COORDONNEES', 'TEXTE', true),
+  colonne('telephone2', 'Téléphone 2', 'COORDONNEES', 'TEXTE', true),
+  colonne('fax', 'Fax', 'COORDONNEES', 'TEXTE', true),
+  colonne('adresse', 'Adresse', 'COORDONNEES', 'TEXTE', true),
+  colonne('email', 'E-mail', 'COORDONNEES', 'TEXTE', true),
+  colonne('siteWeb', 'Site web', 'COORDONNEES', 'TEXTE', true),
+  colonne('contacts', 'Contacts', 'GENERAL', 'TEXTE', true),
+  colonne('notes', 'Notes', 'AUTRES', 'TEXTE', true),
+];
+
 function disposition(catalogue: ColonneDto[]): DispositionColonnes {
   return {
     ordre: catalogue.map((c) => c.nom),
@@ -85,6 +116,10 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     ongletContacts: true,
     champsFournisseur: true,
     moraleParDefaut: true,
+    ficheReduite: false,
+    requis: [],
+    contactRequis: true,
+    listes: LISTES_COMPLETES,
   },
   contacts: {
     famille: 'contacts',
@@ -98,5 +133,43 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     ongletContacts: false,
     champsFournisseur: false,
     moraleParDefaut: false,
+    ficheReduite: false,
+    requis: [],
+    contactRequis: true,
+    listes: LISTES_COMPLETES,
+  },
+  banques: {
+    famille: 'banques',
+    titre: 'Banques',
+    sujet: 'banque',
+    aucun: 'Aucune banque',
+    chemin: '/administration/banques',
+    catalogue: REDUITE,
+    disposition: disposition(REDUITE),
+    filtreNature: false,
+    ongletContacts: false,
+    champsFournisseur: false,
+    moraleParDefaut: false,
+    ficheReduite: true,
+    requis: ['code', 'description', 'paysId'],
+    contactRequis: false,
+    listes: LISTES_REDUITES,
+  },
+  organismes: {
+    famille: 'organismes',
+    titre: 'Organismes',
+    sujet: 'organisme',
+    aucun: 'Aucun organisme',
+    chemin: '/administration/organismes',
+    catalogue: REDUITE,
+    disposition: disposition(REDUITE),
+    filtreNature: false,
+    ongletContacts: false,
+    champsFournisseur: false,
+    moraleParDefaut: false,
+    ficheReduite: true,
+    requis: ['code', 'description', 'paysId'],
+    contactRequis: false,
+    listes: LISTES_REDUITES,
   },
 };

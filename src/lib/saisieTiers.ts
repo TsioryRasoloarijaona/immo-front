@@ -1,6 +1,7 @@
 import type { ListesChoix } from '../components/patrimoine/SectionsSaisie';
 import { getBanques, getNationalites, getPays, getProfessions, getSexes, getSituationsFamiliales, getTitres, getTypesPieceIdentite } from './api';
 import { listNaturesTiers, listReferentielTiers } from './apiAdministration';
+import { getReferentielPatrimoine } from './apiPatrimoine';
 import { listDevises } from './apiEntites';
 import type { ConfigTiers } from './colonnesTiers';
 import { brouillonDepuis, champsDe, corpsDepuis, type Brouillon, type ChampDef, type Choix, type SectionSaisie } from './saisiePatrimoine';
@@ -15,6 +16,8 @@ interface SectionTiers extends SectionSaisie {
   fournisseur?: boolean;
   /** Section réservée aux personnes physiques. */
   physique?: boolean;
+  /** Renseignée : section propre aux fiches réduites (`true`) ou aux fiches complètes (`false`). */
+  reduite?: boolean;
 }
 
 const texte = (nom: string, libelle: string): ChampDef => ({ nom, libelle, type: 'texte' });
@@ -24,6 +27,43 @@ const SECTIONS: SectionTiers[] = [
   {
     onglet: 'general',
     titre: 'Identité',
+    reduite: true,
+    champs: [
+      texte('code', 'Code'),
+      texte('description', 'Description'),
+      liste('paysId', 'Pays', 'pays'),
+      liste('natureId', 'Nature', 'natures'),
+      texte('matriculeFiscal', 'Matricule fiscal'),
+      texte('registreCommerce', 'Registre de commerce'),
+      texte('ice', 'ICE'),
+      liste('compteComptableId', 'Compte comptable', 'comptes'),
+      liste('journalId', 'Journal', 'journaux'),
+    ],
+  },
+  {
+    onglet: 'general',
+    titre: 'Adresse',
+    reduite: true,
+    champs: [texte('adresse', 'Adresse'), texte('ville', 'Ville'), texte('codePostal', 'Code postal')],
+  },
+  {
+    onglet: 'general',
+    titre: 'Coordonnées',
+    reduite: true,
+    champs: [
+      texte('mobile', 'Mobile'),
+      texte('telephone', 'Téléphone'),
+      texte('telephone1', 'Téléphone 1'),
+      texte('telephone2', 'Téléphone 2'),
+      texte('fax', 'Fax'),
+      texte('email', 'E-mail'),
+      texte('siteWeb', 'Site web'),
+    ],
+  },
+  {
+    onglet: 'general',
+    titre: 'Identité',
+    reduite: false,
     champs: [
       { nom: 'personneMorale', libelle: 'Personne morale', type: 'booleen' },
       texte('raisonSociale', 'Raison sociale'),
@@ -39,6 +79,7 @@ const SECTIONS: SectionTiers[] = [
   {
     onglet: 'general',
     titre: 'Adresse',
+    reduite: false,
     champs: [
       liste('paysResidenceId', 'Pays de résidence', 'pays'),
       liste('paysId', 'Pays', 'pays'),
@@ -52,6 +93,7 @@ const SECTIONS: SectionTiers[] = [
   {
     onglet: 'general',
     titre: 'Coordonnées',
+    reduite: false,
     champs: [
       texte('mobileIndicatif', 'Indicatif mobile'),
       texte('mobile', 'Mobile'),
@@ -66,6 +108,7 @@ const SECTIONS: SectionTiers[] = [
   {
     onglet: 'autres',
     titre: 'Téléphones complémentaires',
+    reduite: false,
     champs: [
       texte('telephone1Indicatif', 'Indicatif téléphone 1'),
       texte('telephone1', 'Téléphone 1'),
@@ -77,6 +120,7 @@ const SECTIONS: SectionTiers[] = [
     onglet: 'autres',
     titre: 'Identifiants',
     fournisseur: true,
+    reduite: false,
     champs: [texte('ice', 'ICE'), texte('matriculeFiscal', 'Matricule fiscal'), texte('registreCommerce', 'Registre de commerce'), texte('douane', 'Douane')],
   },
   {
@@ -103,6 +147,7 @@ const SECTIONS: SectionTiers[] = [
     onglet: 'autres',
     titre: 'État civil',
     physique: true,
+    reduite: false,
     champs: [
       { nom: 'dateNaissance', libelle: 'Date de naissance', type: 'date' },
       texte('lieuNaissance', 'Lieu de naissance'),
@@ -129,12 +174,14 @@ const SECTIONS: SectionTiers[] = [
 const PHYSIQUE = ['prenom', 'nom', 'titreId', 'sexeId'];
 
 /** Champs requis par les règles 6 et 9 : une seule liste pour l'étoile du formulaire et la vérification. */
-function obligatoires(morale: boolean): Set<string> {
+function obligatoires(cfg: ConfigTiers, morale: boolean): Set<string> {
+  if (cfg.ficheReduite) return new Set(cfg.requis);
   return new Set(['formeSocialeId', 'deviseId', 'paysResidenceId', ...(morale ? ['raisonSociale'] : PHYSIQUE)]);
 }
 
 function visible(section: SectionTiers, cfg: ConfigTiers, morale: boolean): boolean {
-  return (!section.fournisseur || cfg.champsFournisseur) && (!section.physique || !morale);
+  return (section.reduite ?? cfg.ficheReduite) === cfg.ficheReduite
+    && (!section.fournisseur || cfg.champsFournisseur) && (!section.physique || !morale);
 }
 
 /** Tous les champs de la famille, quelle que soit la bascule : le brouillon les porte tous. */
@@ -144,7 +191,7 @@ export function champsTiers(cfg: ConfigTiers): ChampDef[] {
 
 /** Sections d'un onglet pour la bascule courante : morale = raison sociale, physique = prénom, nom, titre, sexe. */
 export function sectionsTiers(cfg: ConfigTiers, onglet: OngletSaisie, morale: boolean): SectionSaisie[] {
-  const requis = obligatoires(morale);
+  const requis = obligatoires(cfg, morale);
   const masques = morale ? PHYSIQUE : ['raisonSociale'];
   return SECTIONS.filter((s) => s.onglet === onglet && visible(s, cfg, morale)).map((s) => ({
     titre: s.titre,
@@ -159,10 +206,10 @@ export function brouillonTiers(cfg: ConfigTiers, fiche?: FicheTiersDto): Brouill
 
 /** Lève la première règle 6, 8 ou 9 non respectée ; le message commence par le libellé du champ fautif. */
 export function verifierTiers(cfg: ConfigTiers, brouillon: Brouillon): void {
-  const requis = obligatoires(brouillon.personneMorale === true);
+  const requis = obligatoires(cfg, brouillon.personneMorale === true);
   const manquant = champsTiers(cfg).find((c) => requis.has(c.nom) && String(brouillon[c.nom]).trim() === '');
   if (manquant) throw new Error(`${manquant.libelle} : champ requis.`);
-  if (String(brouillon.mobile).trim() === '' && String(brouillon.email).trim() === '') {
+  if (cfg.contactRequis && String(brouillon.mobile).trim() === '' && String(brouillon.email).trim() === '') {
     throw new Error('Mobile ou e-mail requis.');
   }
 }
@@ -176,28 +223,42 @@ export function champsFautifs(champ: string | null): string[] {
 export function corpsTiers(cfg: ConfigTiers, brouillon: Brouillon): EcritureTiersRequest {
   const corps = corpsDepuis(champsTiers(cfg), brouillon);
   if (typeof corps.dateNaissance === 'string') corps.dateNaissance = corps.dateNaissance.slice(0, 10);
-  return corps as unknown as EcritureTiersRequest;
+  return corps;
 }
 
 const versChoix = (items: { id: string; description?: string | null; code?: string | null }[]): Choix =>
   items.map((i) => ({ value: i.id, label: i.description || i.code || i.id }));
 
-/** Listes déroulantes de la fiche, chargées ensemble. */
+type ChargeurListe = (cfg: ConfigTiers) => Promise<Choix>;
+
+const parNature = async (cfg: ConfigTiers) =>
+  versChoix((await listNaturesTiers(cfg.famille)).map((n) => ({ id: n.id, description: n.libelle, code: n.code })));
+const depuis = (charger: () => Promise<Parameters<typeof versChoix>[0]>): ChargeurListe => async () => versChoix(await charger());
+
+/** Une entrée par liste que `ConfigTiers.listes` peut demander. */
+const CHARGEURS_LISTES: Record<string, ChargeurListe> = {
+  titres: depuis(getTitres),
+  sexes: depuis(getSexes),
+  natures: parNature,
+  formesSociales: depuis(() => listReferentielTiers('formes-sociales')),
+  devises: depuis(listDevises),
+  assujettissements: depuis(() => listReferentielTiers('assujettissements')),
+  pays: depuis(getPays),
+  banques: depuis(getBanques),
+  nationalites: depuis(getNationalites),
+  situations: depuis(getSituationsFamiliales),
+  typesPiece: depuis(getTypesPieceIdentite),
+  professions: depuis(getProfessions),
+  notes: depuis(() => listReferentielTiers('notes')),
+  comptes: depuis(() => getReferentielPatrimoine('plans-comptables')),
+  journaux: depuis(() => listReferentielTiers('journaux')),
+};
+
+/** Listes déroulantes de la fiche (celles de `cfg.listes`), chargées ensemble. */
 export function useListesTiers(cfg: ConfigTiers) {
   const { data, error } = useApi(async (): Promise<ListesChoix> => {
-    const [titres, sexes, natures, formesSociales, devises, assujettissements, pays, banques, nationalites, situations, typesPiece, professions, notes] =
-      await Promise.all([
-        getTitres(), getSexes(), listNaturesTiers(cfg.famille), listReferentielTiers('formes-sociales'), listDevises(),
-        listReferentielTiers('assujettissements'), getPays(), getBanques(), getNationalites(), getSituationsFamiliales(),
-        getTypesPieceIdentite(), getProfessions(), listReferentielTiers('notes'),
-      ]);
-    return {
-      titres: versChoix(titres), sexes: versChoix(sexes),
-      natures: versChoix(natures.map((n) => ({ id: n.id, description: n.libelle, code: n.code }))),
-      formesSociales: versChoix(formesSociales), devises: versChoix(devises), assujettissements: versChoix(assujettissements),
-      pays: versChoix(pays), banques: versChoix(banques), nationalites: versChoix(nationalites), situations: versChoix(situations),
-      typesPiece: versChoix(typesPiece), professions: versChoix(professions), notes: versChoix(notes),
-    };
+    const choix = await Promise.all(cfg.listes.map((cle) => CHARGEURS_LISTES[cle](cfg)));
+    return Object.fromEntries(cfg.listes.map((cle, i) => [cle, choix[i]]));
   }, [cfg.famille]);
   return { listes: data ?? {}, erreur: error };
 }

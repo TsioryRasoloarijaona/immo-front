@@ -81,7 +81,7 @@ function CorpsFiche({ cfg, fiche, listes, erreurListes, onEnregistre }: Readonly
   const formulaire = (o: 'general' | 'autres' | 'notes') => <FormulaireTiers cfg={cfg} onglet={o} saisie={saisie} listes={listes} />;
   const onglets: OngletFiche[] = [
     { id: 'general', libelle: 'Général', contenu: formulaire('general') },
-    { id: 'autres', libelle: 'Autres', contenu: formulaire('autres') },
+    ...(cfg.ficheReduite ? [] : [{ id: 'autres', libelle: 'Autres', contenu: formulaire('autres') }]),
     ...(cfg.ongletContacts && fiche ? [{ id: 'contacts', libelle: 'Contacts', contenu: <OngletLiensTiers tiersId={fiche.id} /> }] : []),
     { id: 'notes', libelle: 'Notes', contenu: formulaire('notes') },
   ];
