@@ -12,6 +12,7 @@ const ReferentielTachePage = lazy(() => import('../../pages/administration/Refer
 const EmailHistorique = lazy(() => import('../../pages/administration/EmailHistorique'));
 const SessionsList = lazy(() => import('../../pages/administration/SessionsList'));
 const FichesVerrouilleesList = lazy(() => import('../../pages/administration/FichesVerrouilleesList'));
+const ActionsList = lazy(() => import('../../pages/administration/ActionsList'));
 const HistoriqueList = lazy(() => import('../../pages/administration/HistoriqueList'));
 const RolesList = lazy(() => import('../../pages/administration/RolesList'));
 const TachesList =lazy(() => import('../../pages/administration/TachesList'));
@@ -40,6 +41,7 @@ const administration: ModuleApp = {
     { path: '/administration/email-historique', element: <EmailHistorique /> },
     { path: '/administration/sessions', element: <SessionsList /> },
     { path: '/administration/fiches-verrouillees', element: <FichesVerrouilleesList /> },
+    { path: '/administration/actions', element: <ActionsList /> },
     { path: '/administration/historique', element: <HistoriqueList /> },
   ],
 };

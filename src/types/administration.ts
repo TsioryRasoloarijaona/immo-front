@@ -69,6 +69,29 @@ export interface FiltresFichesVerrouillees {
   size?: number;
 }
 
+// FEATURE-admin-actions.md.
+export interface LigneActionDto {
+  /** Clé de ligne seulement, `<PKey>:<ActionLabel>`. */
+  id: string;
+  code: string | null;
+  action: string;
+  description: string | null;
+  creePar: string | null;
+  creeLe: string | null;
+  modifiePar: string | null;
+  modifieLe: string | null;
+}
+
+export interface FiltresActions {
+  recherche?: string;
+  creationDebut?: string;
+  creationFin?: string;
+  modificationDebut?: string;
+  modificationFin?: string;
+  page?: number;
+  size?: number;
+}
+
 export interface FiltresEmail {
   dateDebut?: string;
   dateFin?: string;
