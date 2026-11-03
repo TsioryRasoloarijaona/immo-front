@@ -247,3 +247,65 @@ export interface LienTiersRequest {
   contactId: UUID;
   relationTypeId?: UUID | null;
 }
+
+// FEATURE-admin-fichiers-attaches.md.
+export type CategorieFichierAttache =
+  | 'DOSSIER'
+  | 'ARTICLE'
+  | 'ENCAISSEMENT'
+  | 'DECAISSEMENT'
+  | 'FACTURE_ACHAT'
+  | 'ACHAT'
+  | 'EMAIL'
+  | 'DOCUMENT_VENTE'
+  | 'RESSOURCES_HUMAINES'
+  | 'PROSPECTION_FONCIERE'
+  | 'AUTRE';
+
+/** Écran Arpent de l'objet rattaché ; null = pas de lien. */
+export type ObjetCleFichier = 'dossier' | 'article' | 'reglement';
+
+export interface LigneFichierAttacheDto {
+  id: UUID;
+  description: string | null;
+  categorie: CategorieFichierAttache;
+  categorieLibelle: string | null;
+  objetId: UUID | null;
+  objetCle: ObjetCleFichier | null;
+  type: string | null;
+  extension: string | null;
+  groupe: string | null;
+  avecFichier: boolean;
+  creePar: string | null;
+  creeLe: string | null;
+  modifiePar: string | null;
+  modifieLe: string | null;
+}
+
+export interface ChoixFiltreFichier {
+  code: string;
+  libelle: string;
+}
+
+export interface FiltresFichiersAttachesDto {
+  types: { id: UUID; libelle: string | null }[];
+  categories: ChoixFiltreFichier[];
+  groupes: string[];
+  /** Choix « Non défini » (code `NON_DEFINI` à passer dans `groupes`) ; null si aucune ligne sans groupe. */
+  groupeNonDefini: ChoixFiltreFichier | null;
+}
+
+/** Tous facultatifs ; liste vide ou absente = pas de filtre. */
+export interface FiltresFichiersAttaches {
+  recherche?: string;
+  typeIds?: UUID[];
+  categories?: string[];
+  groupes?: string[];
+  avecFichier?: boolean;
+  du?: string;
+  au?: string;
+  modifieDu?: string;
+  modifieAu?: string;
+  page?: number;
+  taille?: number;
+}
