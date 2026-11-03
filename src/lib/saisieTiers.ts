@@ -14,6 +14,8 @@ interface SectionTiers extends SectionSaisie {
   onglet: OngletSaisie;
   /** Section réservée aux fournisseurs. */
   fournisseur?: boolean;
+  /** Section Banque / Note : fournisseurs et personnels (`champsBanque`). */
+  banque?: boolean;
   /** Section réservée aux personnes physiques. */
   physique?: boolean;
   /** Renseignée : section propre aux fiches réduites (`true`) ou aux fiches complètes (`false`). */
@@ -140,7 +142,7 @@ const SECTIONS: SectionTiers[] = [
   {
     onglet: 'autres',
     titre: 'Banque',
-    fournisseur: true,
+    banque: true,
     champs: [liste('banqueId', 'Banque', 'banques'), texte('agence', 'Agence'), texte('rib', 'RIB'), texte('iban', 'IBAN')],
   },
   {
@@ -166,7 +168,7 @@ const SECTIONS: SectionTiers[] = [
   {
     onglet: 'notes',
     titre: 'Note',
-    fournisseur: true,
+    banque: true,
     champs: [liste('noteId', 'Note', 'notes')],
   },
 ];
@@ -182,7 +184,7 @@ function obligatoires(cfg: ConfigTiers, morale: boolean): Set<string> {
 
 function visible(section: SectionTiers, cfg: ConfigTiers, morale: boolean): boolean {
   return (section.reduite ?? cfg.ficheReduite) === cfg.ficheReduite
-    && (!section.fournisseur || cfg.champsFournisseur) && (!section.physique || !morale);
+    && (!section.fournisseur || cfg.champsFournisseur) && (!section.banque || cfg.champsBanque) && (!section.physique || !morale);
 }
 
 /** Tous les champs de la famille, quelle que soit la bascule : le brouillon les porte tous. */

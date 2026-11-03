@@ -17,6 +17,8 @@ export interface ConfigTiers {
   ongletContacts: boolean;
   /** Champs propres aux fournisseurs : note, identifiants fiscaux, comptabilité, banque. */
   champsFournisseur: boolean;
+  /** Sections Banque et Note (écrites par le back pour fournisseurs et personnels). */
+  champsBanque: boolean;
   /** Personne morale cochée sur une fiche vide. */
   moraleParDefaut: boolean;
   /** Fiche réduite : sections propres, sans bascule morale/physique ni onglet Autres. */
@@ -41,7 +43,7 @@ const LISTES_COMPLETES = [
 ];
 const LISTES_REDUITES = ['natures', 'pays', 'comptes', 'journaux'];
 
-const SANS_OPTION = { physiqueSeule: false, formeDeviseRequises: true, transformable: false };
+const SANS_OPTION = { champsBanque: false, physiqueSeule: false, formeDeviseRequises: true, transformable: false };
 
 const COMMUNES:ColonneDto[] = [
   colonne('code', 'Code', 'GENERAL', 'TEXTE', true),
@@ -148,6 +150,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     contactRequis: true,
     listes: LISTES_COMPLETES,
     ...SANS_OPTION,
+    champsBanque: true,
   },
   contacts: {
     famille: 'contacts',
@@ -219,6 +222,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     requis: [],
     contactRequis: true,
     listes: LISTES_COMPLETES,
+    champsBanque: true,
     physiqueSeule: true,
     formeDeviseRequises: false,
     transformable: true,
