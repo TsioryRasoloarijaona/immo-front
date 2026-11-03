@@ -103,7 +103,7 @@ export interface FiltresEmail {
 }
 
 // FEATURE-admin-tiers.md
-export type FamilleTiers = 'fournisseurs' | 'contacts';
+export type FamilleTiers = 'fournisseurs' | 'contacts' | 'banques' | 'organismes';
 
 export type ListeReferentielTiers = 'formes-sociales' | 'assujettissements' | 'notes' | 'journaux';
 
@@ -149,18 +149,19 @@ export interface LigneTiersDto {
 
 /** PUT : un champ omis est vidé. Le serveur ignore `raisonSociale` d'une personne physique, `prenom` et `nom` d'une morale. */
 export interface EcritureTiersRequest {
-  personneMorale: boolean;
+  /** Absent d'une fiche réduite (banques, organismes). */
+  personneMorale?: boolean;
   raisonSociale?: string | null;
   prenom?: string | null;
   nom?: string | null;
   titreId?: UUID | null;
   sexeId?: UUID | null;
   natureId?: UUID | null;
-  formeSocialeId: UUID | null;
-  deviseId: UUID | null;
+  formeSocialeId?: UUID | null;
+  deviseId?: UUID | null;
   assujettissementId?: UUID | null;
   paysId?: UUID | null;
-  paysResidenceId: UUID | null;
+  paysResidenceId?: UUID | null;
   villeId?: UUID | null;
   ville?: string | null;
   codePostal?: string | null;
