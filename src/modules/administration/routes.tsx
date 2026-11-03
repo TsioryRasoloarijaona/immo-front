@@ -17,6 +17,8 @@ const HistoriqueList = lazy(() => import('../../pages/administration/HistoriqueL
 const RolesList = lazy(() => import('../../pages/administration/RolesList'));
 const TachesList =lazy(() => import('../../pages/administration/TachesList'));
 const CalendrierRendezVous = lazy(() => import('../../pages/administration/CalendrierRendezVous'));
+const TiersList = lazy(() => import('../../pages/tiers/TiersList'));
+const TiersFiche = lazy(() => import('../../pages/tiers/TiersFiche'));
 
 const administration: ModuleApp = {
   slug: 'administration',
@@ -43,6 +45,12 @@ const administration: ModuleApp = {
     { path: '/administration/fiches-verrouillees', element: <FichesVerrouilleesList /> },
     { path: '/administration/actions', element: <ActionsList /> },
     { path: '/administration/historique', element: <HistoriqueList /> },
+    { path: '/administration/fournisseurs', element: <TiersList famille="fournisseurs" /> },
+    { path: '/administration/fournisseurs/nouveau', element: <TiersFiche famille="fournisseurs" /> },
+    { path: '/administration/fournisseurs/:id', element: <TiersFiche famille="fournisseurs" /> },
+    { path: '/administration/contacts', element: <TiersList famille="contacts" /> },
+    { path: '/administration/contacts/nouveau', element: <TiersFiche famille="contacts" /> },
+    { path: '/administration/contacts/:id', element: <TiersFiche famille="contacts" /> },
   ],
 };
 
