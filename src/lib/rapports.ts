@@ -5,7 +5,13 @@ import type { ValeursRapport } from './apiRapports';
 import type { ColonneRapportDto, ModuleRapport, ParametreRapportDto, ValeurRapport } from '../types/rapports';
 
 /** Route du hub des rapports d'un module (pas de préfixe `/rapports-` : `moduleForPath` le rattacherait à la Vente). */
-export const cheminRapports = (module: ModuleRapport) => (module === 'patrimoine' ? '/patrimoine-rapports' : '/rapports');
+const CHEMINS_RAPPORTS: Record<ModuleRapport, string> = {
+  vente: '/rapports',
+  patrimoine: '/patrimoine-rapports',
+  administration: '/administration/rapports',
+};
+
+export const cheminRapports = (module: ModuleRapport) => CHEMINS_RAPPORTS[module];
 
 /** Une date vide d'un paramètre qui a un défaut veut dire « sans borne » : le serveur remettrait le défaut. */
 const DATE_MIN = '1900-01-01';

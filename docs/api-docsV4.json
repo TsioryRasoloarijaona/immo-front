@@ -24955,7 +24955,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente ou patrimoine.",
+            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -24965,7 +24965,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Groupes triés ; [] si aucun rapport n'est visible.",
+            "description": "Groupes triés ; [] si aucun rapport n'est visible. Administration : aussi les rapports non implémentés (disponible faux).",
             "content": {
               "*/*": {
                 "schema": {
@@ -24976,6 +24976,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Module administration sans le rôle Administrateur."
           },
           "404": {
             "description": "Module inconnu."
@@ -24995,7 +24998,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente ou patrimoine.",
+            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -25045,7 +25048,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente ou patrimoine.",
+            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -25176,7 +25179,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente ou patrimoine.",
+            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -36851,6 +36854,369 @@
         }
       }
     },
+    "/api/administration/fichiers-attaches": {
+      "get": {
+        "tags": [
+          "Fichiers attachés (administration)"
+        ],
+        "summary": "Fichiers attachés, page par page, du plus récent au plus ancien",
+        "operationId": "lister_31",
+        "parameters": [
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Sous-chaîne de la description, de la catégorie, du groupe ou du type, sans casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeIds",
+            "in": "query",
+            "description": "Types cochés (AdmAttachedFileType.PKey, voir /filtres) ; vide = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "categories",
+            "in": "query",
+            "description": "Catégories normalisées cochées (codes de /filtres) ; vide = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DOSSIER",
+                  "ARTICLE",
+                  "ENCAISSEMENT",
+                  "DECAISSEMENT",
+                  "FACTURE_ACHAT",
+                  "ACHAT",
+                  "EMAIL",
+                  "DOCUMENT_VENTE",
+                  "RESSOURCES_HUMAINES",
+                  "PROSPECTION_FONCIERE",
+                  "AUTRE"
+                ]
+              }
+            }
+          },
+          {
+            "name": "groupes",
+            "in": "query",
+            "description": "Groupes cochés (valeurs de /filtres, ou NON_DEFINI = groupe vide) ; vide = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "avecFichier",
+            "in": "query",
+            "description": "Vrai = avec fichier stocké vivant, faux = sans ; absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Premier jour de création inclus, ISO ; absent = pas de borne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Dernier jour de création inclus, ISO ; absent = pas de borne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-31"
+          },
+          {
+            "name": "modifieDu",
+            "in": "query",
+            "description": "Premier jour de modification inclus, ISO ; absent = pas de borne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "modifieAu",
+            "in": "query",
+            "description": "Dernier jour de modification inclus, ISO ; absent = pas de borne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Numéro de page, à partir de 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "taille",
+            "in": "query",
+            "description": "Lignes par page, de 1 à 200.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes, création décroissante puis PKey croissante.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneFichierAttacheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre illisible, période inversée, page ou taille hors bornes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/fichiers-attaches/{id}/fichier": {
+      "get": {
+        "tags": [
+          "Fichiers attachés (administration)"
+        ],
+        "summary": "Ouvre le fichier d'une pièce (redirection vers l'URL présignée)",
+        "operationId": "fichier_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la pièce (AdmAttachedFile.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
+          },
+          "400": {
+            "description": "Identifiant illisible."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Pièce inconnue ou sans fichier stocké vivant."
+          }
+        }
+      }
+    },
+    "/api/administration/fichiers-attaches/filtres": {
+      "get": {
+        "tags": [
+          "Fichiers attachés (administration)"
+        ],
+        "summary": "Valeurs des filtres : types, catégories normalisées, groupes",
+        "operationId": "filtres",
+        "responses": {
+          "200": {
+            "description": "Listes des filtres.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FiltresFichiersAttachesDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/administration/fichiers-attaches/export": {
+      "get": {
+        "tags": [
+          "Fichiers attachés (administration)"
+        ],
+        "summary": "Export Excel des lignes filtrées, dans l'ordre de la liste",
+        "operationId": "exporter_25",
+        "parameters": [
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Sous-chaîne de la description, de la catégorie, du groupe ou du type, sans casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeIds",
+            "in": "query",
+            "description": "Types cochés (AdmAttachedFileType.PKey, voir /filtres) ; vide = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "categories",
+            "in": "query",
+            "description": "Catégories normalisées cochées (codes de /filtres) ; vide = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "DOSSIER",
+                  "ARTICLE",
+                  "ENCAISSEMENT",
+                  "DECAISSEMENT",
+                  "FACTURE_ACHAT",
+                  "ACHAT",
+                  "EMAIL",
+                  "DOCUMENT_VENTE",
+                  "RESSOURCES_HUMAINES",
+                  "PROSPECTION_FONCIERE",
+                  "AUTRE"
+                ]
+              }
+            }
+          },
+          {
+            "name": "groupes",
+            "in": "query",
+            "description": "Groupes cochés (valeurs de /filtres, ou NON_DEFINI = groupe vide) ; vide = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "avecFichier",
+            "in": "query",
+            "description": "Vrai = avec fichier stocké vivant, faux = sans ; absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Premier jour de création inclus, ISO ; absent = pas de borne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Dernier jour de création inclus, ISO ; absent = pas de borne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-03-31"
+          },
+          {
+            "name": "modifieDu",
+            "in": "query",
+            "description": "Premier jour de modification inclus, ISO ; absent = pas de borne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "modifieAu",
+            "in": "query",
+            "description": "Dernier jour de modification inclus, ISO ; absent = pas de borne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre illisible ou période inversée."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/administration/fiches-verrouillees": {
       "get": {
         "tags": [
@@ -36858,7 +37224,7 @@
         ],
         "summary": "Fiches verrouillées par OMRAN, page par page",
         "description": "Lignes triées par date de verrouillage décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`LockDate < dateFin + 1 jour`). `recherche` cherche une sous-chaîne dans `Code`, `Description` et `UserDesc`, `%`, `_` et `[` pris à la lettre. Une ligne dont la session n'existe plus reste listée, `utilisateur` à null. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_31",
+        "operationId": "lister_32",
         "parameters": [
           {
             "name": "etat",
@@ -36958,7 +37324,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_32",
+        "operationId": "lister_33",
         "parameters": [
           {
             "name": "dateDebut",
@@ -37133,7 +37499,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes triées par date de création décroissante, les lignes sans date en dernier ; à date égale, par `PKey` puis `action`, ordre stable entre les pages. Sans filtre : toute la vue, aucune période préréglée. Deux lignes de même `PKey` et d'`action` différente restent deux lignes, comptées toutes deux dans `totalElements`. `recherche` cherche une sous-chaîne dans `code`, `action`, `description`, `creePar` et `modifiePar`, espaces ignorés des deux côtés, `%`, `_` et `[` pris à la lettre ; vide ou blanche = pas de filtre. Les périodes de création et de modification se cumulent, leurs bornes sont des jours inclus ; une ligne sans date est exclue dès qu'une borne de sa période est posée. Les valeurs vides sont rendues telles quelles. `id` sert de clé de ligne, il n'ouvre aucun objet.",
-        "operationId": "lister_33",
+        "operationId": "lister_34",
         "parameters": [
           {
             "name": "recherche",
@@ -37242,7 +37608,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_34",
+        "operationId": "lister_35",
         "parameters": [
           {
             "name": "portee",
@@ -56530,6 +56896,10 @@
           "avecParametres": {
             "type": "boolean",
             "description": "Vrai si le rapport accepte au moins un paramètre."
+          },
+          "disponible": {
+            "type": "boolean",
+            "description": "Vrai si Arpent sait exécuter le rapport ; faux = listé d'OMRAN, non disponible."
           }
         }
       },
@@ -63314,6 +63684,165 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "LigneFichierAttacheDto": {
+        "type": "object",
+        "description": "Ligne de la liste des fichiers attachés (AdmAttachedFile), en lecture seule.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmAttachedFile.PKey."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description (nom du fichier)."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Code de catégorie normalisée, parmi les codes de /filtres.",
+            "example": "DOSSIER"
+          },
+          "categorieLibelle": {
+            "type": "string",
+            "description": "Libellé de l'objet rattaché tel qu'OMRAN l'a écrit (CategoryDescription)."
+          },
+          "objetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de l'objet rattaché (CategoryId), sans FK : peut ne rien désigner."
+          },
+          "objetCle": {
+            "type": "string",
+            "description": "Écran Arpent de l'objet : dossier, article ou reglement ; null = pas de lien.",
+            "example": "dossier"
+          },
+          "type": {
+            "type": "string",
+            "description": "Libellé du type (AdmAttachedFileType.Description) ; null si aucun."
+          },
+          "extension": {
+            "type": "string",
+            "description": "Extension avec son point (Extention) ; null si vide.",
+            "example": ".pdf"
+          },
+          "groupe": {
+            "type": "string",
+            "description": "Dossier de groupement (FoderGroup) ; null si vide.",
+            "example": "PLAN"
+          },
+          "avecFichier": {
+            "type": "boolean",
+            "description": "Vrai si un fichier stocké vivant existe (AppFileObject) : ouverture possible."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (UserCreate)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création (UserCreateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification (UserUpdate) ; null si jamais modifié."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification (UserUpdateDateTime) ; null si jamais modifié."
+          }
+        }
+      },
+      "PageDtoLigneFichierAttacheDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneFichierAttacheDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ChoixFiltreFichier": {
+        "type": "object",
+        "description": "Choix à code et libellé.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code à renvoyer au filtre.",
+            "example": "DOSSIER"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé affiché.",
+            "example": "Dossier de vente"
+          }
+        }
+      },
+      "FiltresFichiersAttachesDto": {
+        "type": "object",
+        "description": "Valeurs proposées par les filtres de la liste des fichiers attachés.",
+        "properties": {
+          "types": {
+            "type": "array",
+            "description": "Types de pièce (AdmAttachedFileType), triés par libellé.",
+            "items": {
+              "$ref": "#/components/schemas/TypePieceFiltre"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "description": "Catégories normalisées, liste fixe dans l'ordre d'affichage.",
+            "items": {
+              "$ref": "#/components/schemas/ChoixFiltreFichier"
+            }
+          },
+          "groupes": {
+            "type": "array",
+            "description": "Groupes distincts non vides (FoderGroup sans espaces de bord), triés.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "groupeNonDefini": {
+            "$ref": "#/components/schemas/ChoixFiltreFichier",
+            "description": "Choix « Non défini » (code NON_DEFINI à passer dans groupes) ; null si aucune ligne n'a de groupe vide."
+          }
+        }
+      },
+      "TypePieceFiltre": {
+        "type": "object",
+        "description": "Type de pièce proposé au filtre.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmAttachedFileType.PKey, à passer dans typeIds."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "AdmAttachedFileType.Description."
           }
         }
       },

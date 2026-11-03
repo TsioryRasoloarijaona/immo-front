@@ -4,11 +4,30 @@ import { ChevronDown, ChevronRight, FileBarChart, SlidersHorizontal } from 'luci
 import PageShell from '../../components/PageShell';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
-import { Card, EmptyState } from '../../components/ui';
+import { Badge, Card, EmptyState } from '../../components/ui';
 import { listRapports } from '../../lib/apiRapports';
 import { cheminRapports, libelleRapport } from '../../lib/rapports';
 import { useApi } from '../../lib/useApi';
-import type { GroupeRapportsDto, ModuleRapport } from '../../types/rapports';
+import type { GroupeRapportsDto, ModuleRapport, RapportResumeDto } from '../../types/rapports';
+
+function EntreeRapport({ rapport, module }: Readonly<{ rapport: RapportResumeDto; module: ModuleRapport }>) {
+  if (!rapport.disponible) {
+    return (
+      <div aria-disabled className="flex items-center gap-2 px-4 py-2 text-body text-muted-foreground">
+        <FileBarChart aria-hidden className="size-4 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">{libelleRapport(rapport.libelle)}</span>
+        <Badge tone="neutral">Non disponible</Badge>
+      </div>
+    );
+  }
+  return (
+    <Link to={`${cheminRapports(module)}/${encodeURIComponent(rapport.code)}`} className="flex items-center gap-2 px-4 py-2 text-body hover:bg-muted/40">
+      <FileBarChart aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate">{libelleRapport(rapport.libelle)}</span>
+      {rapport.avecParametres && <SlidersHorizontal aria-label="Avec filtres" className="size-3.5 shrink-0 text-muted-foreground" />}
+    </Link>
+  );
+}
 
 function GroupeReplie({ groupe, module, replie, onBasculer }: Readonly<{ groupe: GroupeRapportsDto; module: ModuleRapport; replie: boolean; onBasculer: () => void }>) {
   return (
@@ -27,11 +46,7 @@ function GroupeReplie({ groupe, module, replie, onBasculer }: Readonly<{ groupe:
         <ul className="border-t border-border">
           {groupe.rapports.map((r) => (
             <li key={r.code} className="border-b border-border/60 last:border-b-0">
-              <Link to={`${cheminRapports(module)}/${encodeURIComponent(r.code)}`} className="flex items-center gap-2 px-4 py-2 text-body hover:bg-muted/40">
-                <FileBarChart aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">{libelleRapport(r.libelle)}</span>
-                {r.avecParametres && <SlidersHorizontal aria-label="Avec filtres" className="size-3.5 shrink-0 text-muted-foreground" />}
-              </Link>
+              <EntreeRapport rapport={r} module={module} />
             </li>
           ))}
         </ul>

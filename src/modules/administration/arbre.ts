@@ -1,4 +1,5 @@
 import { Bot, Building2, CalendarDays, Contact, FileCode2, Gauge, History, KeyRound, Landmark, ListChecks, LockOpen, Mail, MonitorSmartphone, Settings2, ShieldCheck, Truck, UserRound, Users, Zap, Globe, MapPin, Tags } from 'lucide-react';
+import { FileBarChart, Paperclip } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
 
 const REFERENTIELS = '/administration/referentiels/';
@@ -73,6 +74,14 @@ export const arbreAdministration: ArbreModule = () => [
     entrees: [
       { to: '/utilisateurs/reinitialiser-mot-de-passe', libelle: 'Réinitialiser un mot de passe', Icone: KeyRound },
       { to: '/cles-api', libelle: "Clés d'API", Icone: Bot },
+    ],
+  },
+  {
+    cle: 'tableaux-de-bord',
+    titre: 'Tableaux de bord',
+    entrees: [
+      { to: '/administration/fichiers-attaches', libelle: 'Fichiers attachés', Icone: Paperclip },
+      { to: '/administration/rapports', libelle: 'Rapports', Icone: FileBarChart },
     ],
   },
 ];

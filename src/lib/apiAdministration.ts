@@ -1,5 +1,5 @@
 // Endpoints de FEATURE-admin-email-historique.md : Administrateur seulement, lecture seule.
-import { request } from './api';
+import { API_BASE_URL, openStoredFileInTab, request } from './api';
 import type { PageDto, ReferentielItemDto, UUID } from '../types';
 import type {
   EcritureTiersRequest,
@@ -21,6 +21,9 @@ import type {
   ListeReferentielTiers,
   NatureTiersDto,
   ResultatDeverrouillageDto,
+  FiltresFichiersAttaches,
+  FiltresFichiersAttachesDto,
+  LigneFichierAttacheDto,
 } from '../types/administration';
 
 const RACINE = '/api/administration/emails';
@@ -130,4 +133,21 @@ export function ajouterLienTiers(tiersId: UUID, corps: LienTiersRequest): Promis
 
 export function supprimerLienTiers(tiersId: UUID, lienId: UUID): Promise<void> {
   return request('DELETE', `${RACINE_TIERS}/${tiersId}/liens/${lienId}`);
+}
+
+// FEATURE-admin-fichiers-attaches.md : lecture seule.
+export const RACINE_FICHIERS_ATTACHES = '/api/administration/fichiers-attaches';
+
+/** 400 : filtre illisible, période inversée, page ou taille hors bornes. */
+export function listFichiersAttaches(filtres: FiltresFichiersAttaches = {}): Promise<PageDto<LigneFichierAttacheDto>> {
+  return request('GET', RACINE_FICHIERS_ATTACHES, { query: { ...filtres } });
+}
+
+export function filtresFichiersAttaches(): Promise<FiltresFichiersAttachesDto> {
+  return request('GET', `${RACINE_FICHIERS_ATTACHES}/filtres`);
+}
+
+/** Redirection 302 vers l'URL présignée, ouverte dans un onglet ; 404 sans fichier stocké vivant. */
+export function ouvrirFichierAttache(id: UUID): void {
+  openStoredFileInTab(`${API_BASE_URL}${RACINE_FICHIERS_ATTACHES}/${id}/fichier`);
 }

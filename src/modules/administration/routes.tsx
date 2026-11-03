@@ -19,6 +19,9 @@ const TachesList =lazy(() => import('../../pages/administration/TachesList'));
 const CalendrierRendezVous = lazy(() => import('../../pages/administration/CalendrierRendezVous'));
 const TiersList = lazy(() => import('../../pages/tiers/TiersList'));
 const TiersFiche = lazy(() => import('../../pages/tiers/TiersFiche'));
+const FichiersAttachesList = lazy(() => import('../../pages/administration/FichiersAttachesList'));
+const ListeRapports = lazy(() => import('../../pages/rapports/ListeRapports'));
+const Rapport = lazy(() => import('../../pages/rapports/Rapport'));
 const ReferentielTiersPage = lazy(() => import('../../pages/administration/ReferentielTiersPage'));
 
 const administration: ModuleApp = {
@@ -61,6 +64,9 @@ const administration: ModuleApp = {
     { path: '/administration/personnels', element: <TiersList famille="personnels" /> },
     { path: '/administration/personnels/nouveau', element: <TiersFiche famille="personnels" /> },
     { path: '/administration/personnels/:id', element: <TiersFiche famille="personnels" /> },
+    { path: '/administration/fichiers-attaches', element: <FichiersAttachesList /> },
+    { path: '/administration/rapports', element: <ListeRapports module="administration" /> },
+    { path: '/administration/rapports/:code', element: <Rapport module="administration" /> },
     { path: '/administration/referentiels/:slug', element: <ReferentielTiersPage /> },
   ],
 };
