@@ -98,7 +98,9 @@ export function corpsReferentiel(
   const { champsAVider = [], ...corps } = corpsDepuis(scalaires(champs).map(defDe), brouillon, initial) as
     Record<string, unknown> & { champsAVider?: string[] };
   for (const c of champs) {
-    if (c.type === 'LIGNES') {
+    if (initial && !c.modifiable) {
+      Reflect.deleteProperty(corps, c.nom);
+    } else if (c.type === 'LIGNES') {
       const defs = (c.champs ?? []).map(defDe);
       corps[c.nom] = (lignes[c.nom] ?? []).map((l) => corpsDepuis(defs, l));
     } else if (champsAVider.includes(c.nom) || (!c.obligatoire && corps[c.nom] === '')) {

@@ -55,7 +55,7 @@ export default function TableReferentiel({ descripteur }: Readonly<{ descripteur
 
   const colonnes = useMemo<ColonneGrille<LigneAvecId>[]>(() => {
     const base = colonnesReferentiel(descripteur.champs, choix);
-    if (!admin) return base;
+    if (!admin || descripteur.lectureSeule) return base;
     return [...base, {
       nom: 'actions', libelle: 'Actions', largeur: 10, sansSomme: true,
       rendu: (l) => {
@@ -86,7 +86,9 @@ export default function TableReferentiel({ descripteur }: Readonly<{ descripteur
           {descripteur.slug === 'types-presentation' && (
             <ActionAdmin to="/articles/import?type=presentations" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />
           )}
-          <ActionAdmin libelle="Nouvelle ligne" icone={<Plus data-icon="inline-start" />} onClick={() => setDialogue('creation')} />
+          {!descripteur.lectureSeule && (
+            <ActionAdmin libelle="Nouvelle ligne" icone={<Plus data-icon="inline-start" />} onClick={() => setDialogue('creation')} />
+          )}
         </div>
       </div>
       {loading && !lignes && <LoadingState />}

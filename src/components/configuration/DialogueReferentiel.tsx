@@ -46,7 +46,7 @@ export default function DialogueReferentiel({ descripteur, ligne, choix, onClose
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           {champsSimples.map((c) => (
             <ChampReferentiel key={c.nom} champ={c} id={`ref-${c.nom}`} valeur={brouillon[c.nom] ?? ''} items={itemsDe(c, choix)}
-              desactive={protegee && c.nom === 'code'} onChange={(v) => modifier(c.nom, v)}
+              desactive={(protegee && c.nom === 'code') || (ligne !== undefined && !c.modifiable)} onChange={(v) => modifier(c.nom, v)}
               erreur={champErreur === c.nom ? erreur : null} />
           ))}
           {lignesEnfants.map((c) => (
