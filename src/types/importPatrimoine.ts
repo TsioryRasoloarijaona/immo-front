@@ -8,7 +8,9 @@ export type TypeImportGenerique =
   | 'tranches'
   | 'prospections-terrain'
   | 'fournisseurs'
-  | 'contacts';
+  | 'contacts'
+  | 'banques'
+  | 'organismes';
 
 export type TypeImportPatrimoine =
   | 'articles'

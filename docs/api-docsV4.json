@@ -36,10 +36,6 @@
       "description": "Onglet « Actions » du dossier de vente (règle GEN0005 d'OMRAN) et instructions adressées au commercial du dossier. Les actions sont des `ComActionMessage` rattachées au dossier par `ComFolderId` ; leur catégorie est déduite du statut du dossier (Réservation → « Dossier de vente (Réservation) », Annulation ou Désistement → « Désistement et annulation », tout autre statut → « Dossier de vente (Livraison) »), comme `Sale.cs:AttachNotes`. Toute écriture signe le dossier (`UserUpdate`, `UserUpdateDateTime`)."
     },
     {
-      "name": "Import du patrimoine",
-      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b), et import générique avec mapping (P9e) des entités\njuridiques, programmes, tranches et prospections terrain. Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul.\n\n`fournisseurs` et `contacts` : import générique sans tranche ; `Pivot` se compare au code dans le type, vide ou inconnu =\ncréation avec un code du compteur, trouvé une fois = mise à jour (cellule vide = valeur gardée), plusieurs fois = erreur."
-    },
-    {
       "name": "Tâches (administration)",
       "description": "Écran « Tâches » d'OMRAN : la table `AdmTask` porte aussi les rendez-vous, jamais exposés ici (un rendez-vous répond 404). Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-taches.md`."
     },
@@ -82,6 +78,10 @@
     {
       "name": "Authentification",
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
+    },
+    {
+      "name": "Import du patrimoine",
+      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b), et import générique avec mapping (P9e) des entités\njuridiques, programmes, tranches et prospections terrain. Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul.\n\n`fournisseurs` et `contacts` : import générique sans tranche ; `Pivot` se compare au code dans le type, vide ou inconnu =\ncréation avec un code du compteur, trouvé une fois = mise à jour (cellule vide = valeur gardée), plusieurs fois = erreur.\n\n`banques` et `organismes` : même import, colonne `Code` obligatoire : vide = erreur de ligne, inconnu dans le type = création\navec ce code, deux fois dans le fichier = erreur de ligne."
     },
     {
       "name": "Suivi des actions",
@@ -182,6 +182,10 @@
     {
       "name": "Hotline",
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
+    },
+    {
+      "name": "Tiers (administration)",
+      "description": "Fournisseurs (`CfgTierType` FOU), contacts (CNT), banques (BAN) et organismes (ORG) d'OMRAN, une famille par segment d'URL : une autre valeur répond 404, un identifiant d'un autre type aussi. Aucune donnée de paie n'est lue ni écrite. Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-tiers.md` et `instructions/FEATURE-admin-banques-organismes.md`."
     },
     {
       "name": "Dossiers — modalité de paiement",
@@ -286,10 +290,6 @@
     {
       "name": "Parcours commercial",
       "description": "Parcours du commercial : « Ma journée », Boîte de tri des pré-prospections et avancement d'une prospection\ndans le Kanban. « Mes lignes » = les prospections dont `ComProspection.CfgCommercialId` est l'employé du\ncompte appelant, dans son périmètre projet. Administrateur et Direction Générale voient leurs propres lignes ;\n`commercialId` leur permet, ainsi qu'à un chef pour un membre de son équipe, de consulter un autre commercial."
-    },
-    {
-      "name": "Tiers (administration)",
-      "description": "Fournisseurs (`CfgTierType` FOU) et contacts (CNT) d'OMRAN, une famille par segment d'URL : une autre valeur répond 404, un identifiant d'un autre type aussi. Aucune donnée de paie n'est lue ni écrite. Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-tiers.md`."
     },
     {
       "name": "Premières relances",
@@ -3420,7 +3420,7 @@
           "Tiers (administration)"
         ],
         "summary": "Remplace les champs de la fiche (champ omis = vidé)",
-        "description": "Mêmes contrôles qu'à la création. Le corps remplace la fiche : un champ omis est vidé.",
+        "description": "Mêmes contrôles qu'à la création. Le corps remplace la fiche : un champ omis est vidé. Le code ne change pas, sauf pour les banques et organismes, où il se modifie sous la même règle d'unicité ; leurs colonnes hors de la liste de `creer` restent telles quelles.",
         "operationId": "modifier_3",
         "parameters": [
           {
@@ -3454,7 +3454,7 @@
         },
         "responses": {
           "200": {
-            "description": "Tiers modifié ; code, type et auteur de création inchangés.",
+            "description": "Tiers modifié ; type et auteur de création inchangés.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3471,6 +3471,9 @@
           },
           "404": {
             "description": "Famille inconnue, ou tiers inconnu ou d'un autre type."
+          },
+          "409": {
+            "description": "Banques et organismes : code déjà pris dans le type, sans casse."
           }
         }
       },
@@ -8899,7 +8902,9 @@
                 "tranches",
                 "prospections-terrain",
                 "fournisseurs",
-                "contacts"
+                "contacts",
+                "banques",
+                "organismes"
               ]
             }
           },
@@ -9009,7 +9014,9 @@
                 "tranches",
                 "prospections-terrain",
                 "fournisseurs",
-                "contacts"
+                "contacts",
+                "banques",
+                "organismes"
               ]
             }
           },
@@ -14744,7 +14751,7 @@
           "Tiers (administration)"
         ],
         "summary": "Tiers d'une famille, par code puis PKey",
-        "description": "La recherche est un « contient » sans casse ; `%`, `_` et `[` y sont pris à la lettre ; vide ou faite d'espaces = pas de filtre. `contacts` joint les libellés de `CfgTierContact` par « , ».",
+        "description": "La recherche est un « contient » sans casse ; `%`, `_` et `[` y sont pris à la lettre ; vide ou faite d'espaces = pas de filtre. Colonnes cherchées : code, description, raison sociale, mobile, téléphone, e-mail, ICE ; banques et organismes : code, description, mobile, téléphones, fax, e-mail, site, notes, adresse. `natureId` n'est lu que pour les fournisseurs. `contacts` joint les libellés de `CfgTierContact` par « , ».",
         "operationId": "lister_17",
         "parameters": [
           {
@@ -14756,7 +14763,9 @@
               "type": "string",
               "enum": [
                 "fournisseurs",
-                "contacts"
+                "contacts",
+                "banques",
+                "organismes"
               ]
             }
           },
@@ -14832,8 +14841,8 @@
         "tags": [
           "Tiers (administration)"
         ],
-        "summary": "Crée un tiers, code issu du compteur partagé",
-        "description": "Personne morale : `raisonSociale` requise. Personne physique : `prenom`, `nom`, `titreId` et `sexeId` requis, `raisonSociale` et `description` valent « prénom nom ». Toujours requis : `personneMorale`, `paysResidenceId`, `deviseId`, `formeSocialeId`, et `mobile` ou `email`. Un doublon n'est pas refusé.",
+        "summary": "Crée un tiers ; code au compteur partagé, saisi pour banques et organismes",
+        "description": "Personne morale : `raisonSociale` requise. Personne physique : `prenom`, `nom`, `titreId` et `sexeId` requis, `raisonSociale` et `description` valent « prénom nom ». Toujours requis : `personneMorale`, `paysResidenceId`, `deviseId`, `formeSocialeId`, et `mobile` ou `email`. Un doublon n'est pas refusé.\n\nBanques et organismes : fiche réduite, `code`, `description` et `paysId` seuls requis, compteur jamais utilisé. La description passe en majuscules et la raison sociale la suit, le pays de résidence suit `paysId`, `matriculeFiscal` s'écrit aussi dans `IDNumber`. La forme sociale vient du paramètre OMRAN de la famille, la devise reste vide. Seuls comptent `code`, `description`, `paysId`, `natureId`, `matriculeFiscal`, `registreCommerce`, `ice`, `compteComptableId`, `journalId`, les téléphones et leurs indicatifs, `fax`, `email`, `siteWeb`, les adresses, `codePostal`, `villeId`, `ville`, `notes` ; tout autre champ est ignoré.",
         "operationId": "creer_18",
         "parameters": [
           {
@@ -14874,6 +14883,9 @@
           },
           "404": {
             "description": "Famille inconnue."
+          },
+          "409": {
+            "description": "Banques et organismes : code déjà pris dans le type, sans casse."
           }
         }
       }
@@ -28152,7 +28164,9 @@
                 "tranches",
                 "prospections-terrain",
                 "fournisseurs",
-                "contacts"
+                "contacts",
+                "banques",
+                "organismes"
               ]
             }
           },
@@ -28213,7 +28227,9 @@
                 "tranches",
                 "prospections-terrain",
                 "fournisseurs",
-                "contacts"
+                "contacts",
+                "banques",
+                "organismes"
               ]
             }
           }
@@ -35976,7 +35992,8 @@
               "enum": [
                 "formes-sociales",
                 "assujettissements",
-                "notes"
+                "notes",
+                "journaux"
               ]
             }
           }
@@ -40454,11 +40471,11 @@
       },
       "EcritureTiersRequest": {
         "type": "object",
-        "description": "Fiche de tiers à écrire ; code, type et auteur ne se saisissent pas.",
+        "description": "Fiche de tiers à écrire ; type et auteur ne se saisissent pas.",
         "properties": {
           "personneMorale": {
             "type": "boolean",
-            "description": "Vrai = personne morale, faux = personne physique."
+            "description": "Vrai = personne morale, faux = physique. Requis, sauf banques et organismes (ignoré)."
           },
           "raisonSociale": {
             "type": "string",
@@ -40496,12 +40513,12 @@
           "formeSocialeId": {
             "type": "string",
             "format": "uuid",
-            "description": "Forme sociale (AdmSocialForm)."
+            "description": "Forme sociale (AdmSocialForm). Requise, sauf banques et organismes (ignorée)."
           },
           "deviseId": {
             "type": "string",
             "format": "uuid",
-            "description": "Devise (StlCurrency)."
+            "description": "Devise (StlCurrency). Requise, sauf banques et organismes (ignorée)."
           },
           "assujettissementId": {
             "type": "string",
@@ -40511,12 +40528,12 @@
           "paysId": {
             "type": "string",
             "format": "uuid",
-            "description": "Pays (AdmCountry)."
+            "description": "Pays (AdmCountry). Requis pour banques et organismes."
           },
           "paysResidenceId": {
             "type": "string",
             "format": "uuid",
-            "description": "Pays de résidence (AdmCountry)."
+            "description": "Pays de résidence (AdmCountry). Requis ; banques et organismes : ignoré, égal à paysId."
           },
           "villeId": {
             "type": "string",
@@ -40561,7 +40578,7 @@
           },
           "mobile": {
             "type": "string",
-            "description": "Mobile ; mobile ou email est requis.",
+            "description": "Mobile ; mobile ou email requis, sauf banques et organismes.",
             "maxLength": 30,
             "minLength": 0
           },
@@ -40615,7 +40632,7 @@
           },
           "email": {
             "type": "string",
-            "description": "E-mail ; mobile ou email est requis.",
+            "description": "E-mail ; mobile ou email requis, sauf banques et organismes.",
             "maxLength": 100,
             "minLength": 0
           },
@@ -40748,31 +40765,39 @@
             "description": "Numéro de la pièce d'identité.",
             "maxLength": 255,
             "minLength": 0
+          },
+          "code": {
+            "type": "string",
+            "description": "Banques, organismes : saisi, requis, unique dans le type. Ailleurs : compteur, ignoré en écriture.",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "description": {
+            "type": "string",
+            "description": "Banques, organismes : requise, mise en majuscules. Ailleurs : suit la raison sociale, ignorée en écriture.",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "compteComptableId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Compte comptable (ActAccount) ; banques et organismes seulement."
+          },
+          "journalId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Journal (ActJournal) ; banques et organismes seulement."
           }
-        },
-        "required": [
-          "deviseId",
-          "formeSocialeId",
-          "paysResidenceId",
-          "personneMorale"
-        ]
+        }
       },
       "FicheTiersDto": {
         "type": "object",
-        "description": "Fiche d'un tiers : champs de EcritureTiersRequest à plat, plus code, trace et libellés.",
+        "description": "Fiche d'un tiers : champs de EcritureTiersRequest à plat, plus trace et libellés.",
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid",
             "description": "PKey du tiers."
-          },
-          "code": {
-            "type": "string",
-            "description": "Code issu du compteur des tiers, jamais modifié."
-          },
-          "description": {
-            "type": "string",
-            "description": "Description, égale à la raison sociale à chaque écriture."
           },
           "creePar": {
             "type": "string",
@@ -40794,7 +40819,7 @@
           },
           "personneMorale": {
             "type": "boolean",
-            "description": "Vrai = personne morale, faux = personne physique."
+            "description": "Vrai = personne morale, faux = physique. Requis, sauf banques et organismes (ignoré)."
           },
           "raisonSociale": {
             "type": "string",
@@ -40832,12 +40857,12 @@
           "formeSocialeId": {
             "type": "string",
             "format": "uuid",
-            "description": "Forme sociale (AdmSocialForm)."
+            "description": "Forme sociale (AdmSocialForm). Requise, sauf banques et organismes (ignorée)."
           },
           "deviseId": {
             "type": "string",
             "format": "uuid",
-            "description": "Devise (StlCurrency)."
+            "description": "Devise (StlCurrency). Requise, sauf banques et organismes (ignorée)."
           },
           "assujettissementId": {
             "type": "string",
@@ -40847,12 +40872,12 @@
           "paysId": {
             "type": "string",
             "format": "uuid",
-            "description": "Pays (AdmCountry)."
+            "description": "Pays (AdmCountry). Requis pour banques et organismes."
           },
           "paysResidenceId": {
             "type": "string",
             "format": "uuid",
-            "description": "Pays de résidence (AdmCountry)."
+            "description": "Pays de résidence (AdmCountry). Requis ; banques et organismes : ignoré, égal à paysId."
           },
           "villeId": {
             "type": "string",
@@ -40897,7 +40922,7 @@
           },
           "mobile": {
             "type": "string",
-            "description": "Mobile ; mobile ou email est requis.",
+            "description": "Mobile ; mobile ou email requis, sauf banques et organismes.",
             "maxLength": 30,
             "minLength": 0
           },
@@ -40951,7 +40976,7 @@
           },
           "email": {
             "type": "string",
-            "description": "E-mail ; mobile ou email est requis.",
+            "description": "E-mail ; mobile ou email requis, sauf banques et organismes.",
             "maxLength": 100,
             "minLength": 0
           },
@@ -41085,6 +41110,28 @@
             "maxLength": 255,
             "minLength": 0
           },
+          "code": {
+            "type": "string",
+            "description": "Banques, organismes : saisi, requis, unique dans le type. Ailleurs : compteur, ignoré en écriture.",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "description": {
+            "type": "string",
+            "description": "Banques, organismes : requise, mise en majuscules. Ailleurs : suit la raison sociale, ignorée en écriture.",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "compteComptableId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Compte comptable (ActAccount) ; banques et organismes seulement."
+          },
+          "journalId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Journal (ActJournal) ; banques et organismes seulement."
+          },
           "nature": {
             "type": "string",
             "description": "Libellé de la nature."
@@ -41101,13 +41148,7 @@
             "type": "string",
             "description": "Libellé de la devise."
           }
-        },
-        "required": [
-          "deviseId",
-          "formeSocialeId",
-          "paysResidenceId",
-          "personneMorale"
-        ]
+        }
       },
       "DroitsRoleEcritureDto": {
         "type": "object",
@@ -62370,6 +62411,14 @@
           "assujettissement": {
             "type": "string",
             "description": "Libellé de l'assujettissement."
+          },
+          "telephone1": {
+            "type": "string",
+            "description": "Téléphone 1."
+          },
+          "telephone2": {
+            "type": "string",
+            "description": "Téléphone 2."
           }
         }
       },
