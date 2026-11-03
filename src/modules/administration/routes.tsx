@@ -57,6 +57,9 @@ const administration: ModuleApp = {
     { path: '/administration/organismes', element: <TiersList famille="organismes" /> },
     { path: '/administration/organismes/nouveau', element: <TiersFiche famille="organismes" /> },
     { path: '/administration/organismes/:id', element: <TiersFiche famille="organismes" /> },
+    { path: '/administration/personnels', element: <TiersList famille="personnels" /> },
+    { path: '/administration/personnels/nouveau', element: <TiersFiche famille="personnels" /> },
+    { path: '/administration/personnels/:id', element: <TiersFiche famille="personnels" /> },
   ],
 };
 
