@@ -36894,7 +36894,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes triées par date de création décroissante, les lignes sans date en dernier ; à date égale, par `PKey` puis `action`, ordre stable entre les pages. Sans filtre : toute la vue, aucune période préréglée. Deux lignes de même `PKey` et d'`action` différente restent deux lignes, comptées toutes deux dans `totalElements`. `recherche` cherche une sous-chaîne dans `code`, `action`, `description`, `creePar` et `modifiePar`, espaces ignorés des deux côtés, `%`, `_` et `[` pris à la lettre ; vide ou blanche = pas de filtre. Les périodes de création et de modification se cumulent, leurs bornes sont des jours inclus ; une ligne sans date est exclue dès qu'une borne de sa période est posée. Les valeurs vides sont rendues telles quelles. `id` sert de clé de ligne, il n'ouvre aucun objet.",
-        "operationId": "lister_31",
+        "operationId": "lister_32",
         "parameters": [
           {
             "name": "recherche",
@@ -37003,7 +37003,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_32",
+        "operationId": "lister_33",
         "parameters": [
           {
             "name": "portee",
