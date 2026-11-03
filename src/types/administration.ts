@@ -105,7 +105,7 @@ export interface FiltresEmail {
 // FEATURE-admin-tiers.md
 export type FamilleTiers = 'fournisseurs' | 'contacts';
 
-export type ListeReferentielTiers = 'formes-sociales' | 'assujettissements' | 'notes';
+export type ListeReferentielTiers = 'formes-sociales' | 'assujettissements' | 'notes' | 'journaux';
 
 export interface FiltresTiers {
   recherche?: string;
@@ -143,6 +143,8 @@ export interface LigneTiersDto {
   codeComptable: string | null;
   codeComptableCollectif: string | null;
   assujettissement: string | null;
+  telephone1: string | null;
+  telephone2: string | null;
 }
 
 /** PUT : un champ omis est vidé. Le serveur ignore `raisonSociale` d'une personne physique, `prenom` et `nom` d'une morale. */
@@ -200,6 +202,14 @@ export interface EcritureTiersRequest {
   professionId?: UUID | null;
   typePieceId?: UUID | null;
   numeroPiece?: string | null;
+  /** Banques, organismes : requis, unique dans le type. Ignoré ailleurs. */
+  code?: string | null;
+  /** Banques, organismes : requise, enregistrée en majuscules. Ignorée ailleurs. */
+  description?: string | null;
+  /** Banques et organismes seulement. */
+  compteComptableId?: UUID | null;
+  /** Banques et organismes seulement. */
+  journalId?: UUID | null;
 }
 
 export interface FicheTiersDto extends EcritureTiersRequest {
