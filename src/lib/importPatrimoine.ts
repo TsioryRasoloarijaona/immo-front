@@ -36,9 +36,11 @@ export const CONFIG_IMPORT: Record<TypeImportPatrimoine, ConfigImport> = {
   projets: { libelle: 'programmes', liste: { libelle: 'Programmes', to: '/projets' }, tranche: false, suffixe: 'PROGRAMMES', aide: '(en-têtes et feuilles d’aide)' },
   tranches: { libelle: 'tranches', liste: { libelle: 'Tranches', to: '/tranches' }, tranche: false, suffixe: 'TRANCHES', aide: '(en-têtes et feuilles d’aide)' },
   'prospections-terrain': { libelle: 'prospections terrain', liste: { libelle: 'Prospections terrain', to: '/terrains-prospection' }, tranche: false, suffixe: 'PROSPECTIONS_TERRAIN', aide: '(en-têtes et feuilles d’aide)' },
+  fournisseurs: { libelle: 'fournisseurs', liste: { libelle: 'Fournisseurs', to: '/administration/fournisseurs' }, tranche: false, suffixe: 'FOURNISSEURS', aide: '(en-têtes et feuilles d’aide)' },
+  contacts: { libelle: 'contacts', liste: { libelle: 'Contacts', to: '/administration/contacts' }, tranche: false, suffixe: 'CONTACTS', aide: '(en-têtes et feuilles d’aide)' },
 };
 
-const TYPES_A_MAPPING = new Set<TypeImportPatrimoine>(['entites-juridiques', 'projets', 'tranches', 'prospections-terrain']);
+const TYPES_A_MAPPING = new Set<TypeImportPatrimoine>(['entites-juridiques', 'projets', 'tranches', 'prospections-terrain', 'fournisseurs', 'contacts']);
 
 /** Types dont le fichier passe par l'analyse et l'écran de mapping. */
 export function avecMapping(type: TypeImportPatrimoine): type is TypeImportGenerique {

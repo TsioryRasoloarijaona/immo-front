@@ -112,6 +112,7 @@ export default function SectionsSaisie({
   listes = {},
   verrouilles = [],
   champErreur,
+  champsErreur = [],
   messageErreur,
 }: Readonly<{
   sections: SectionSaisie[];
@@ -120,6 +121,8 @@ export default function SectionsSaisie({
   listes?: ListesChoix;
   verrouilles?: string[];
   champErreur?: string | null;
+  /** Plusieurs champs portent le même message (mobile ou e-mail). */
+  champsErreur?: string[];
   messageErreur?: string | null;
 }>) {
   return (
@@ -135,7 +138,7 @@ export default function SectionsSaisie({
                 onChange={(v) => onChange(def.nom, v)}
                 liste={def.liste ? listes[def.liste] : undefined}
                 desactive={def.lectureSeule === true || verrouilles.includes(def.nom)}
-                erreur={champErreur === def.nom ? messageErreur ?? null : null}
+                erreur={champErreur === def.nom || champsErreur.includes(def.nom) ? messageErreur ?? null : null}
               />
             ))}
           </div>

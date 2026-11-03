@@ -101,3 +101,136 @@ export interface FiltresEmail {
   page?: number;
   size?: number;
 }
+
+// FEATURE-admin-tiers.md
+export type FamilleTiers = 'fournisseurs' | 'contacts';
+
+export type ListeReferentielTiers = 'formes-sociales' | 'assujettissements' | 'notes';
+
+export interface FiltresTiers {
+  recherche?: string;
+  /** Ignoré pour `contacts`. */
+  natureId?: UUID;
+  page?: number;
+  size?: number;
+}
+
+export interface LigneTiersDto {
+  id: UUID;
+  code: string | null;
+  description: string | null;
+  raisonSociale: string | null;
+  /** Libellés des contacts liés, séparés par « , ». */
+  contacts: string | null;
+  telephone: string | null;
+  fax: string | null;
+  mobile: string | null;
+  email: string | null;
+  siteWeb: string | null;
+  adresse: string | null;
+  notes: string | null;
+  estPrestataire: boolean | null;
+  ice: string | null;
+  nature: string | null;
+  pays: string | null;
+  paysResidence: string | null;
+  agence: string | null;
+  rib: string | null;
+  iban: string | null;
+  matriculeFiscal: string | null;
+  registreCommerce: string | null;
+  douane: string | null;
+  codeComptable: string | null;
+  codeComptableCollectif: string | null;
+  assujettissement: string | null;
+}
+
+/** PUT : un champ omis est vidé. Le serveur ignore `raisonSociale` d'une personne physique, `prenom` et `nom` d'une morale. */
+export interface EcritureTiersRequest {
+  personneMorale: boolean;
+  raisonSociale?: string | null;
+  prenom?: string | null;
+  nom?: string | null;
+  titreId?: UUID | null;
+  sexeId?: UUID | null;
+  natureId?: UUID | null;
+  formeSocialeId: UUID | null;
+  deviseId: UUID | null;
+  assujettissementId?: UUID | null;
+  paysId?: UUID | null;
+  paysResidenceId: UUID | null;
+  villeId?: UUID | null;
+  ville?: string | null;
+  codePostal?: string | null;
+  adresse?: string | null;
+  adresse2?: string | null;
+  adresse3?: string | null;
+  mobileIndicatif?: string | null;
+  mobile?: string | null;
+  telephoneIndicatif?: string | null;
+  telephone?: string | null;
+  telephone1Indicatif?: string | null;
+  telephone1?: string | null;
+  telephone2Indicatif?: string | null;
+  telephone2?: string | null;
+  faxIndicatif?: string | null;
+  fax?: string | null;
+  email?: string | null;
+  siteWeb?: string | null;
+  notes?: string | null;
+  ice?: string | null;
+  matriculeFiscal?: string | null;
+  registreCommerce?: string | null;
+  douane?: string | null;
+  codeComptable?: string | null;
+  codeComptableCollectif?: string | null;
+  banqueId?: UUID | null;
+  agence?: string | null;
+  rib?: string | null;
+  iban?: string | null;
+  tauxRetenue?: number | null;
+  tauxTva?: number | null;
+  delaiPaiement?: number | null;
+  estPrestataire?: boolean | null;
+  noteId?: UUID | null;
+  dateNaissance?: string | null;
+  lieuNaissance?: string | null;
+  situationFamilialeId?: UUID | null;
+  nationaliteId?: UUID | null;
+  professionId?: UUID | null;
+  typePieceId?: UUID | null;
+  numeroPiece?: string | null;
+}
+
+export interface FicheTiersDto extends EcritureTiersRequest {
+  id: UUID;
+  code: string | null;
+  description: string | null;
+  creePar: string | null;
+  creeLe: string | null;
+  modifiePar: string | null;
+  modifieLe: string | null;
+  nature: string | null;
+  pays: string | null;
+  formeSociale: string | null;
+  devise: string | null;
+}
+
+export interface NatureTiersDto {
+  id: UUID;
+  code: string | null;
+  libelle: string | null;
+}
+
+export interface LienTiersDto {
+  id: UUID;
+  contactId: UUID | null;
+  contact: string | null;
+  relationTypeId: UUID | null;
+  relation: string | null;
+}
+
+export interface LienTiersRequest {
+  contactId: UUID;
+  relationTypeId?: UUID | null;
+}
