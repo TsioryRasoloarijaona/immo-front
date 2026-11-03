@@ -17,6 +17,8 @@ export interface ConfigTiers {
   ongletContacts: boolean;
   /** Champs propres aux fournisseurs : note, identifiants fiscaux, comptabilité, banque. */
   champsFournisseur: boolean;
+  /** Sections Banque et Note (écrites par le back pour fournisseurs et personnels). */
+  champsBanque: boolean;
   /** Personne morale cochée sur une fiche vide. */
   moraleParDefaut: boolean;
   /** Fiche réduite : sections propres, sans bascule morale/physique ni onglet Autres. */
@@ -27,6 +29,12 @@ export interface ConfigTiers {
   contactRequis: boolean;
   /** Listes déroulantes à charger : clés de `CHARGEURS_LISTES` (saisieTiers). */
   listes: string[];
+  /** Personne physique seule : pas de bascule morale / physique. */
+  physiqueSeule: boolean;
+  /** Forme sociale et devise requises sur une fiche complète. */
+  formeDeviseRequises: boolean;
+  /** Bouton « Transformer en contact » sur une fiche existante. */
+  transformable: boolean;
 }
 
 const LISTES_COMPLETES = [
@@ -35,7 +43,9 @@ const LISTES_COMPLETES = [
 ];
 const LISTES_REDUITES = ['natures', 'pays', 'comptes', 'journaux'];
 
-const COMMUNES: ColonneDto[] = [
+const SANS_OPTION = { champsBanque: false, physiqueSeule: false, formeDeviseRequises: true, transformable: false };
+
+const COMMUNES:ColonneDto[] = [
   colonne('code', 'Code', 'GENERAL', 'TEXTE', true),
   colonne('description', 'Description', 'GENERAL', 'TEXTE', true),
 ];
@@ -96,6 +106,25 @@ const REDUITE: ColonneDto[] = [
   colonne('notes', 'Notes', 'AUTRES', 'TEXTE', true),
 ];
 
+const PERSONNELS: ColonneDto[] = [
+  ...COMMUNES,
+  colonne('contacts', 'Contacts', 'GENERAL', 'TEXTE', true),
+  colonne('telephone', 'Téléphone', 'COORDONNEES', 'TEXTE', true),
+  colonne('telephone1', 'Téléphone 1', 'COORDONNEES', 'TEXTE', true),
+  colonne('telephone2', 'Téléphone 2', 'COORDONNEES', 'TEXTE', true),
+  colonne('fax', 'Fax', 'COORDONNEES', 'TEXTE', true),
+  colonne('mobile', 'Mobile', 'COORDONNEES', 'TEXTE', true),
+  colonne('email', 'E-mail', 'COORDONNEES', 'TEXTE', true),
+  colonne('siteWeb', 'Site web', 'COORDONNEES', 'TEXTE', true),
+  colonne('adresse', 'Adresse', 'COORDONNEES', 'TEXTE', true),
+  colonne('notes', 'Notes', 'AUTRES', 'TEXTE', true),
+  colonne('nature', 'Nature', 'GENERAL', 'TEXTE', true),
+  colonne('nationalite', 'Nationalité', 'AUTRES', 'TEXTE', true),
+  colonne('profession', 'Profession', 'AUTRES', 'TEXTE', true),
+  colonne('pays', 'Pays', 'COORDONNEES', 'TEXTE', true),
+  colonne('paysResidence', 'Pays de résidence', 'COORDONNEES', 'TEXTE', true),
+];
+
 function disposition(catalogue: ColonneDto[]): DispositionColonnes {
   return {
     ordre: catalogue.map((c) => c.nom),
@@ -120,6 +149,8 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     requis: [],
     contactRequis: true,
     listes: LISTES_COMPLETES,
+    ...SANS_OPTION,
+    champsBanque: true,
   },
   contacts: {
     famille: 'contacts',
@@ -137,6 +168,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     requis: [],
     contactRequis: true,
     listes: LISTES_COMPLETES,
+    ...SANS_OPTION,
   },
   banques: {
     famille: 'banques',
@@ -154,6 +186,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     requis: ['code', 'description', 'paysId'],
     contactRequis: false,
     listes: LISTES_REDUITES,
+    ...SANS_OPTION,
   },
   organismes: {
     famille: 'organismes',
@@ -171,5 +204,27 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     requis: ['code', 'description', 'paysId'],
     contactRequis: false,
     listes: LISTES_REDUITES,
+    ...SANS_OPTION,
+  },
+  personnels: {
+    famille: 'personnels',
+    titre: 'Personnels',
+    sujet: 'personnel',
+    aucun: 'Aucun personnel',
+    chemin: '/administration/personnels',
+    catalogue: PERSONNELS,
+    disposition: disposition(PERSONNELS),
+    filtreNature: false,
+    ongletContacts: false,
+    champsFournisseur: false,
+    moraleParDefaut: false,
+    ficheReduite: false,
+    requis: [],
+    contactRequis: true,
+    listes: LISTES_COMPLETES,
+    champsBanque: true,
+    physiqueSeule: true,
+    formeDeviseRequises: false,
+    transformable: true,
   },
 };

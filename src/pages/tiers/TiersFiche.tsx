@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Check, Contact, Trash2, Users } from 'lucide-react';
 import FicheShell, { type OngletFiche } from '../../components/FicheShell';
 import FormulaireTiers from '../../components/tiers/FormulaireTiers';
 import OngletLiensTiers from '../../components/tiers/OngletLiensTiers';
@@ -8,7 +8,7 @@ import { ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import AdminGuard from '../utilisateurs/AdminGuard';
 import { oublierLecturesRecentes } from '../../lib/api';
-import { creerTiers, getTiers, modifierTiers, supprimerTiers } from '../../lib/apiAdministration';
+import { creerTiers, getTiers, modifierTiers, supprimerTiers, transformerEnContact } from '../../lib/apiAdministration';
 import { CONFIG_TIERS, type ConfigTiers } from '../../lib/colonnesTiers';
 import { useConfirm } from '../../lib/confirmContext';
 import { formatDate } from '../../lib/format';
@@ -78,6 +78,20 @@ function CorpsFiche({ cfg, fiche, listes, erreurListes, onEnregistre }: Readonly
     }
   }
 
+  async function transformer() {
+    if (!fiche) return;
+    const message = `Transformer ${fiche.description || fiche.code || 'ce personnel'} en contact ?`;
+    if (!(await confirmer({ message, confirmLabel: 'Transformer', cancelLabel: 'Annuler' }))) return;
+    try {
+      await transformerEnContact(fiche.id);
+      oublierLecturesRecentes();
+      toast('Transformé en contact.');
+      void navigate(cfg.chemin);
+    } catch (err) {
+      toast({ texte: errorMessage(err), variante: 'erreur' });
+    }
+  }
+
   const formulaire = (o: 'general' | 'autres' | 'notes') => <FormulaireTiers cfg={cfg} onglet={o} saisie={saisie} listes={listes} />;
   const onglets: OngletFiche[] = [
     { id: 'general', libelle: 'Général', contenu: formulaire('general') },
@@ -105,6 +119,7 @@ function CorpsFiche({ cfg, fiche, listes, erreurListes, onEnregistre }: Readonly
           <div className="flex items-center gap-0.5">
             <BoutonIcone libelle="Enregistrer" desactive={saisie.envoi} onClick={enregistrer}><Check /></BoutonIcone>
             {fiche && <BoutonIcone libelle="Supprimer" onClick={() => void supprimer()}><Trash2 /></BoutonIcone>}
+            {fiche && cfg.transformable && <BoutonIcone libelle="Transformer en contact" onClick={() => void transformer()}><Contact /></BoutonIcone>}
             <BoutonIcone libelle="Retour à la liste" onClick={() => void navigate(cfg.chemin)}><ArrowLeft /></BoutonIcone>
           </div>
         </div>

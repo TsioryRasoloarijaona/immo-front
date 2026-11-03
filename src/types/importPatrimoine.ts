@@ -10,7 +10,8 @@ export type TypeImportGenerique =
   | 'fournisseurs'
   | 'contacts'
   | 'banques'
-  | 'organismes';
+  | 'organismes'
+  | 'personnels';
 
 export type TypeImportPatrimoine =
   | 'articles'

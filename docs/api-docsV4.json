@@ -32,6 +32,10 @@
       "description": "Commissions des vendeurs — l'écran « Commissions » d'OMRAN Estate (`F_0249`), par tranche. Une ligne de commission (`ComCommissionLine`) se calcule dossier par dossier depuis les règles de l'onglet « Commissions vendeur » de la tranche (`ComSalesCommission`, jamais modifiées ici). Voir `instructions/FEATURE-vente-commissions.md`.\n\n**Droits** : lus dans `AdmRight` à chaque appel (rôles de `AdmUserRole`, jamais le jeton). Lire exige `Yes.Com.Front.Commission.CommissionList` ; générer, modifier un montant et générer un document à payer exigent en plus `…CommissionList.toolNew` ; supprimer `…toolDelete` ; exporter `…toolPrint`. Un droit absent = 403. **Visibilité** : tranche d'une entité inactive ou hors périmètre commercial, et tout dossier ou ligne de cette tranche → 404."
     },
     {
+      "name": "Import du patrimoine",
+      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b), et import générique avec mapping (P9e) des entités\njuridiques, programmes, tranches et prospections terrain. Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul.\n\n`fournisseurs` et `contacts` : import générique sans tranche ; `Pivot` se compare au code dans le type, vide ou inconnu =\ncréation avec un code du compteur, trouvé une fois = mise à jour (cellule vide = valeur gardée), plusieurs fois = erreur.\n\n`banques` et `organismes` : même import, colonne `Code` obligatoire : vide = erreur de ligne, inconnu dans le type = création\navec ce code, deux fois dans le fichier = erreur de ligne.\n\n`personnels` : même import que `contacts`, personnes physiques seules : `Prénom` et `Nom` requis, ligne sans eux = erreur de\nligne. Forme sociale et devise facultatives. Aucune colonne de paie : un tel en-tête est ignoré comme tout en-tête inconnu."
+    },
+    {
       "name": "Dossiers — actions",
       "description": "Onglet « Actions » du dossier de vente (règle GEN0005 d'OMRAN) et instructions adressées au commercial du dossier. Les actions sont des `ComActionMessage` rattachées au dossier par `ComFolderId` ; leur catégorie est déduite du statut du dossier (Réservation → « Dossier de vente (Réservation) », Annulation ou Désistement → « Désistement et annulation », tout autre statut → « Dossier de vente (Livraison) »), comme `Sale.cs:AttachNotes`. Toute écriture signe le dossier (`UserUpdate`, `UserUpdateDateTime`)."
     },
@@ -78,10 +82,6 @@
     {
       "name": "Authentification",
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
-    },
-    {
-      "name": "Import du patrimoine",
-      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b), et import générique avec mapping (P9e) des entités\njuridiques, programmes, tranches et prospections terrain. Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul.\n\n`fournisseurs` et `contacts` : import générique sans tranche ; `Pivot` se compare au code dans le type, vide ou inconnu =\ncréation avec un code du compteur, trouvé une fois = mise à jour (cellule vide = valeur gardée), plusieurs fois = erreur.\n\n`banques` et `organismes` : même import, colonne `Code` obligatoire : vide = erreur de ligne, inconnu dans le type = création\navec ce code, deux fois dans le fichier = erreur de ligne."
     },
     {
       "name": "Suivi des actions",
@@ -182,10 +182,6 @@
     {
       "name": "Hotline",
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
-    },
-    {
-      "name": "Tiers (administration)",
-      "description": "Fournisseurs (`CfgTierType` FOU), contacts (CNT), banques (BAN) et organismes (ORG) d'OMRAN, une famille par segment d'URL : une autre valeur répond 404, un identifiant d'un autre type aussi. Aucune donnée de paie n'est lue ni écrite. Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-tiers.md` et `instructions/FEATURE-admin-banques-organismes.md`."
     },
     {
       "name": "Dossiers — modalité de paiement",
@@ -322,6 +318,10 @@
     {
       "name": "Dossiers — réajustement des superficies",
       "description": "Écran OMRAN « Réajuster les superficies », lancé depuis la liste des dossiers pour une tranche. « Le système n'effectue des modifications que lorsqu'on change la superficie » (aide OMRAN) : un dossier est proposé quand la superficie de son article principal, ou d'un de ses sous-articles, diffère du stock (arrondie à 2 décimales). La remise est recalculée comme pour la réinitialisation (montant conservé, taux recalculé) ; un sous-article dont la superficie change reprend aussi son prix (prix TTC du stock / (1 + TVA)). Dossiers annulés ou désistés exclus. Réservé au rôle Administrateur."
+    },
+    {
+      "name": "Tiers (administration)",
+      "description": "Fournisseurs (`CfgTierType` FOU), contacts (CNT), banques (BAN), organismes (ORG) et personnels (EMP) d'OMRAN, une famille par segment d'URL : une autre valeur répond 404, un identifiant d'un autre type aussi. Aucune donnée de paie n'est lue ni écrite. Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-tiers.md`, `instructions/FEATURE-admin-banques-organismes.md` et `instructions/FEATURE-admin-personnels.md`."
     },
     {
       "name": "Dossiers",
@@ -3420,7 +3420,7 @@
           "Tiers (administration)"
         ],
         "summary": "Remplace les champs de la fiche (champ omis = vidé)",
-        "description": "Mêmes contrôles qu'à la création. Le corps remplace la fiche : un champ omis est vidé. Le code ne change pas, sauf pour les banques et organismes, où il se modifie sous la même règle d'unicité ; leurs colonnes hors de la liste de `creer` restent telles quelles.",
+        "description": "Mêmes contrôles qu'à la création. Le corps remplace la fiche : un champ omis est vidé. Le code ne change pas, sauf pour les banques et organismes, où il se modifie sous la même règle d'unicité ; leurs colonnes hors de la liste de `creer` restent telles quelles. Personnels : les champs ignorés à la création et les colonnes de paie restent tels quels.",
         "operationId": "modifier_3",
         "parameters": [
           {
@@ -3482,7 +3482,7 @@
           "Tiers (administration)"
         ],
         "summary": "Supprime un tiers libre",
-        "description": "Une clé étrangère restrictive (dossier, mouvement, contact lié à un autre tiers…) refuse la suppression en 409 sans rien modifier. Sinon les cascades de la base emportent les liens et les actions du tiers.",
+        "description": "Une clé étrangère restrictive (dossier, mouvement, contact lié à un autre tiers…) refuse la suppression en 409 sans rien modifier. Sinon les cascades de la base emportent les liens et les actions du tiers. Personnels : un employé lié à un compte (`AdmUser.CfgEmployeeId`) est refusé en 409.",
         "operationId": "supprimer_2",
         "parameters": [
           {
@@ -8904,7 +8904,8 @@
                 "fournisseurs",
                 "contacts",
                 "banques",
-                "organismes"
+                "organismes",
+                "personnels"
               ]
             }
           },
@@ -9016,7 +9017,8 @@
                 "fournisseurs",
                 "contacts",
                 "banques",
-                "organismes"
+                "organismes",
+                "personnels"
               ]
             }
           },
@@ -14751,7 +14753,7 @@
           "Tiers (administration)"
         ],
         "summary": "Tiers d'une famille, par code puis PKey",
-        "description": "La recherche est un « contient » sans casse ; `%`, `_` et `[` y sont pris à la lettre ; vide ou faite d'espaces = pas de filtre. Colonnes cherchées : code, description, raison sociale, mobile, téléphone, e-mail, ICE ; banques et organismes : code, description, mobile, téléphones, fax, e-mail, site, notes, adresse. `natureId` n'est lu que pour les fournisseurs. `contacts` joint les libellés de `CfgTierContact` par « , ».",
+        "description": "La recherche est un « contient » sans casse ; `%`, `_` et `[` y sont pris à la lettre ; vide ou faite d'espaces = pas de filtre. Colonnes cherchées : code, description, raison sociale, mobile, téléphone, e-mail, ICE ; banques et organismes : code, description, mobile, téléphones, fax, e-mail, site, notes, adresse ; personnels : les colonnes générales sans l'ICE. `natureId` n'est lu que pour les fournisseurs. `contacts` joint les libellés de `CfgTierContact` par « , ». Personnels : `rib` et `iban` toujours null en liste, lus sur la fiche.",
         "operationId": "lister_17",
         "parameters": [
           {
@@ -14765,7 +14767,8 @@
                 "fournisseurs",
                 "contacts",
                 "banques",
-                "organismes"
+                "organismes",
+                "personnels"
               ]
             }
           },
@@ -14842,7 +14845,7 @@
           "Tiers (administration)"
         ],
         "summary": "Crée un tiers ; code au compteur partagé, saisi pour banques et organismes",
-        "description": "Personne morale : `raisonSociale` requise. Personne physique : `prenom`, `nom`, `titreId` et `sexeId` requis, `raisonSociale` et `description` valent « prénom nom ». Toujours requis : `personneMorale`, `paysResidenceId`, `deviseId`, `formeSocialeId`, et `mobile` ou `email`. Un doublon n'est pas refusé.\n\nBanques et organismes : fiche réduite, `code`, `description` et `paysId` seuls requis, compteur jamais utilisé. La description passe en majuscules et la raison sociale la suit, le pays de résidence suit `paysId`, `matriculeFiscal` s'écrit aussi dans `IDNumber`. La forme sociale vient du paramètre OMRAN de la famille, la devise reste vide. Seuls comptent `code`, `description`, `paysId`, `natureId`, `matriculeFiscal`, `registreCommerce`, `ice`, `compteComptableId`, `journalId`, les téléphones et leurs indicatifs, `fax`, `email`, `siteWeb`, les adresses, `codePostal`, `villeId`, `ville`, `notes` ; tout autre champ est ignoré.",
+        "description": "Personne morale : `raisonSociale` requise. Personne physique : `prenom`, `nom`, `titreId` et `sexeId` requis, `raisonSociale` et `description` valent « prénom nom ». Toujours requis : `personneMorale`, `paysResidenceId`, `deviseId`, `formeSocialeId`, et `mobile` ou `email`. Un doublon n'est pas refusé.\n\nBanques et organismes : fiche réduite, `code`, `description` et `paysId` seuls requis, compteur jamais utilisé. La description passe en majuscules et la raison sociale la suit, le pays de résidence suit `paysId`, `matriculeFiscal` s'écrit aussi dans `IDNumber`. La forme sociale vient du paramètre OMRAN de la famille, la devise reste vide. Seuls comptent `code`, `description`, `paysId`, `natureId`, `matriculeFiscal`, `registreCommerce`, `ice`, `compteComptableId`, `journalId`, les téléphones et leurs indicatifs, `fax`, `email`, `siteWeb`, les adresses, `codePostal`, `villeId`, `ville`, `notes` ; tout autre champ est ignoré.\n\nPersonnels : personne physique seule, `personneMorale` vrai = 400 ; `formeSocialeId` et `deviseId` facultatifs, contrôlés s'ils sont fournis. `ice`, `matriculeFiscal`, `registreCommerce`, `douane`, `codeComptable`, `codeComptableCollectif`, `tauxRetenue`, `tauxTva`, `delaiPaiement`, `assujettissementId` et `estPrestataire` sont ignorés.",
         "operationId": "creer_18",
         "parameters": [
           {
@@ -14886,6 +14889,49 @@
           },
           "409": {
             "description": "Banques et organismes : code déjà pris dans le type, sans casse."
+          }
+        }
+      }
+    },
+    "/api/administration/tiers/personnels/{id}/transformer-en-contact": {
+      "post": {
+        "tags": [
+          "Tiers (administration)"
+        ],
+        "summary": "Transforme un employé en contact",
+        "description": "Le type passe de EMP à CNT, la nature est vidée, l'auteur et la date de modification sont posés ; le reste de la ligne ne change pas. La ligne quitte Personnels et entre dans Contacts. Refus 409, rien modifié : employé lié à un compte, ou commercial (`ComFolder.CfgCommercialId`) d'un dossier non sorti, y compris sans statut. Être le commercial d'un client ne bloque pas.",
+        "operationId": "transformerEnContact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du tiers.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche du tiers, désormais contact.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FicheTiersDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Tiers inconnu ou qui n'est pas un employé."
+          },
+          "409": {
+            "description": "Employé lié à un compte, ou commercial d'un dossier actif."
           }
         }
       }
@@ -28166,7 +28212,8 @@
                 "fournisseurs",
                 "contacts",
                 "banques",
-                "organismes"
+                "organismes",
+                "personnels"
               ]
             }
           },
@@ -28229,7 +28276,8 @@
                 "fournisseurs",
                 "contacts",
                 "banques",
-                "organismes"
+                "organismes",
+                "personnels"
               ]
             }
           }
@@ -40475,7 +40523,7 @@
         "properties": {
           "personneMorale": {
             "type": "boolean",
-            "description": "Vrai = personne morale, faux = physique. Requis, sauf banques et organismes (ignoré)."
+            "description": "Vrai = morale, faux = physique. Requis, faux pour personnels ; banques et organismes : ignoré."
           },
           "raisonSociale": {
             "type": "string",
@@ -40513,12 +40561,12 @@
           "formeSocialeId": {
             "type": "string",
             "format": "uuid",
-            "description": "Forme sociale (AdmSocialForm). Requise, sauf banques et organismes (ignorée)."
+            "description": "Forme sociale (AdmSocialForm). Requise ; personnels : facultative ; banques, organismes : ignorée."
           },
           "deviseId": {
             "type": "string",
             "format": "uuid",
-            "description": "Devise (StlCurrency). Requise, sauf banques et organismes (ignorée)."
+            "description": "Devise (StlCurrency). Requise ; personnels : facultative ; banques, organismes : ignorée."
           },
           "assujettissementId": {
             "type": "string",
@@ -40819,7 +40867,7 @@
           },
           "personneMorale": {
             "type": "boolean",
-            "description": "Vrai = personne morale, faux = physique. Requis, sauf banques et organismes (ignoré)."
+            "description": "Vrai = morale, faux = physique. Requis, faux pour personnels ; banques et organismes : ignoré."
           },
           "raisonSociale": {
             "type": "string",
@@ -40857,12 +40905,12 @@
           "formeSocialeId": {
             "type": "string",
             "format": "uuid",
-            "description": "Forme sociale (AdmSocialForm). Requise, sauf banques et organismes (ignorée)."
+            "description": "Forme sociale (AdmSocialForm). Requise ; personnels : facultative ; banques, organismes : ignorée."
           },
           "deviseId": {
             "type": "string",
             "format": "uuid",
-            "description": "Devise (StlCurrency). Requise, sauf banques et organismes (ignorée)."
+            "description": "Devise (StlCurrency). Requise ; personnels : facultative ; banques, organismes : ignorée."
           },
           "assujettissementId": {
             "type": "string",
@@ -62382,11 +62430,11 @@
           },
           "rib": {
             "type": "string",
-            "description": "RIB."
+            "description": "RIB ; toujours null pour personnels."
           },
           "iban": {
             "type": "string",
-            "description": "IBAN."
+            "description": "IBAN ; toujours null pour personnels."
           },
           "matriculeFiscal": {
             "type": "string",
@@ -62419,6 +62467,14 @@
           "telephone2": {
             "type": "string",
             "description": "Téléphone 2."
+          },
+          "nationalite": {
+            "type": "string",
+            "description": "Libellé de la nationalité."
+          },
+          "profession": {
+            "type": "string",
+            "description": "Libellé de la profession."
           }
         }
       },

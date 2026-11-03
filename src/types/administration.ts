@@ -103,7 +103,7 @@ export interface FiltresEmail {
 }
 
 // FEATURE-admin-tiers.md
-export type FamilleTiers = 'fournisseurs' | 'contacts' | 'banques' | 'organismes';
+export type FamilleTiers = 'fournisseurs' | 'contacts' | 'banques' | 'organismes' | 'personnels';
 
 export type ListeReferentielTiers = 'formes-sociales' | 'assujettissements' | 'notes' | 'journaux';
 
@@ -145,6 +145,8 @@ export interface LigneTiersDto {
   assujettissement: string | null;
   telephone1: string | null;
   telephone2: string | null;
+  nationalite: string | null;
+  profession: string | null;
 }
 
 /** PUT : un champ omis est vidé. Le serveur ignore `raisonSociale` d'une personne physique, `prenom` et `nom` d'une morale. */

@@ -14,6 +14,8 @@ interface SectionTiers extends SectionSaisie {
   onglet: OngletSaisie;
   /** Section réservée aux fournisseurs. */
   fournisseur?: boolean;
+  /** Section Banque / Note : fournisseurs et personnels (`champsBanque`). */
+  banque?: boolean;
   /** Section réservée aux personnes physiques. */
   physique?: boolean;
   /** Renseignée : section propre aux fiches réduites (`true`) ou aux fiches complètes (`false`). */
@@ -140,7 +142,7 @@ const SECTIONS: SectionTiers[] = [
   {
     onglet: 'autres',
     titre: 'Banque',
-    fournisseur: true,
+    banque: true,
     champs: [liste('banqueId', 'Banque', 'banques'), texte('agence', 'Agence'), texte('rib', 'RIB'), texte('iban', 'IBAN')],
   },
   {
@@ -166,7 +168,7 @@ const SECTIONS: SectionTiers[] = [
   {
     onglet: 'notes',
     titre: 'Note',
-    fournisseur: true,
+    banque: true,
     champs: [liste('noteId', 'Note', 'notes')],
   },
 ];
@@ -176,12 +178,13 @@ const PHYSIQUE = ['prenom', 'nom', 'titreId', 'sexeId'];
 /** Champs requis par les règles 6 et 9 : une seule liste pour l'étoile du formulaire et la vérification. */
 function obligatoires(cfg: ConfigTiers, morale: boolean): Set<string> {
   if (cfg.ficheReduite) return new Set(cfg.requis);
-  return new Set(['formeSocialeId', 'deviseId', 'paysResidenceId', ...(morale ? ['raisonSociale'] : PHYSIQUE)]);
+  const formeDevise = cfg.formeDeviseRequises ? ['formeSocialeId', 'deviseId'] : [];
+  return new Set([...formeDevise, 'paysResidenceId', ...(morale ? ['raisonSociale'] : PHYSIQUE)]);
 }
 
 function visible(section: SectionTiers, cfg: ConfigTiers, morale: boolean): boolean {
   return (section.reduite ?? cfg.ficheReduite) === cfg.ficheReduite
-    && (!section.fournisseur || cfg.champsFournisseur) && (!section.physique || !morale);
+    && (!section.fournisseur || cfg.champsFournisseur) && (!section.banque || cfg.champsBanque) && (!section.physique || !morale);
 }
 
 /** Tous les champs de la famille, quelle que soit la bascule : le brouillon les porte tous. */
@@ -192,7 +195,7 @@ export function champsTiers(cfg: ConfigTiers): ChampDef[] {
 /** Sections d'un onglet pour la bascule courante : morale = raison sociale, physique = prénom, nom, titre, sexe. */
 export function sectionsTiers(cfg: ConfigTiers, onglet: OngletSaisie, morale: boolean): SectionSaisie[] {
   const requis = obligatoires(cfg, morale);
-  const masques = morale ? PHYSIQUE : ['raisonSociale'];
+  const masques = [...(morale ? PHYSIQUE : ['raisonSociale']), ...(cfg.physiqueSeule ? ['personneMorale'] : [])];
   return SECTIONS.filter((s) => s.onglet === onglet && visible(s, cfg, morale)).map((s) => ({
     titre: s.titre,
     champs: s.champs.filter((c) => !masques.includes(c.nom)).map((c) => (requis.has(c.nom) ? { ...c, obligatoire: true } : c)),
@@ -201,6 +204,7 @@ export function sectionsTiers(cfg: ConfigTiers, onglet: OngletSaisie, morale: bo
 
 export function brouillonTiers(cfg: ConfigTiers, fiche?: FicheTiersDto): Brouillon {
   const brouillon = brouillonDepuis(champsTiers(cfg), fiche);
+  if (cfg.physiqueSeule) return { ...brouillon, personneMorale: false };
   return fiche ? brouillon : { ...brouillon, personneMorale: cfg.moraleParDefaut };
 }
 

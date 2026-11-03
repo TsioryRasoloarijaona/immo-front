@@ -40,9 +40,10 @@ export const CONFIG_IMPORT: Record<TypeImportPatrimoine, ConfigImport> = {
   contacts: { libelle: 'contacts', liste: { libelle: 'Contacts', to: '/administration/contacts' }, tranche: false, suffixe: 'CONTACTS', aide: '(en-têtes et feuilles d’aide)' },
   banques: { libelle: 'banques', liste: { libelle: 'Banques', to: '/administration/banques' }, tranche: false, suffixe: 'BANQUES', aide: '(en-têtes et feuilles d’aide)' },
   organismes: { libelle: 'organismes', liste: { libelle: 'Organismes', to: '/administration/organismes' }, tranche: false, suffixe: 'ORGANISMES', aide: '(en-têtes et feuilles d’aide)' },
+  personnels: { libelle: 'personnels', liste: { libelle: 'Personnels', to: '/administration/personnels' }, tranche: false, suffixe: 'PERSONNELS', aide: '(en-têtes et feuilles d’aide)' },
 };
 
-const TYPES_A_MAPPING = new Set<TypeImportPatrimoine>(['entites-juridiques', 'projets', 'tranches', 'prospections-terrain', 'fournisseurs', 'contacts', 'banques', 'organismes']);
+const TYPES_A_MAPPING = new Set<TypeImportPatrimoine>(['entites-juridiques', 'projets', 'tranches', 'prospections-terrain', 'fournisseurs', 'contacts', 'banques', 'organismes', 'personnels']);
 
 /** Types dont le fichier passe par l'analyse et l'écran de mapping. */
 export function avecMapping(type: TypeImportPatrimoine): type is TypeImportGenerique {
