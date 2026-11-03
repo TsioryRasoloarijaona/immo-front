@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Contact, Trash2, Users } from 'lucide-react';
 import FicheShell, { type OngletFiche } from '../../components/FicheShell';
 import FormulaireTiers from '../../components/tiers/FormulaireTiers';
+import OngletLectureTiers from '../../components/tiers/OngletLectureTiers';
 import OngletLiensTiers from '../../components/tiers/OngletLiensTiers';
 import { ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -11,6 +12,7 @@ import { oublierLecturesRecentes } from '../../lib/api';
 import { creerTiers, getTiers, modifierTiers, supprimerTiers, transformerEnContact } from '../../lib/apiAdministration';
 import { CONFIG_TIERS, type ConfigTiers } from '../../lib/colonnesTiers';
 import { useConfirm } from '../../lib/confirmContext';
+import { ongletsLecture } from '../../lib/ongletsTiers';
 import { formatDate } from '../../lib/format';
 import { useSaisie } from '../../lib/saisiePatrimoine';
 import { brouillonTiers, champsTiers, corpsTiers, useListesTiers, verifierTiers } from '../../lib/saisieTiers';
@@ -98,6 +100,9 @@ function CorpsFiche({ cfg, fiche, listes, erreurListes, onEnregistre }: Readonly
     ...(cfg.ficheReduite ? [] : [{ id: 'autres', libelle: 'Autres', contenu: formulaire('autres') }]),
     ...(cfg.ongletContacts && fiche ? [{ id: 'contacts', libelle: 'Contacts', contenu: <OngletLiensTiers tiersId={fiche.id} /> }] : []),
     { id: 'notes', libelle: 'Notes', contenu: formulaire('notes') },
+    ...(fiche ? ongletsLecture(cfg.famille).map((o) => ({
+      id: o.id, libelle: o.libelle, contenu: <OngletLectureTiers famille={cfg.famille} tiersId={fiche.id} onglet={o} />,
+    })) : []),
   ];
 
   return (

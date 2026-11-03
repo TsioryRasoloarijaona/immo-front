@@ -35982,6 +35982,107 @@
         }
       }
     },
+    "/api/administration/tiers/{famille}/{id}/onglets/{onglet}": {
+      "get": {
+        "tags": [
+          "Tiers (administration)"
+        ],
+        "summary": "Onglet de lecture de la fiche tiers, par date décroissante",
+        "description": "Lecture seule. Fournisseurs, contacts et personnels ; conges pour les personnels seuls.",
+        "operationId": "lister_28",
+        "parameters": [
+          {
+            "name": "famille",
+            "in": "path",
+            "description": "Famille.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "fournisseurs",
+                "contacts",
+                "personnels"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du tiers.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "onglet",
+            "in": "path",
+            "description": "Onglet.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "prospections",
+                "dossiers",
+                "recettes",
+                "depenses",
+                "reglements",
+                "conges",
+                "historique"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Numéro de page, de 0 à 1 000 000.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Lignes par page, de 1 à 200.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes ; leur forme dépend de l'onglet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneOngletTiers"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "page ou size hors bornes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Famille, tiers ou onglet inconnu, ou onglet absent pour la famille."
+          }
+        }
+      }
+    },
     "/api/administration/tiers/{famille}/natures": {
       "get": {
         "tags": [
@@ -36012,6 +36113,79 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Famille inconnue."
+          }
+        }
+      }
+    },
+    "/api/administration/tiers/{famille}/export": {
+      "get": {
+        "tags": [
+          "Tiers (administration)"
+        ],
+        "summary": "Imprimer (pdf) ou exporter (xlsx) la liste filtrée, par code",
+        "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
+        "operationId": "exporter_21",
+        "parameters": [
+          {
+            "name": "famille",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "pdf"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du tableau dans l'ordre voulu ; absent = celles affichées par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description"
+          },
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Contient, sur code, description, raison sociale, mobile, téléphone, e-mail, ICE.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "natureId",
+            "in": "query",
+            "description": "Nature (CfgTierKind) ; absent = toutes, ignoré pour contacts.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Format inconnu, colonne inconnue, ou plus de 2 000 lignes en PDF."
           },
           "403": {
             "description": "L'appelant n'a pas le rôle Administrateur."
@@ -36104,7 +36278,7 @@
         ],
         "summary": "Sessions OMRAN, page par page",
         "description": "Lignes triées par date d'ouverture décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`StartDate < dateFin + 1 jour`). `utilisateur` est une égalité exacte sur `UserDesc`. `ip` cherche une sous-chaîne, `%`, `_` et `[` pris à la lettre. `ouverte=true` ne rend que `State = 2`, `ouverte=false` tout le reste, verrouillées comprises. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_28",
+        "operationId": "lister_29",
         "parameters": [
           {
             "name": "dateDebut",
@@ -36236,7 +36410,7 @@
           "Rôles (administration)"
         ],
         "summary": "Export Excel des rôles filtrés, triés par code",
-        "operationId": "exporter_21",
+        "operationId": "exporter_22",
         "parameters": [
           {
             "name": "texte",
@@ -36299,7 +36473,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Export Excel des rendez-vous filtrés, date croissante",
-        "operationId": "exporter_22",
+        "operationId": "exporter_23",
         "parameters": [
           {
             "name": "texte",
@@ -36435,7 +36609,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes de la période, date décroissante, à date égale par `PKey`. Sans date : les 30 derniers jours. `dateFin` est incluse jusqu'à 23:59:59. `texte` cherche dans `ObjectType` et `ObjectLabel` seulement, `%`, `_` et `[` pris à la lettre ; `utilisateur` est une égalité exacte. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_29",
+        "operationId": "lister_30",
         "parameters": [
           {
             "name": "dateDebut",
@@ -36599,7 +36773,7 @@
         ],
         "summary": "Export Excel des lignes filtrées",
         "description": "Mêmes filtres et même tri que la liste, sans pagination : au plus 20 000 lignes. Date au format `dd/MM/yyyy HH:mm` ; `Details` et `Description` ne sont pas exportés.",
-        "operationId": "exporter_23",
+        "operationId": "exporter_24",
         "parameters": [
           {
             "name": "dateDebut",
@@ -36684,7 +36858,7 @@
         ],
         "summary": "Fiches verrouillées par OMRAN, page par page",
         "description": "Lignes triées par date de verrouillage décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`LockDate < dateFin + 1 jour`). `recherche` cherche une sous-chaîne dans `Code`, `Description` et `UserDesc`, `%`, `_` et `[` pris à la lettre. Une ligne dont la session n'existe plus reste listée, `utilisateur` à null. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_30",
+        "operationId": "lister_31",
         "parameters": [
           {
             "name": "etat",
@@ -36784,7 +36958,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_31",
+        "operationId": "lister_32",
         "parameters": [
           {
             "name": "dateDebut",
@@ -36959,7 +37133,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes triées par date de création décroissante, les lignes sans date en dernier ; à date égale, par `PKey` puis `action`, ordre stable entre les pages. Sans filtre : toute la vue, aucune période préréglée. Deux lignes de même `PKey` et d'`action` différente restent deux lignes, comptées toutes deux dans `totalElements`. `recherche` cherche une sous-chaîne dans `code`, `action`, `description`, `creePar` et `modifiePar`, espaces ignorés des deux côtés, `%`, `_` et `[` pris à la lettre ; vide ou blanche = pas de filtre. Les périodes de création et de modification se cumulent, leurs bornes sont des jours inclus ; une ligne sans date est exclue dès qu'une borne de sa période est posée. Les valeurs vides sont rendues telles quelles. `id` sert de clé de ligne, il n'ouvre aucun objet.",
-        "operationId": "lister_32",
+        "operationId": "lister_33",
         "parameters": [
           {
             "name": "recherche",
@@ -37068,7 +37242,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_33",
+        "operationId": "lister_34",
         "parameters": [
           {
             "name": "portee",
@@ -62494,6 +62668,419 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/LigneTiersDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "LienOngletTiersDto": {
+        "type": "object",
+        "description": "Écran Arpent ouvert au clic sur la ligne.",
+        "properties": {
+          "ecran": {
+            "type": "string",
+            "description": "Écran.",
+            "enum": [
+              "dossier",
+              "prospection",
+              "encaissement"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de l'objet ouvert."
+          }
+        }
+      },
+      "LigneCongeTiersDto": {
+        "type": "object",
+        "description": "Congé du personnel (GrhVacation.GrhEmployeeId), sans montant ni salaire.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du congé."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "type": {
+            "type": "string",
+            "description": "Libellé du type de congé."
+          },
+          "du": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Début (DateFrom), clé du tri."
+          },
+          "au": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fin (DateTo)."
+          },
+          "jours": {
+            "type": "number",
+            "description": "Nombre de jours (DaysNumber)."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          }
+        }
+      },
+      "LigneDepenseTiersDto": {
+        "type": "object",
+        "description": "Facture payable du tiers (BuyDocument INVOICE, CanBePayed), montants tels qu'en base.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la facture."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la facture (DocDate), clé du tri."
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance (MaturityDate)."
+          },
+          "societe": {
+            "type": "string",
+            "description": "Libellé de la société."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Libellé du statut (BuyDocumentStatus)."
+          },
+          "montantHt": {
+            "type": "number",
+            "description": "Montant HT."
+          },
+          "montantTva": {
+            "type": "number",
+            "description": "Montant TVA."
+          },
+          "montantTtc": {
+            "type": "number",
+            "description": "Montant TTC."
+          },
+          "aPayer": {
+            "type": "number",
+            "description": "Montant à payer (AmountToPay)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          }
+        }
+      },
+      "LigneDossierTiersDto": {
+        "type": "object",
+        "description": "Dossier du tiers : vente (client), co-acquéreur (ComFolderCustomer) ou location (client).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du ComFolder ou du RntFolder."
+          },
+          "nature": {
+            "type": "string",
+            "description": "Rôle du tiers ; client et co-acquéreur du même dossier = Vente.",
+            "enum": [
+              "Vente",
+              "Location",
+              "Co-acquéreur"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du dossier (DocDate), clé du tri."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "tranche": {
+            "type": "string",
+            "description": "Libellé de la tranche de l'article."
+          },
+          "article": {
+            "type": "string",
+            "description": "Code de l'article."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Libellé de la catégorie de l'article."
+          },
+          "type": {
+            "type": "string",
+            "description": "Libellé du type de l'article."
+          },
+          "total": {
+            "type": "number",
+            "description": "Total à payer (ComFolder.TotalToPay) ; null pour une location."
+          },
+          "lien": {
+            "$ref": "#/components/schemas/LienOngletTiersDto",
+            "description": "Fiche dossier pour une vente ou un co-acquéreur ; null pour une location."
+          }
+        }
+      },
+      "LigneHistoriqueStatutTiersDto": {
+        "type": "object",
+        "description": "Changement de statut de dossier rattaché au tiers (StrFolderStatusHistory.CfgTierId).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne d'historique."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date (DocDate), clé du tri."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "article": {
+            "type": "string",
+            "description": "Code de l'article."
+          },
+          "detail": {
+            "type": "string",
+            "description": "Détail (Description)."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier de vente, null pour un autre dossier."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Libellé de l'utilisateur."
+          }
+        }
+      },
+      "LigneOngletTiers": {
+        "description": "Ligne d'un onglet de lecture de la fiche tiers ; sa forme dépend de l'onglet.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/LigneProspectionTiersDto"
+          },
+          {
+            "$ref": "#/components/schemas/LigneDossierTiersDto"
+          },
+          {
+            "$ref": "#/components/schemas/LigneRecetteTiersDto"
+          },
+          {
+            "$ref": "#/components/schemas/LigneDepenseTiersDto"
+          },
+          {
+            "$ref": "#/components/schemas/LigneReglementTiersDto"
+          },
+          {
+            "$ref": "#/components/schemas/LigneCongeTiersDto"
+          },
+          {
+            "$ref": "#/components/schemas/LigneHistoriqueStatutTiersDto"
+          }
+        ]
+      },
+      "LigneProspectionTiersDto": {
+        "type": "object",
+        "description": "Prospection dont le tiers est le prospect (ComProspection.CfgProspectId).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la prospection."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la prospection (DocDate)."
+          },
+          "vocation": {
+            "type": "string",
+            "description": "Libellé de la vocation."
+          },
+          "tranche": {
+            "type": "string",
+            "description": "Libellé de la tranche."
+          },
+          "nature": {
+            "type": "string",
+            "description": "Libellé de la nature de prospection."
+          },
+          "article": {
+            "type": "string",
+            "description": "Code de l'article."
+          },
+          "action": {
+            "type": "string",
+            "description": "Libellé de l'action."
+          },
+          "supportOrigine": {
+            "type": "string",
+            "description": "Libellé du support d'origine."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code d'un dossier de vente issu de la prospection, null sinon."
+          },
+          "archivee": {
+            "type": "boolean",
+            "description": "Archivée (IsClosed)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "lien": {
+            "$ref": "#/components/schemas/LienOngletTiersDto",
+            "description": "Toujours la fiche prospection."
+          }
+        }
+      },
+      "LigneRecetteTiersDto": {
+        "type": "object",
+        "description": "Pièce de recette du tiers (StlDocument.CfgTierId), montants tels qu'en base.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la pièce."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la pièce (DocDate), clé du tri."
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance (MaturityDate)."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence (DocRef)."
+          },
+          "aPayer": {
+            "type": "number",
+            "description": "Montant à payer (AmountToPay)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          }
+        }
+      },
+      "LigneReglementTiersDto": {
+        "type": "object",
+        "description": "Règlement dont le tiers est le tiers (TierId) ou le payeur (TierPayerId), une ligne par règlement.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du règlement."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du règlement (DocDate), clé du tri."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence (Code)."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé (Description)."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant (Amount), tel qu'en base."
+          },
+          "mode": {
+            "type": "string",
+            "description": "Libellé du mode de règlement."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Statut brut (Status), ex. IN_WORK, POINTED."
+          },
+          "credit": {
+            "type": "boolean",
+            "description": "Encaissement (IsCredit) ; faux ou null = décaissement."
+          },
+          "lien": {
+            "$ref": "#/components/schemas/LienOngletTiersDto",
+            "description": "Fiche encaissement si credit est vrai, null sinon."
+          }
+        }
+      },
+      "PageDtoLigneOngletTiers": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneOngletTiers"
             }
           },
           "page": {
