@@ -21,6 +21,7 @@ const TiersList = lazy(() => import('../../pages/tiers/TiersList'));
 const TiersFiche = lazy(() => import('../../pages/tiers/TiersFiche'));
 const FichiersAttachesList = lazy(() => import('../../pages/administration/FichiersAttachesList'));
 const ListeRapports = lazy(() => import('../../pages/rapports/ListeRapports'));
+const Rapport = lazy(() => import('../../pages/rapports/Rapport'));
 
 const administration: ModuleApp = {
   slug: 'administration',
@@ -64,6 +65,7 @@ const administration: ModuleApp = {
     { path: '/administration/personnels/:id', element: <TiersFiche famille="personnels" /> },
     { path: '/administration/fichiers-attaches', element: <FichiersAttachesList /> },
     { path: '/administration/rapports', element: <ListeRapports module="administration" /> },
+    { path: '/administration/rapports/:code', element: <Rapport module="administration" /> },
   ],
 };
 
