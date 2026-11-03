@@ -13,6 +13,7 @@ import { useConfirm } from '../../lib/confirmContext';
 import { formatNumber, pluriel } from '../../lib/format';
 import { puceUnique } from '../../lib/pucesFiltres';
 import { useToast } from '../../lib/toastContext';
+import { useExportListe } from '../../lib/useExportListe';
 import { errorMessage, useApi, useDebouncedValue } from '../../lib/useApi';
 import type { FamilleTiers, LigneTiersDto } from '../../types/administration';
 
@@ -43,6 +44,9 @@ export default function TiersList({ famille }: Readonly<{ famille: FamilleTiers 
     () => grilleDepuisCatalogue<LigneTiersDto>(colonnes.colonnes, cfg.disposition.poids, 'description'),
     [colonnes.colonnes, cfg.disposition.poids],
   );
+
+  const exportListe = useExportListe(`/api/administration/tiers/${famille}/export`,
+    { recherche: recherche || undefined, natureId: natureId ?? undefined, colonnes: colonnes.visibles }, `tiers-${famille}`);
 
   const rows = data?.content ?? [];
   const filtre = recherche !== '' || natureId !== null;
@@ -102,7 +106,11 @@ export default function TiersList({ famille }: Readonly<{ famille: FamilleTiers 
       etat={{ chargement: loading, erreur: error, pret: !!data }}
       vide={rows.length === 0 ? { aucun: cfg.aucun, filtresActifs: filtre, onReinitialiser: reinitialiser } : null}
       pagination={data ? { page: data.page, totalPages: data.totalPages, totalElements: data.totalElements, onPageChange: apresFiltre(setPage) } : undefined}
-      actions={[{ id: 'rafraichir', onClick: () => { oublierLecturesRecentes(); setVersion((n) => n + 1); } }]}
+      actions={[
+        { id: 'rafraichir', onClick: () => { oublierLecturesRecentes(); setVersion((n) => n + 1); } },
+        { id: 'imprimer', onClick: () => void exportListe.exporter('pdf'), disabled: exportListe.enCours || colonnes.visibles.length === 0 },
+      ]}
+      exportListe={{ export: exportListe, inactif: colonnes.visibles.length === 0 }}
       propres={[
         { id: 'ouvrir', libelle: `Ouvrir le ${cfg.sujet}`, icone: FolderOpen, disabled: !choisie, onClick: () => choisie && ouvrir(choisie) },
         { id: 'supprimer', libelle: `Supprimer le ${cfg.sujet}`, icone: Trash2, disabled: !choisie, onClick: () => void supprimer() },
