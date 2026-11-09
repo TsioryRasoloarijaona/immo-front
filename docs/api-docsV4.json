@@ -26862,6 +26862,16 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "Fiche du lot.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotDetailDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Lot introuvable : id inconnu, lot sans projet ou projet hors périmètre."
           }
@@ -26889,6 +26899,19 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "Décomptes du lot (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DecompteListItemDto"
+                  }
+                }
+              }
+            }
+          },
           "404": {
             "description": "Lot introuvable : id inconnu, lot sans projet ou projet hors périmètre."
           }
@@ -26916,6 +26939,16 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "Lignes du bordereau et leurs totaux.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BordereauDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Lot introuvable : id inconnu, lot sans projet ou projet hors périmètre."
           }
@@ -27058,6 +27091,16 @@
           }
         ],
         "responses": {
+          "200": {
+            "description": "Fiche du décompte.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecompteDetailDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Décompte introuvable : id inconnu ou lot hors périmètre."
           }
@@ -59451,6 +59494,320 @@
           }
         }
       },
+      "LotDetailDto": {
+        "type": "object",
+        "description": "Fiche d'un lot : les champs de la ligne de liste, plus estimation, taux, options et dates.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjMarket.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du lot.",
+            "example": "24/00033"
+          },
+          "description": {
+            "type": "string",
+            "description": "Désignation du lot."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet du lot (PrjProject.PKey)."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet.",
+            "example": "ARS-PRJ"
+          },
+          "typeCode": {
+            "type": "string",
+            "description": "Code du type de lot (PrjMarketType), null si absent."
+          },
+          "typeDescription": {
+            "type": "string",
+            "description": "Libellé du type de lot, null si absent."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut (StrStatus) ; étiquette, jamais une règle."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutOrdre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre du statut dans son workflow (StrStatus.Sorting)."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur du lot (CfgTier.PKey), null si absent."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur, null si absent."
+          },
+          "categorieCode": {
+            "type": "string",
+            "description": "Code de la catégorie (StlCategory), null si absente."
+          },
+          "categorieDescription": {
+            "type": "string",
+            "description": "Libellé de la catégorie, null si absente."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de début contractuelle (StartDateManual)."
+          },
+          "dateFin": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de fin contractuelle (EndDateManual)."
+          },
+          "delaiJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai contractuel en jours (DelayManual)."
+          },
+          "multiFournisseur": {
+            "type": "boolean",
+            "description": "Lot multi-fournisseur (IsMultiSupplier)."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Marché HT : Σ bordereau définitif, sinon montant forfaitaire."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Marché TVA : Σ bordereau définitif, sinon montant forfaitaire."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Marché TTC : Σ bordereau définitif, sinon montant forfaitaire."
+          },
+          "montantsDepuisBordereau": {
+            "type": "boolean",
+            "description": "Vrai si le marché vient du bordereau, faux s'il est forfaitaire (lot sans ligne)."
+          },
+          "tauxRetenueGarantie": {
+            "type": "number",
+            "description": "Taux de retenue de garantie du lot en pourcentage (0–100).",
+            "example": 10
+          },
+          "nbDecomptes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de décomptes du lot."
+          },
+          "cumulDecomptesHT": {
+            "type": "number",
+            "description": "Σ AmountHT des décomptes."
+          },
+          "cumulDecomptesTTC": {
+            "type": "number",
+            "description": "Σ AmountTTC des décomptes."
+          },
+          "cumulTravauxSupplementaires": {
+            "type": "number",
+            "description": "Σ des travaux supplémentaires TTC des décomptes (extraAmount)."
+          },
+          "cumulRetenueGarantie": {
+            "type": "number",
+            "description": "Σ des retenues de garantie des décomptes (WarrantyAmount)."
+          },
+          "avancementPct": {
+            "type": "number",
+            "description": "Cumul décomptes TTC / marché TTC × 100, 2 décimales ; null si marché nul ; non plafonné."
+          },
+          "totalFacture": {
+            "type": "number",
+            "description": "Σ à payer des factures des décomptes (BuyDocument.AmountToPay)."
+          },
+          "totalRegle": {
+            "type": "number",
+            "description": "Σ des règlements non annulés de ces factures."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Facturé − réglé."
+          },
+          "projetDescription": {
+            "type": "string",
+            "description": "Libellé du projet."
+          },
+          "entiteCode": {
+            "type": "string",
+            "description": "Code du genre de lot (StrEntity).",
+            "example": "PrjMarket"
+          },
+          "entiteDescription": {
+            "type": "string",
+            "description": "Libellé du genre de lot.",
+            "example": "Lot Entrepreneurs"
+          },
+          "montantForfaitaireHT": {
+            "type": "number",
+            "description": "Montant forfaitaire HT saisi (EstimatedPriceHTManual)."
+          },
+          "montantForfaitaireTVA": {
+            "type": "number",
+            "description": "TVA forfaitaire saisie (EstimatedVatAmountManual)."
+          },
+          "montantForfaitaireTTC": {
+            "type": "number",
+            "description": "Montant forfaitaire TTC saisi (EstimatedPriceTTCManual)."
+          },
+          "estimationHT": {
+            "type": "number",
+            "description": "Estimation HT : Σ bordereau estimatif, sinon montant forfaitaire HT."
+          },
+          "estimationTVA": {
+            "type": "number",
+            "description": "Estimation TVA : Σ bordereau estimatif, sinon TVA forfaitaire."
+          },
+          "estimationTTC": {
+            "type": "number",
+            "description": "Estimation TTC : Σ bordereau estimatif, sinon montant forfaitaire TTC."
+          },
+          "estimationDepuisBordereau": {
+            "type": "boolean",
+            "description": "Vrai si l'estimation vient du bordereau estimatif."
+          },
+          "retenueGarantieTheorique": {
+            "type": "number",
+            "description": "Marché TTC × taux de retenue de garantie."
+          },
+          "avanceTheorique": {
+            "type": "number",
+            "description": "Marché TTC × taux d'avance."
+          },
+          "tauxAvance": {
+            "type": "number",
+            "description": "Taux d'avance en pourcentage (0–100)."
+          },
+          "tauxCompteProrata": {
+            "type": "number",
+            "description": "Taux de compte prorata en pourcentage (ProportionRatio)."
+          },
+          "tauxAssuranceDEC": {
+            "type": "number",
+            "description": "Taux d'assurance décennale en pourcentage."
+          },
+          "tauxAssuranceTRC": {
+            "type": "number",
+            "description": "Taux d'assurance tous risques chantier en pourcentage."
+          },
+          "tvaDefaut": {
+            "type": "number",
+            "description": "TVA par défaut en pourcentage (DefaultVat).",
+            "example": 20
+          },
+          "delaiPaiementJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de paiement en jours (PaymentDelay)."
+          },
+          "garantieMois": {
+            "type": "number",
+            "description": "Durée de garantie en mois (WarrantyInMonths)."
+          },
+          "restitutionGarantieBloquee": {
+            "type": "boolean",
+            "description": "« Bloquer la restitution de la retenue de garantie » (BlokWarrantyRestitution)."
+          },
+          "avecDecomposition": {
+            "type": "boolean",
+            "description": "Lot avec décomposition (WithMarketView)."
+          },
+          "clos": {
+            "type": "boolean",
+            "description": "Lot clôturé (IsClosed)."
+          },
+          "cumulNetAPayer": {
+            "type": "number",
+            "description": "Σ net à payer des décomptes (AmountToPay)."
+          },
+          "dateDebutPrevisionnelle": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de début prévisionnelle (StartDate)."
+          },
+          "delaiPrevisionnelJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai prévisionnel en jours (Delay)."
+          },
+          "dateFinPrevisionnelle": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de fin prévisionnelle (EndDate)."
+          },
+          "dateLancementAppelOffres": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de lancement de l'appel d'offres (LaunchOfTenderDate)."
+          },
+          "dateRetraitDossiers": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de retrait du dossier de consultation."
+          },
+          "dateEcheanceRemiseOffres": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'échéance de remise des offres (TenderMaturityDate)."
+          },
+          "dateOuverturePlis": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'ouverture des plis (BidOpeningDate)."
+          },
+          "dateAdjudication": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'adjudication (TenderDate)."
+          },
+          "dateSignatureMarche": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de signature du marché (ContractSignatureDate)."
+          },
+          "dateOrdreService": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'ordre de service (ServiceOrderDate)."
+          },
+          "dateLancementTravaux": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de lancement des travaux (WorkLaunchDate)."
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Création (UserCreateDateTime)."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (UserCreate)."
+          },
+          "dateModification": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dernière modification (UserUpdateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification (UserUpdate)."
+          }
+        }
+      },
       "DecompteListItemDto": {
         "type": "object",
         "description": "Ligne de liste d'un décompte (PrjWorkingOut) : montants stockés, net recalculé et solde de sa facture.",
@@ -59573,6 +59930,104 @@
           }
         }
       },
+      "BordereauDto": {
+        "type": "object",
+        "description": "Bordereau définitif d'un lot ; lignes vides = lot au montant forfaitaire.",
+        "properties": {
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey)."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes, tri par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/LigneBordereauDto"
+            }
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxBordereauDto",
+            "description": "Totaux des lignes."
+          }
+        }
+      },
+      "LigneBordereauDto": {
+        "type": "object",
+        "description": "Ligne du bordereau définitif d'un lot (PrjMarketLine hors stock) ; totaux calculés, non stockés.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjMarketLine.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre de la ligne (Sorting)."
+          },
+          "groupe": {
+            "type": "string",
+            "description": "Libellé du regroupement (PrjMarketLineGrouping), null si la ligne n'en a pas."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la ligne."
+          },
+          "designation": {
+            "type": "string",
+            "description": "Désignation."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité (Unity)."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT (16 décimales en base)."
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA en pourcentage (VatRatio × 100).",
+            "example": 20
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Quantité × prix unitaire HT."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Quantité × prix unitaire TTC."
+          }
+        }
+      },
+      "TotauxBordereauDto": {
+        "type": "object",
+        "description": "Totaux du bordereau ; égaux au marché du lot quand il a des lignes.",
+        "properties": {
+          "totalHT": {
+            "type": "number",
+            "description": "Σ quantité × prix unitaire HT."
+          },
+          "totalTVA": {
+            "type": "number",
+            "description": "Σ quantité × prix unitaire HT × taux de TVA."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Σ quantité × prix unitaire TTC."
+          },
+          "nbLignes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes."
+          }
+        }
+      },
       "PageDtoDecompteListItemDto": {
         "type": "object",
         "properties": {
@@ -59597,6 +60052,445 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "DecompteDetailDto": {
+        "type": "object",
+        "description": "Fiche d'un décompte : la ligne de liste, le détail des montants stockés, la facture et les lignes.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjWorkingOut.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du décompte.",
+            "example": "26/00744"
+          },
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro du décompte dans son lot (Sorting)."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du décompte (DocDate)."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey)."
+          },
+          "lotCode": {
+            "type": "string",
+            "description": "Code du lot."
+          },
+          "lotDescription": {
+            "type": "string",
+            "description": "Désignation du lot."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet du lot (PrjProject.PKey)."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur : celui du décompte (CfgTierId), sinon celui du lot."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur, null si absent."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "HT de la période (AmountHT)."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "TTC de la période (AmountTTC)."
+          },
+          "travauxSupplementaires": {
+            "type": "number",
+            "description": "Travaux supplémentaires TTC (extraAmount)."
+          },
+          "retenueGarantie": {
+            "type": "number",
+            "description": "Retenue de garantie de la période (WarrantyAmount)."
+          },
+          "netAPayer": {
+            "type": "number",
+            "description": "Net à payer stocké par OMRAN (AmountToPay)."
+          },
+          "netAPayerRecalcule": {
+            "type": "number",
+            "description": "Net à payer recalculé par Arpent sur les colonnes stockées, 2 décimales."
+          },
+          "ecartNetAPayer": {
+            "type": "number",
+            "description": "netAPayer − netAPayerRecalcule, signé."
+          },
+          "ecartSignificatif": {
+            "type": "boolean",
+            "description": "Vrai si |ecartNetAPayer| > 0,02 : un écart s'affiche, il ne bloque rien."
+          },
+          "cumulNetRetenueGarantie": {
+            "type": "number",
+            "description": "Cumul par lot du net de RG (AmountTTCAfterDeductions), sans les extras."
+          },
+          "dernier": {
+            "type": "boolean",
+            "description": "Dernier décompte du lot (FinalWorkingOut)."
+          },
+          "factureId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Facture du décompte (PrjWorkingOut.BuyDocumentId), null si non facturé."
+          },
+          "factureCode": {
+            "type": "string",
+            "description": "Code de la facture."
+          },
+          "factureStatutCode": {
+            "type": "string",
+            "description": "Code du statut de la facture (BuyDocumentStatus)."
+          },
+          "factureStatutDescription": {
+            "type": "string",
+            "description": "Libellé du statut de la facture."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Σ des règlements non annulés de la facture ; 0 sans facture."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "À payer de la facture (BuyDocument.AmountToPay) − réglé ; 0 sans facture."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "TVA de la période (AmountVat)."
+          },
+          "tauxRetenueGarantie": {
+            "type": "number",
+            "description": "Taux de RG du décompte en pourcentage (WarrantyRatio × 100)."
+          },
+          "montantNetRetenueGarantie": {
+            "type": "number",
+            "description": "TTC − RG de la période (WorkingOutAmountTTC)."
+          },
+          "avanceAmortie": {
+            "type": "number",
+            "description": "Avance amortie (AdvanceAmount)."
+          },
+          "avanceSurDecompte": {
+            "type": "number",
+            "description": "Avance sur décompte (WorkingOutAdvanceAmount)."
+          },
+          "compteProrata": {
+            "type": "number",
+            "description": "Compte prorata (proportionAmount)."
+          },
+          "assuranceDEC": {
+            "type": "number",
+            "description": "Assurance décennale (insuranceDECAmount)."
+          },
+          "assuranceTRC": {
+            "type": "number",
+            "description": "Assurance tous risques chantier (insuranceTRCAmount)."
+          },
+          "retenuesNonRemboursables": {
+            "type": "number",
+            "description": "Retenues non remboursables (nonRefundableRetainer)."
+          },
+          "retenuesRemboursables": {
+            "type": "number",
+            "description": "Retenues remboursables (refundableRetainer)."
+          },
+          "fluctuations": {
+            "type": "number",
+            "description": "Fluctuations (Fluctuations)."
+          },
+          "fluctuationsAPayer": {
+            "type": "number",
+            "description": "Fluctuations à payer (FluctuationsToPay), comprises dans le net."
+          },
+          "montantBrut": {
+            "type": "number",
+            "description": "Montant brut (amountToBePaid)."
+          },
+          "cumulTTC": {
+            "type": "number",
+            "description": "Σ AmountTTC des décomptes du lot de numéro ≤ celui-ci."
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Création (UserCreateDateTime)."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création."
+          },
+          "dateModification": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dernière modification (UserUpdateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification."
+          },
+          "facture": {
+            "$ref": "#/components/schemas/FactureDecompteDto",
+            "description": "Facture du décompte, null si non facturé."
+          },
+          "reglements": {
+            "type": "array",
+            "description": "Règlements de la facture, annulés compris (annule = true), tri par date.",
+            "items": {
+              "$ref": "#/components/schemas/ReglementFactureDto"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes du décompte, tri par ordre ; vide pour un décompte « extras seuls ».",
+            "items": {
+              "$ref": "#/components/schemas/LigneDecompteDto"
+            }
+          },
+          "extras": {
+            "type": "array",
+            "description": "Travaux supplémentaires (PrjWorkingOutLineExtra), tri par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/ExtraDecompteDto"
+            }
+          },
+          "retenues": {
+            "type": "array",
+            "description": "Retenues (PrjWorkingOutRetainedLine), tri par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/RetenueDecompteDto"
+            }
+          }
+        }
+      },
+      "ExtraDecompteDto": {
+        "type": "object",
+        "description": "Travail supplémentaire d'un décompte (PrjWorkingOutLineExtra).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjWorkingOutLineExtra.Pkey."
+          },
+          "designation": {
+            "type": "string",
+            "description": "Désignation."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT."
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA en pourcentage."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Quantité × prix unitaire HT."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Quantité × prix unitaire TTC."
+          }
+        }
+      },
+      "FactureDecompteDto": {
+        "type": "object",
+        "description": "Facture d'un décompte (BuyDocument pointée par PrjWorkingOut.BuyDocumentId).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyDocument.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la facture.",
+            "example": "26/03017"
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la facture (DocDate)."
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'échéance (MaturityDate)."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "À payer (AmountToPay) = net du décompte + régularisation ; base du reste à régler."
+          },
+          "regularisation": {
+            "type": "number",
+            "description": "Régularisation (AmountRegul)."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut de la facture.",
+            "example": "VALIDÉ DG"
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut de la facture."
+          },
+          "okPourPaiement": {
+            "type": "boolean",
+            "description": "Vrai si le statut de la facture autorise le paiement (BuyDocumentStatus.IsOkForPayement)."
+          }
+        }
+      },
+      "LigneDecompteDto": {
+        "type": "object",
+        "description": "Ligne de décompte (PrjWorkingOutLine) jointe à sa ligne de bordereau.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjWorkingOutLine.Pkey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting)."
+          },
+          "designation": {
+            "type": "string",
+            "description": "Désignation."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité."
+          },
+          "quantiteMarche": {
+            "type": "number",
+            "description": "Quantité du marché (PrjMarketLine.Quantity)."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT de la ligne de décompte."
+          },
+          "quantiteAnterieure": {
+            "type": "number",
+            "description": "Quantité des décomptes précédents (QuantityOld)."
+          },
+          "quantitePeriode": {
+            "type": "number",
+            "description": "Quantité de la période (Quantity = QuantityOrigin × Coefficient)."
+          },
+          "quantiteCumulee": {
+            "type": "number",
+            "description": "Antérieure + période."
+          },
+          "coefficient": {
+            "type": "number",
+            "description": "Coefficient."
+          },
+          "montantHTPeriode": {
+            "type": "number",
+            "description": "Quantité de la période × prix unitaire HT."
+          },
+          "avancementLignePct": {
+            "type": "number",
+            "description": "Cumulée / quantité marché × 100, 2 décimales ; null si marché nul ; peut dépasser 100."
+          }
+        }
+      },
+      "ReglementFactureDto": {
+        "type": "object",
+        "description": "Ligne de règlement (StlSettlementLine) portée par une facture de décompte.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Règlement (StlSettlement.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du règlement."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du règlement (StlSettlement.DocDate)."
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'échéance (EcheanceDate)."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant de la ligne affecté à la facture."
+          },
+          "typeCode": {
+            "type": "string",
+            "description": "Code du type de règlement (StlSettlementType).",
+            "example": "VIREMENT"
+          },
+          "typeDescription": {
+            "type": "string",
+            "description": "Libellé du type de règlement."
+          },
+          "annule": {
+            "type": "boolean",
+            "description": "Règlement annulé (Status CANCELED) : listé, exclu du réglé."
+          }
+        }
+      },
+      "RetenueDecompteDto": {
+        "type": "object",
+        "description": "Retenue d'un décompte (PrjWorkingOutRetainedLine).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjWorkingOutRetainedLine.PKey."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé (Description)."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant (Amount)."
           }
         }
       },

@@ -185,6 +185,7 @@ export interface FactureDecompteDto {
   regularisation: number | null;
   statutCode: string | null;
   statutDescription: string | null;
+  okPourPaiement: boolean;
 }
 
 export interface ReglementFactureDto {
