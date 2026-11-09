@@ -1,7 +1,7 @@
 // Miroir des DTO de FEATURE-patrimoine-referentiels.md (référentiels administrables, /api/referentiels-admin).
 import type { UUID } from '../types';
 
-export type FamilleReferentiel = 'ARTICLES' | 'PROSPECTIONS_TERRAINS' | 'AUTRES' | 'TACHES' | 'TIERS';
+export type FamilleReferentiel = 'ARTICLES' | 'PROSPECTIONS_TERRAINS' | 'AUTRES' | 'TACHES' | 'TIERS' | 'PROJET';
 
 export type TypeChampReferentiel =
   | 'TEXTE'
