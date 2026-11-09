@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from 'react';
-import { Calculator, Key, Landmark, ShoppingCart, Users, Wrench } from 'lucide-react';
+import { Calculator, Key, Landmark, Users, Wrench } from 'lucide-react';
 import { MODULES_DECLARES } from '../modules/registre';
 
 export interface AppModule {
@@ -24,7 +24,6 @@ export function moduleForPath(pathname: string): string | null {
 
 /** Modules sans écran (« Bientôt ») ; les autres se déclarent dans `src/modules/<module>/routes.tsx`. */
 const MODULES_A_VENIR: (AppModule & { ordre: number })[] = [
-  { slug: 'achat', label: 'Achat', icon: ShoppingCart, active: false, ordre: 3 },
   { slug: 'location', label: 'Location', icon: Key, active: false, ordre: 4 },
   { slug: 'sav', label: 'Service Après Vente', icon: Wrench, active: false, ordre: 5 },
   { slug: 'rh', label: 'Ressources Humaines', icon: Users, active: false, ordre: 6 },
