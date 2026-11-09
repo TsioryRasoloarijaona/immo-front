@@ -11,7 +11,10 @@ export function raisonPreuveVerrouillee(statut: string | undefined, nbPieces: nu
     : undefined;
 }
 
+export const MESSAGE_POINTAGE_INTERDIT = 'Réservé à Administrateur, Commercial Chef, Direction Générale.';
+
 export function messageErreurStatut(err: unknown): string {
+  if (err instanceof ApiError && err.status === 403) return MESSAGE_POINTAGE_INTERDIT;
   const base = err instanceof Error ? err.message : "Échec de l'opération.";
   if (!(err instanceof ApiError) || err.status !== 409) return base;
   const permises = err.problem?.transitionsAutorisees;
