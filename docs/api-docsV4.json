@@ -144,6 +144,10 @@
       "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les devis dont la tranche relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un devis sans tranche reste visible."
     },
     {
+      "name": "Achat",
+      "description": "Pièces d'achat (`BuyDocument`) en **lecture seule** : factures, bons de commande, devis, documents à régler, bons de livraison, avoirs. Voir `instructions/FEATURE-achat-lecture-factures.md`.\n\n**Visibilité, comme OMRAN** : une pièce est visible si et seulement si son projet (`PrjProjectId`) figure dans les habilitations projet de l'appelant (`AdmUserHabilitation.PrjProjectId`), **pour tous les rôles** (aucune exemption Administrateur / Direction générale). Une pièce sans projet n'est jamais visible. Une pièce hors périmètre répond 404, comme un id inconnu.\n\n**Solde** : `montantRegle` = somme des lignes de règlement (`StlSettlementLine.Amount`) de la pièce dont le règlement n'est pas annulé (`CANCELED`) ; `resteARegler` = `montantAPayer` (`AmountToPay`) − réglé, à 2 décimales ; `solde` = |reste| ≤ 0,05 ; `tropRegle` = reste < −0,05. « Payé » ne se lit jamais dans le statut."
+    },
+    {
       "name": "Modèles de documents",
       "description": "Modèles de documents modifiables par un administrateur (FEATURE-modeles-documents.md). Un modèle appartient à une\n**catégorie** (type de fiche source, lot 1 : `DOSSIER_VENTE`) ; son contenu est un **HTML restreint** (liste blanche :\n`p`, `h1`–`h3`, `strong`, `em`, `u`, `br`, listes, `hr`, tableaux, images `<img data-image=\"<id>\" alt=\"…\">` **sans\n`src`**, l'id venant de `POST /api/modeles-documents/images`) où les valeurs de la fiche s'écrivent\n`<span data-champ=\"cle\">libellé</span>`, les lignes répétées `data-repeter=\"liste\"` (sur `tr`, `li`, `p`, `span`), les\nblocs conditionnels `data-si=\"cle\"` (+ `data-valeur` pour un booléen), les titres numérotés `<h2 data-numero>` et les\nsauts de page `<div data-saut-page></div>`, les pages répétées `<div data-repeter=\"liste\" data-saut-page>` (une page par\nélément) et les blocs positionnés `<div data-bloc data-x data-y data-l data-h [data-taille] [data-gras] [data-align]>`\n(centimètres décimaux depuis le coin haut gauche de la page A4, x + l ≤ 21 et y + h ≤ 29,7 ; taille 6 à 72 pt, Helvetica,\ngras si `data-gras=\"true\"` ; `data-align` left, center ou right ; texte et champs seulement, ni tableau ni image). Tout autre élément, attribut ou style → 400 qui nomme l'élément fautif ;\ntexte de la version (contenu, en-tête et pied) : 1 Mo au plus. Chaque enregistrement crée une version, jamais\nd'écrasement ; pas de suppression : `actif = false`. Concevoir = rôle `Administrateur` ; imprimer = accès à la fiche\n(404 hors périmètre)."
     },
@@ -17967,6 +17971,16 @@
           },
           "400": {
             "description": "`statut` absent ou inconnu ; pour `POINTED`, `dateReglement` ou `compteId` absent, compte inconnu ou d'une autre société.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Commercial Chef, Direction Générale.",
             "content": {
               "*/*": {
                 "schema": {
@@ -37699,6 +37713,362 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/achat/referentiels": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Listes de choix des filtres : natures, statuts, projets et fournisseurs visibles",
+        "operationId": "referentiels",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferentielsAchatDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/achat/documents": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Liste paginée des pièces d'achat visibles (habilitations projet)",
+        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée n'y figure pas. `search` cherche, sans tenir compte de la casse, dans le code, la référence, la description et le nom du fournisseur. Tri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler` ; une autre propriété répond 400.",
+        "operationId": "liste",
+        "parameters": [
+          {
+            "name": "natures",
+            "in": "query",
+            "description": "Natures (DocType), paramètre répété ; valeur inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "INVOICE",
+                  "ORDER",
+                  "QUOTE",
+                  "DOCUMENT_TO_PAY",
+                  "DELIVRY",
+                  "REFUND"
+                ]
+              }
+            },
+            "example": "INVOICE"
+          },
+          {
+            "name": "statutIds",
+            "in": "query",
+            "description": "Statuts (BuyDocumentStatus.id), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; un projet hors périmètre est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "lotId",
+            "in": "query",
+            "description": "Lot de marché (PrjMarket.id).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fournisseurId",
+            "in": "query",
+            "description": "Fournisseur (CfgTier.id).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date de la pièce à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date de la pièce jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "nonSoldes",
+            "in": "query",
+            "description": "true : pièces dont le reste à régler dépasse 0,05 (trop réglées exclues).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche insensible à la casse : code, référence, description, fournisseur.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de pièces ; vide si l'appelant n'a aucun projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoDocumentAchatListItemDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre mal formé (UUID, date, nature) ou tri inconnu."
+          }
+        }
+      }
+    },
+    "/api/achat/documents/{id}": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Fiche d'une pièce d'achat : lignes, ventilation, historique, règlements",
+        "description": "Fiche d'une pièce visible : les champs de la ligne de liste (mêmes calculs), l'en-tête (notes, régularisation, timbre, entité, audit), les lignes (`Sorting`), la ventilation (taux par catégorie), l'historique des statuts (date croissante) et les règlements, annulés compris avec `annule = true` (exclus du réglé).",
+        "operationId": "fiche_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la pièce (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pièce visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentAchatDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Pièce introuvable, sans projet ou hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/achat/documents/export": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Export Excel de la liste des pièces d'achat, mêmes filtres et même requête que la liste",
+        "operationId": "exporter_26",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "natures",
+            "in": "query",
+            "description": "Natures (DocType), paramètre répété ; valeur inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "INVOICE",
+                  "ORDER",
+                  "QUOTE",
+                  "DOCUMENT_TO_PAY",
+                  "DELIVRY",
+                  "REFUND"
+                ]
+              }
+            },
+            "example": "INVOICE"
+          },
+          {
+            "name": "statutIds",
+            "in": "query",
+            "description": "Statuts (BuyDocumentStatus.id), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; un projet hors périmètre est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "lotId",
+            "in": "query",
+            "description": "Lot de marché (PrjMarket.id).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fournisseurId",
+            "in": "query",
+            "description": "Fournisseur (CfgTier.id).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date de la pièce à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date de la pièce jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "nonSoldes",
+            "in": "query",
+            "description": "true : pièces dont le reste à régler dépasse 0,05 (trop réglées exclues).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche insensible à la casse : code, référence, description, fournisseur.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Tri `propriete,asc|desc`, répétable, comme la liste.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "dateDocument,desc"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille DONNEES.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre mal formé ou format autre que xlsx."
           }
         }
       }
@@ -64151,6 +64521,589 @@
             "type": "string",
             "format": "uuid",
             "description": "Prospect (CfgTier) de la prospection, pour le lien secondaire ; null pour un dossier."
+          }
+        }
+      },
+      "FournisseurAchatDto": {
+        "type": "object",
+        "description": "Fournisseur (CfgTier) d'au moins une pièce visible.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du fournisseur."
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom (CfgTier.Description)."
+          }
+        }
+      },
+      "NatureAchatDto": {
+        "type": "object",
+        "description": "Nature de pièce (DocType).",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code stocké (DocType).",
+            "example": "INVOICE"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé.",
+            "example": "Facture"
+          }
+        }
+      },
+      "ProjetAchatDto": {
+        "type": "object",
+        "description": "Projet de chantier (PrjProject).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du projet."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          }
+        }
+      },
+      "ReferentielsAchatDto": {
+        "type": "object",
+        "description": "Listes de choix des filtres de pièces d'achat ; projets et fournisseurs limités au périmètre.",
+        "properties": {
+          "natures": {
+            "type": "array",
+            "description": "Natures, dans l'ordre d'affichage.",
+            "items": {
+              "$ref": "#/components/schemas/NatureAchatDto"
+            }
+          },
+          "statuts": {
+            "type": "array",
+            "description": "Statuts de pièce, par ordre (Sorting).",
+            "items": {
+              "$ref": "#/components/schemas/StatutAchatDto"
+            }
+          },
+          "projets": {
+            "type": "array",
+            "description": "Projets visibles de l'appelant (habilitations projet).",
+            "items": {
+              "$ref": "#/components/schemas/ProjetAchatDto"
+            }
+          },
+          "fournisseurs": {
+            "type": "array",
+            "description": "Fournisseurs des pièces visibles, par nom.",
+            "items": {
+              "$ref": "#/components/schemas/FournisseurAchatDto"
+            }
+          }
+        }
+      },
+      "StatutAchatDto": {
+        "type": "object",
+        "description": "Statut de pièce (BuyDocumentStatus).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du statut."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "okPourPaiement": {
+            "type": "boolean",
+            "description": "Drapeau « OK pour paiement » (IsOkForPayement)."
+          },
+          "valideComptabilite": {
+            "type": "boolean",
+            "description": "Drapeau « Validé comptabilité » (IsValidatedOnAccounting)."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre d'affichage (Sorting) ; null si absent."
+          }
+        }
+      },
+      "DocumentAchatListItemDto": {
+        "type": "object",
+        "description": "Pièce d'achat (BuyDocument) dans la liste ; mêmes valeurs en tête de la fiche.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la pièce (BuyDocument.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "N° de la pièce (Code).",
+            "example": "26/03017"
+          },
+          "nature": {
+            "type": "string",
+            "description": "Nature stockée (DocType) : INVOICE, ORDER, QUOTE, DOCUMENT_TO_PAY, DELIVRY, REFUND."
+          },
+          "natureLibelle": {
+            "type": "string",
+            "description": "Libellé de la nature.",
+            "example": "Facture"
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence fournisseur (DocRef)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de la pièce."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'échéance (MaturityDate) ; null si absente."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.id)."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur (CfgTier.Description)."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet de chantier (PrjProject.id) ; toujours dans le périmètre de l'appelant."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot de marché (PrjMarket.id) ; null si la pièce n'est pas rattachée à un lot."
+          },
+          "lotCode": {
+            "type": "string",
+            "description": "Code du lot ; null sans lot."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société (CfgCompany)."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut (BuyDocumentStatus.id) ; null pour un devis."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut ; null sans statut."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut ; null sans statut."
+          },
+          "okPourPaiement": {
+            "type": "boolean",
+            "description": "Drapeau « OK pour paiement » du statut ; false sans statut."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT (AmountHT)."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Montant de TVA (AmountVat)."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC (AmountTTC)."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "Montant à payer (AmountToPay), arrondi à 2 décimales : base du reste."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Σ des lignes de règlement de la pièce, règlements annulés exclus."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Montant à payer − réglé ; négatif si la pièce est trop réglée."
+          },
+          "solde": {
+            "type": "boolean",
+            "description": "Vrai si |reste| ≤ 0,05."
+          },
+          "tropRegle": {
+            "type": "boolean",
+            "description": "Vrai si le reste est inférieur à −0,05 (pièce trop réglée)."
+          }
+        }
+      },
+      "PageDtoDocumentAchatListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentAchatListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DocumentAchatDetailDto": {
+        "type": "object",
+        "description": "Fiche d'une pièce d'achat : les champs de la ligne de liste, puis l'en-tête et les onglets.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la pièce (BuyDocument.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "N° de la pièce (Code).",
+            "example": "26/03017"
+          },
+          "nature": {
+            "type": "string",
+            "description": "Nature stockée (DocType) : INVOICE, ORDER, QUOTE, DOCUMENT_TO_PAY, DELIVRY, REFUND."
+          },
+          "natureLibelle": {
+            "type": "string",
+            "description": "Libellé de la nature.",
+            "example": "Facture"
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence fournisseur (DocRef)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de la pièce."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'échéance (MaturityDate) ; null si absente."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.id)."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur (CfgTier.Description)."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet de chantier (PrjProject.id) ; toujours dans le périmètre de l'appelant."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot de marché (PrjMarket.id) ; null si la pièce n'est pas rattachée à un lot."
+          },
+          "lotCode": {
+            "type": "string",
+            "description": "Code du lot ; null sans lot."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société (CfgCompany)."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut (BuyDocumentStatus.id) ; null pour un devis."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut ; null sans statut."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut ; null sans statut."
+          },
+          "okPourPaiement": {
+            "type": "boolean",
+            "description": "Drapeau « OK pour paiement » du statut ; false sans statut."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT (AmountHT)."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Montant de TVA (AmountVat)."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC (AmountTTC)."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "Montant à payer (AmountToPay), arrondi à 2 décimales : base du reste."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Σ des lignes de règlement de la pièce, règlements annulés exclus."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Montant à payer − réglé ; négatif si la pièce est trop réglée."
+          },
+          "solde": {
+            "type": "boolean",
+            "description": "Vrai si |reste| ≤ 0,05."
+          },
+          "tropRegle": {
+            "type": "boolean",
+            "description": "Vrai si le reste est inférieur à −0,05 (pièce trop réglée)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes de la pièce."
+          },
+          "regularisation": {
+            "type": "number",
+            "description": "Régularisation (AmountRegul)."
+          },
+          "timbreFiscal": {
+            "type": "number",
+            "description": "Timbre fiscal (FiscalStamp)."
+          },
+          "valideComptabilite": {
+            "type": "boolean",
+            "description": "Drapeau « Validé comptabilité » du statut ; false sans statut."
+          },
+          "entiteCode": {
+            "type": "string",
+            "description": "Code de l'entité (StrEntity)."
+          },
+          "entiteDescription": {
+            "type": "string",
+            "description": "Libellé de l'entité (StrEntity)."
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création (UserCreateDateTime)."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (UserCreate, tel que stocké)."
+          },
+          "dateModification": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification (UserUpdateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification (UserUpdate, tel que stocké)."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la pièce, par ordre (Sorting).",
+            "items": {
+              "$ref": "#/components/schemas/LigneDocumentAchatDto"
+            }
+          },
+          "ventilation": {
+            "type": "array",
+            "description": "Ventilation par catégorie, par code de catégorie.",
+            "items": {
+              "$ref": "#/components/schemas/VentilationDocumentAchatDto"
+            }
+          },
+          "historique": {
+            "type": "array",
+            "description": "Historique des statuts, du plus ancien au plus récent.",
+            "items": {
+              "$ref": "#/components/schemas/HistoriqueDocumentAchatDto"
+            }
+          },
+          "reglements": {
+            "type": "array",
+            "description": "Règlements de la pièce, annulés compris, par date puis code.",
+            "items": {
+              "$ref": "#/components/schemas/ReglementDocumentAchatDto"
+            }
+          }
+        }
+      },
+      "HistoriqueDocumentAchatDto": {
+        "type": "object",
+        "description": "Passage de la pièce dans un statut (BuyDocumentStatusHistory).",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du passage."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut atteint."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut atteint."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Utilisateur (AdmUser.Description, à défaut Code)."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note saisie au passage."
+          }
+        }
+      },
+      "LigneDocumentAchatDto": {
+        "type": "object",
+        "description": "Ligne de la pièce (BuyDocumentLine), colonnes stockées.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la ligne."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting)."
+          },
+          "designation": {
+            "type": "string",
+            "description": "Désignation (Description)."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité (Unity)."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT."
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA en % (VatRatio × 100).",
+            "example": 20
+          },
+          "remisePourcent": {
+            "type": "number",
+            "description": "Remise en % (DiscountRatio × 100).",
+            "example": 0
+          }
+        }
+      },
+      "ReglementDocumentAchatDto": {
+        "type": "object",
+        "description": "Ligne de règlement de la pièce et son règlement (StlSettlement).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du règlement (StlSettlement.id)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du règlement."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du règlement (StlSettlement.DocDate)."
+          },
+          "typeCode": {
+            "type": "string",
+            "description": "Code du type de règlement."
+          },
+          "typeDescription": {
+            "type": "string",
+            "description": "Libellé du type de règlement."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant de la ligne affecté à la pièce."
+          },
+          "annule": {
+            "type": "boolean",
+            "description": "Vrai si le règlement est annulé (CANCELED) : listé, exclu du réglé."
+          }
+        }
+      },
+      "VentilationDocumentAchatDto": {
+        "type": "object",
+        "description": "Ventilation de la pièce sur une catégorie (BuyVentilationCategory) : le seul taux est stocké.",
+        "properties": {
+          "categorieCode": {
+            "type": "string",
+            "description": "Code de la catégorie (StlCategory)."
+          },
+          "categorieDescription": {
+            "type": "string",
+            "description": "Libellé de la catégorie."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux de ventilation, fraction (0,75 = 75 %).",
+            "example": 0.75
           }
         }
       }
