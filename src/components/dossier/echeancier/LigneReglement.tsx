@@ -16,6 +16,8 @@ import {
 } from '../../../lib/api';
 import { useApi } from '../../../lib/useApi';
 import { useConfirm } from '../../../lib/confirmContext';
+import { useAuth } from '../../../lib/auth';
+import { peutPointerReglement } from '../../../lib/roles';
 import type { ReglementDto } from '../../../types';
 
 function ReglementRecuButton({ dossierId, reglementId }: Readonly<{ dossierId: string; reglementId: string }>) {
@@ -103,7 +105,8 @@ function ReglementRow({
 
   const tone = encaissementEtatTone(reglement.statut);
   const rowTone = REGLEMENT_ROW_TONE[tone] ?? REGLEMENT_ROW_TONE.neutral;
-  const modifiable = reglementModifiable(reglement.statut);
+  const { user } = useAuth();
+  const modifiable = reglementModifiable(reglement.statut) && peutPointerReglement(user);
 
   async function annuler() {
     const ok = await confirm({

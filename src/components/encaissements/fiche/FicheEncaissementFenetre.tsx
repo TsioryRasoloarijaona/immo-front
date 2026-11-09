@@ -16,6 +16,8 @@ import { refetchAllApis, useApi } from '../../../lib/useApi';
 import { useConfirm } from '../../../lib/confirmContext';
 import { encaissementEtatLabel, encaissementEtatTone, reglementModifiable } from '../../../lib/domain';
 import { messageErreurStatut } from '../../../lib/reglementRegles';
+import { useAuth } from '../../../lib/auth';
+import { peutPointerReglement } from '../../../lib/roles';
 import { formatCurrency, formatDate } from '../../../lib/format';
 import type { VoisinsFiche } from '../../../lib/fenetreFiche';
 import type { EncaissementDetailDto } from '../../../types';
@@ -61,6 +63,8 @@ function CorpsEncaissement({ e, relire }: Readonly<{ e: EncaissementDetailDto; r
   const dossierPortee = e.dossierId ?? affectations[0]?.dossierId;
   // Montée sur `IN_WORK` seulement : `POINTED` et `CANCELED` sont terminaux côté serveur (409).
   const enCours = reglementModifiable(e.etat) && !!dossierPortee;
+  const { user } = useAuth();
+  const peutPointer = enCours && peutPointerReglement(user);
 
   async function rechargerTout() {
     await relire();
@@ -88,7 +92,7 @@ function CorpsEncaissement({ e, relire }: Readonly<{ e: EncaissementDetailDto; r
     }
   }
 
-  const propres = enCours
+  const propres = peutPointer
     ? [
         { id: 'pointer', libelle: 'Pointer', icone: ClipboardCheck, disabled: busy, onClick: () => setPointageOuvert(true) },
         { id: 'annuler', libelle: 'Annuler le règlement', icone: Ban, disabled: busy, onClick: () => void annuler() },
