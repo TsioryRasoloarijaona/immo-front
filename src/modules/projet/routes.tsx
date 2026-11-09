@@ -7,6 +7,9 @@ const LotsList = lazy(() => import('../../pages/projet/LotsList'));
 const LotDetail = lazy(() => import('../../pages/projet/LotDetail'));
 const DecomptesList = lazy(() => import('../../pages/projet/DecomptesList'));
 const DecompteDetail = lazy(() => import('../../pages/projet/DecompteDetail'));
+const ProjetsConfigList = lazy(() => import('../../pages/projet/config/ProjetsConfigList'));
+const ReferentielTypesLotPage = lazy(() => import('../../pages/projet/config/ReferentielTypesLotPage'));
+const StatutsLotList = lazy(() => import('../../pages/projet/config/StatutsLotList'));
 
 const projet: ModuleApp = {
   slug: 'projet',
@@ -21,6 +24,9 @@ const projet: ModuleApp = {
     { path: '/projet/lots/:id', element: <LotDetail /> },
     { path: '/projet/decomptes', element: <DecomptesList /> },
     { path: '/projet/decomptes/:id', element: <DecompteDetail /> },
+    { path: '/projet/config/projets', element: <ProjetsConfigList /> },
+    { path: '/projet/config/types-lot', element: <ReferentielTypesLotPage /> },
+    { path: '/projet/config/statuts-lot', element: <StatutsLotList /> },
   ],
 };
 

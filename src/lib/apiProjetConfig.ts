@@ -16,10 +16,6 @@ export function listProjetsConfig(): Promise<ProjetConfigDto[]> {
   return request('GET', PROJETS);
 }
 
-export function getProjetConfig(id: UUID): Promise<ProjetConfigDto> {
-  return request('GET', `${PROJETS}/${id}`);
-}
-
 /** 400 champ obligatoire manquant, 409 code déjà utilisé. */
 export function createProjetConfig(body: ProjetConfigRequest): Promise<ProjetConfigDto> {
   return request('POST', PROJETS, { body });
