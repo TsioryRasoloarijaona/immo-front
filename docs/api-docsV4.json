@@ -160,6 +160,10 @@
       "description": "Onglets de lecture de la fiche article : prospections, dossiers, historique."
     },
     {
+      "name": "Projet",
+      "description": "Module Projet (chantier OMRAN), en **lecture seule** : lots (`PrjMarket`, « marché » dans la base), bordereau, décomptes\n(`PrjWorkingOut`) et leurs factures. Voir `FEATURE-projet-lots-decomptes.md`.\n\n**Visibilité, comme OMRAN** : l'appelant voit les projets de ses lignes `AdmUserHabilitation.PrjProjectId`, **quel que soit\nson rôle** (aucune exemption Administrateur ni Direction Générale). Sans ligne d'habilitation, ou appelant non identifiable :\nlistes vides. Un lot sans projet, ou dont le projet n'est pas visible, répond **404** comme un identifiant inconnu (jamais 403)."
+    },
+    {
       "name": "Synchronisation",
       "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
     },
@@ -17975,6 +17979,16 @@
               }
             }
           },
+          "403": {
+            "description": "Réservé à Administrateur, Commercial Chef, Direction Générale.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Dossier ou règlement introuvable, ou règlement non rattaché à ce dossier.",
             "content": {
@@ -26717,6 +26731,335 @@
           },
           "404": {
             "description": "Entité introuvable ou inactive."
+          }
+        }
+      }
+    },
+    "/api/projet/referentiels": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Listes de choix des filtres Lots et Décomptes",
+        "description": "Listes de choix des écrans Lots et Décomptes. `projets` et `categories` ne contiennent que ce que l'appelant voit ;\n`typesLot`, `statutsLot` et `statutsFacture` sont des référentiels complets. Le statut d'un lot n'est pas tenu à jour dans\nla donnée OMRAN : c'est une étiquette, jamais une règle.",
+        "operationId": "referentiels",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferentielsProjetDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projet/lots": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Liste paginée des lots des projets visibles",
+        "description": "Liste **globale** des lots des projets visibles. `projetIds` est **intersecté** avec le périmètre : un projet demandé hors\npérimètre est ignoré sans erreur, et une intersection vide donne une page vide (200). Tri par défaut : `code` décroissant ;\nclés de tri acceptées : `code`, `description`.\n\nMontants (calculés, jamais stockés) : marché = Σ du bordereau définitif (`Quantity × UnitPriceHT`, TVA par `VatRatio`,\n`Quantity × UnitPriceTTC`), ou, si le lot n'a aucune ligne, le montant forfaitaire saisi (`EstimatedPrice*Manual`) ;\n`montantsDepuisBordereau` dit quel chemin a servi. Cumuls = sommes des colonnes stockées des décomptes du lot.\n`avancementPct` = cumul décomptes TTC / marché TTC × 100 (les travaux supplémentaires n'y entrent pas), `null` si le marché\nest nul. Facturé = Σ `BuyDocument.AmountToPay` des factures des décomptes (`PrjWorkingOut.BuyDocumentId`) ; réglé = Σ des\nlignes de règlement non annulées de ces factures ; reste = facturé − réglé.",
+        "operationId": "lots",
+        "parameters": [
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projet(s) (PrjProject.PKey), répétable ; restreint au périmètre, absent = tous les projets visibles.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut du lot (StrStatus.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type de lot (PrjMarketType.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fournisseurId",
+            "in": "query",
+            "description": "Fournisseur du lot (CfgTier.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne sur le code, la désignation ou le nom du fournisseur.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLotListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Fiche d'un lot",
+        "description": "Fiche d'un lot : les champs de la liste, plus le montant forfaitaire saisi, l'estimation (Σ bordereau estimatif, sinon le\nforfaitaire), la retenue de garantie et l'avance théoriques (marché TTC × taux), les taux en pourcentage (0–100), les\noptions et les dates d'appel d'offres et de chantier (`null` si non saisies).",
+        "operationId": "lot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet ou projet hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/decomptes": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Décomptes d'un lot, par numéro croissant",
+        "description": "Tous les décomptes du lot (pas de pagination), tri par numéro (`Sorting`) puis date. Mêmes champs que\n`GET /api/projet/decomptes`, dont le contrôle d'écart du net à payer.",
+        "operationId": "decomptesDuLot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet ou projet hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/bordereau": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Bordereau définitif d'un lot",
+        "description": "Lignes du bordereau **définitif** (`PrjMarketLine` hors stock), tri par ordre, avec leurs totaux calculés. Liste vide : lot\nau montant forfaitaire (« Bordereau non saisi »).",
+        "operationId": "bordereau",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet ou projet hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/projet/decomptes": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Liste paginée des décomptes des projets visibles",
+        "description": "Liste **globale** des décomptes des lots visibles (même périmètre que les lots). `projetIds` est intersecté avec le\npérimètre (hors périmètre ignoré, intersection vide = page vide). Tri par défaut : `docDate` puis `code`, décroissants ;\nclés de tri acceptées : `docDate`, `code`, `sorting`.\n\nLes montants sont ceux **stockés** par OMRAN. `netAPayerRecalcule` applique la formule d'OMRAN aux colonnes stockées :\n`AmountTTC − AdvanceAmount − WorkingOutAdvanceAmount − WarrantyAmount − nonRefundableRetainer + extraAmount +\nProrataRefundAmount + StockAmountToPay + FluctuationsToPay` (terme NULL = 0, arrondi 2 décimales sur la somme).\n`ecartNetAPayer` = `netAPayer − netAPayerRecalcule` ; `ecartSignificatif` si sa valeur absolue dépasse 0,02. Un écart\ns'affiche, il ne bloque rien.\n\nLa facture d'un décompte est **seulement** celle de `PrjWorkingOut.BuyDocumentId` (une pièce qui pointe le décompte par\n`BuyDocument.PrjWorkingOutId` n'est pas sa facture). Réglé = Σ des lignes de règlement non annulées de la facture ;\nreste = `BuyDocument.AmountToPay` − réglé (le net de la facture inclut sa régularisation `AmountRegul`).",
+        "operationId": "decomptes",
+        "parameters": [
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projet(s) (PrjProject.PKey), répétable ; restreint au périmètre, absent = tous les projets visibles.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "lotId",
+            "in": "query",
+            "description": "Lot (PrjMarket.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fournisseurId",
+            "in": "query",
+            "description": "Fournisseur du décompte (CfgTier.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date du décompte (DocDate) minimale, incluse.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date du décompte (DocDate) maximale, incluse.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "statutFactureId",
+            "in": "query",
+            "description": "Statut de la facture du décompte (BuyDocumentStatus.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansFacture",
+            "in": "query",
+            "description": "true = seulement les décomptes sans facture ; absent ou false = tous.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne sur le code du décompte, le code ou la désignation du lot, le fournisseur.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoDecompteListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projet/decomptes/{id}": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Fiche d'un décompte",
+        "description": "Fiche d'un décompte : les champs de la liste, le détail des montants stockés dans l'ordre OMRAN, le cumul TTC du lot\njusqu'à ce décompte, la facture, ses règlements (annulés compris, marqués `annule = true`, exclus du réglé), les lignes\n(jointes au bordereau, avancement par ligne non plafonné), les travaux supplémentaires et les retenues.",
+        "operationId": "decompte",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du décompte (PrjWorkingOut.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Décompte introuvable : id inconnu ou lot hors périmètre."
           }
         }
       }
@@ -58807,6 +59150,453 @@
           "modifieLe": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "ElementReferentielProjetDto": {
+        "type": "object",
+        "description": "Élément d'une liste de choix du module Projet (type de lot, statut de facture, catégorie).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de l'élément."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code.",
+            "example": "20 TRAVAUX"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre d'affichage (Sorting), null si la table n'en a pas."
+          }
+        }
+      },
+      "ProjetFiltreDto": {
+        "type": "object",
+        "description": "Projet (PrjProject) visible de l'appelant, proposé dans le filtre « Projet » des lots et décomptes.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjProject.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du projet.",
+            "example": "ARS-PRJ"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé du projet."
+          },
+          "nbLots": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lots (PrjMarket) du projet."
+          }
+        }
+      },
+      "ReferentielsProjetDto": {
+        "type": "object",
+        "description": "Listes de choix des filtres Lots et Décomptes ; projets et catégories limités au périmètre de l'appelant.",
+        "properties": {
+          "projets": {
+            "type": "array",
+            "description": "Projets visibles (habilitations de l'appelant), tri par code.",
+            "items": {
+              "$ref": "#/components/schemas/ProjetFiltreDto"
+            }
+          },
+          "typesLot": {
+            "type": "array",
+            "description": "Types de lot (PrjMarketType), tri par code.",
+            "items": {
+              "$ref": "#/components/schemas/ElementReferentielProjetDto"
+            }
+          },
+          "statutsLot": {
+            "type": "array",
+            "description": "Statuts de lot, par genre de lot puis ordre.",
+            "items": {
+              "$ref": "#/components/schemas/StatutLotProjetDto"
+            }
+          },
+          "statutsFacture": {
+            "type": "array",
+            "description": "Statuts de facture (BuyDocumentStatus), tri par code.",
+            "items": {
+              "$ref": "#/components/schemas/ElementReferentielProjetDto"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "description": "Catégories (StlCategory) portées par au moins un lot visible.",
+            "items": {
+              "$ref": "#/components/schemas/ElementReferentielProjetDto"
+            }
+          }
+        }
+      },
+      "StatutLotProjetDto": {
+        "type": "object",
+        "description": "Statut de lot (StrStatus d'un genre de lot PrjMarket*) pour le filtre de la liste des lots.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrStatus.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du statut.",
+            "example": "ADJUDICATION"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre dans le workflow (Sorting), null si absent."
+          },
+          "typeCode": {
+            "type": "string",
+            "description": "Catégorie du statut (StrStatusType.Code), null si absente.",
+            "example": "Nouveau"
+          },
+          "entiteCode": {
+            "type": "string",
+            "description": "Genre de lot (StrEntity.Code).",
+            "example": "PrjMarket"
+          }
+        }
+      },
+      "LotListItemDto": {
+        "type": "object",
+        "description": "Ligne de la liste des lots (PrjMarket, « marché » dans OMRAN) ; montants calculés côté serveur.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjMarket.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du lot.",
+            "example": "24/00033"
+          },
+          "description": {
+            "type": "string",
+            "description": "Désignation du lot."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet du lot (PrjProject.PKey)."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet.",
+            "example": "ARS-PRJ"
+          },
+          "typeCode": {
+            "type": "string",
+            "description": "Code du type de lot (PrjMarketType), null si absent."
+          },
+          "typeDescription": {
+            "type": "string",
+            "description": "Libellé du type de lot, null si absent."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut (StrStatus) ; étiquette, jamais une règle."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutOrdre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre du statut dans son workflow (StrStatus.Sorting)."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur du lot (CfgTier.PKey), null si absent."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur, null si absent."
+          },
+          "categorieCode": {
+            "type": "string",
+            "description": "Code de la catégorie (StlCategory), null si absente."
+          },
+          "categorieDescription": {
+            "type": "string",
+            "description": "Libellé de la catégorie, null si absente."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de début contractuelle (StartDateManual)."
+          },
+          "dateFin": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de fin contractuelle (EndDateManual)."
+          },
+          "delaiJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai contractuel en jours (DelayManual)."
+          },
+          "multiFournisseur": {
+            "type": "boolean",
+            "description": "Lot multi-fournisseur (IsMultiSupplier)."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Marché HT : Σ bordereau définitif, sinon montant forfaitaire."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Marché TVA : Σ bordereau définitif, sinon montant forfaitaire."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Marché TTC : Σ bordereau définitif, sinon montant forfaitaire."
+          },
+          "montantsDepuisBordereau": {
+            "type": "boolean",
+            "description": "Vrai si le marché vient du bordereau, faux s'il est forfaitaire (lot sans ligne)."
+          },
+          "tauxRetenueGarantie": {
+            "type": "number",
+            "description": "Taux de retenue de garantie du lot en pourcentage (0–100).",
+            "example": 10
+          },
+          "nbDecomptes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de décomptes du lot."
+          },
+          "cumulDecomptesHT": {
+            "type": "number",
+            "description": "Σ AmountHT des décomptes."
+          },
+          "cumulDecomptesTTC": {
+            "type": "number",
+            "description": "Σ AmountTTC des décomptes."
+          },
+          "cumulTravauxSupplementaires": {
+            "type": "number",
+            "description": "Σ des travaux supplémentaires TTC des décomptes (extraAmount)."
+          },
+          "cumulRetenueGarantie": {
+            "type": "number",
+            "description": "Σ des retenues de garantie des décomptes (WarrantyAmount)."
+          },
+          "avancementPct": {
+            "type": "number",
+            "description": "Cumul décomptes TTC / marché TTC × 100, 2 décimales ; null si marché nul ; non plafonné."
+          },
+          "totalFacture": {
+            "type": "number",
+            "description": "Σ à payer des factures des décomptes (BuyDocument.AmountToPay)."
+          },
+          "totalRegle": {
+            "type": "number",
+            "description": "Σ des règlements non annulés de ces factures."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Facturé − réglé."
+          }
+        }
+      },
+      "PageDtoLotListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LotListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DecompteListItemDto": {
+        "type": "object",
+        "description": "Ligne de liste d'un décompte (PrjWorkingOut) : montants stockés, net recalculé et solde de sa facture.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjWorkingOut.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du décompte.",
+            "example": "26/00744"
+          },
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro du décompte dans son lot (Sorting)."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du décompte (DocDate)."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey)."
+          },
+          "lotCode": {
+            "type": "string",
+            "description": "Code du lot."
+          },
+          "lotDescription": {
+            "type": "string",
+            "description": "Désignation du lot."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet du lot (PrjProject.PKey)."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur : celui du décompte (CfgTierId), sinon celui du lot."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur, null si absent."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "HT de la période (AmountHT)."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "TTC de la période (AmountTTC)."
+          },
+          "travauxSupplementaires": {
+            "type": "number",
+            "description": "Travaux supplémentaires TTC (extraAmount)."
+          },
+          "retenueGarantie": {
+            "type": "number",
+            "description": "Retenue de garantie de la période (WarrantyAmount)."
+          },
+          "netAPayer": {
+            "type": "number",
+            "description": "Net à payer stocké par OMRAN (AmountToPay)."
+          },
+          "netAPayerRecalcule": {
+            "type": "number",
+            "description": "Net à payer recalculé par Arpent sur les colonnes stockées, 2 décimales."
+          },
+          "ecartNetAPayer": {
+            "type": "number",
+            "description": "netAPayer − netAPayerRecalcule, signé."
+          },
+          "ecartSignificatif": {
+            "type": "boolean",
+            "description": "Vrai si |ecartNetAPayer| > 0,02 : un écart s'affiche, il ne bloque rien."
+          },
+          "cumulNetRetenueGarantie": {
+            "type": "number",
+            "description": "Cumul par lot du net de RG (AmountTTCAfterDeductions), sans les extras."
+          },
+          "dernier": {
+            "type": "boolean",
+            "description": "Dernier décompte du lot (FinalWorkingOut)."
+          },
+          "factureId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Facture du décompte (PrjWorkingOut.BuyDocumentId), null si non facturé."
+          },
+          "factureCode": {
+            "type": "string",
+            "description": "Code de la facture."
+          },
+          "factureStatutCode": {
+            "type": "string",
+            "description": "Code du statut de la facture (BuyDocumentStatus)."
+          },
+          "factureStatutDescription": {
+            "type": "string",
+            "description": "Libellé du statut de la facture."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Σ des règlements non annulés de la facture ; 0 sans facture."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "À payer de la facture (BuyDocument.AmountToPay) − réglé ; 0 sans facture."
+          }
+        }
+      },
+      "PageDtoDecompteListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DecompteListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
