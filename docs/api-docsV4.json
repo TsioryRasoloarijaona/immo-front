@@ -39649,15 +39649,15 @@
           },
           "ventile": {
             "type": "boolean",
-            "description": "Projet ventilé ; absent = faux."
+            "description": "Projet ventilé ; absent = faux à la création, inchangé en modification."
           },
           "tauxVentilationDefaut": {
             "type": "number",
-            "description": "Taux de ventilation par défaut, positif ou nul ; absent = 0."
+            "description": "Taux de ventilation par défaut, positif ou nul ; absent = 0 à la création, inchangé en modification."
           },
           "partiesCommunes": {
             "type": "boolean",
-            "description": "Parties communes ; absent = faux."
+            "description": "Parties communes ; absent = faux à la création, inchangé en modification."
           }
         },
         "required": [
