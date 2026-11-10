@@ -71,7 +71,7 @@ export default function DecomptesList() {
           sansFacture: sansFacture || undefined,
           search: debouncedSearch || undefined,
         },
-        { page, size: DEFAULT_PAGE_SIZE, sort: ['dateDocument,desc'] },
+        { page, size: DEFAULT_PAGE_SIZE, sort: ['docDate,desc', 'code,desc'] },
       ),
     [projetIds.join(','), lotId, fournisseurId, du, au, statutFactureId, sansFacture, debouncedSearch, page],
   );
