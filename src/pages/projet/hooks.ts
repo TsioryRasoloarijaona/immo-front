@@ -1,5 +1,4 @@
 import { ApiError } from '../../lib/api';
-import { listTiers } from '../../lib/apiAdministration';
 import { getReferentielsProjet } from '../../lib/apiProjet';
 import { useApi } from '../../lib/useApi';
 import type { ItemFiltre } from '../../components/liste/BoiteFiltre';
@@ -21,11 +20,8 @@ export function useReferentielsProjet() {
   return useApi<ReferentielsProjetDto>(getReferentielsProjet, [], 'projet-referentiels');
 }
 
-const TAILLE_FOURNISSEURS = 500;
-
-export function useFournisseursItems(): ItemFiltre[] {
-  const fournisseurs = useApi(() => listTiers('fournisseurs', { size: TAILLE_FOURNISSEURS }), [], 'projet-fournisseurs');
-  return (fournisseurs.data?.content ?? []).map((t) => ({ value: t.id, label: t.raisonSociale ?? t.description ?? t.code ?? '—' }));
+export function fournisseursItems(ref: ReferentielsProjetDto | null | undefined): ItemFiltre[] {
+  return (ref?.fournisseurs ?? []).map((f) => ({ value: f.id, label: libelleReferentiel(f) }));
 }
 
 export function libelleReferentiel(e: { code: string | null; description: string | null }): string {
