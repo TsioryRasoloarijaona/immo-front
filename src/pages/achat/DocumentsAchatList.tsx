@@ -11,7 +11,8 @@ import EnteteListe from '../../components/liste/EnteteListe';
 import PageListe from '../../components/liste/PageListe';
 import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import { Button } from '../../components/ui/button';
-import { cheminExportDocumentsAchat, getDocumentsAchat, getReferentielsAchat } from '../../lib/apiAchat';
+import BandeTotauxAchat from '../../components/achat/BandeTotauxAchat';
+import { cheminExportDocumentsAchat, getDocumentsAchat, getReferentielsAchat, getTotauxDocumentsAchat } from '../../lib/apiAchat';
 import { DEFAULT_PAGE_SIZE } from '../../lib/api';
 import { FILTRES_ACHAT_VIDES, libelleNatureAchat, libelleStatutAchat, tonStatutAchat, type EtatFiltresAchat } from '../../lib/documentsAchat';
 import { voisinsDe } from '../../lib/fenetreFiche';
@@ -44,11 +45,24 @@ const COLONNES: ColonneGrille<DocumentAchatListItemDto>[] = [
     libelle: 'Reste',
     type: 'MONTANT',
     largeur: 8,
-    rendu: (d) => <span className={d.resteARegler > 0 ? 'font-semibold text-destructive' : undefined}>{formatCurrency(d.resteARegler)}</span>,
+    rendu: (d) => (
+      <span className="inline-flex items-center gap-1">
+        {d.aDeduire && <Badge tone="amber">Avance à déduire</Badge>}
+        {d.tropRegle && <Badge tone="amber">Trop réglé</Badge>}
+        <span className={d.resteARegler > 0 ? 'font-semibold text-destructive' : undefined}>{formatCurrency(d.resteARegler)}</span>
+      </span>
+    ),
   },
 ];
 
 const BASE = '/achat/documents';
+
+/** Pose ou retire un paramètre d'URL ; sans effet si `touche` est faux. */
+function poser(params: URLSearchParams, cle: string, valeur: string | null, touche: boolean) {
+  if (!touche) return;
+  if (valeur) params.set(cle, valeur);
+  else params.delete(cle);
+}
 
 export default function DocumentsAchatList() {
   const navigate = useNavigate();
@@ -59,25 +73,29 @@ export default function DocumentsAchatList() {
   const [page, setPage] = useState(0);
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('achat-documents'));
 
-  // `natures` et `nonSoldes` vivent dans l'URL : les entrées du menu les posent.
-  const etat: EtatFiltresAchat = { ...local, natures: params.getAll('natures'), nonSoldes: params.get('nonSoldes') === 'true' };
+  // `natures`, `nonSoldes`, `okPourPaiement` et `fournisseurId` vivent dans l'URL : le menu et le solde fournisseurs les posent.
+  const etat: EtatFiltresAchat = {
+    ...local,
+    natures: params.getAll('natures'),
+    nonSoldes: params.get('nonSoldes') === 'true',
+    okPourPaiement: params.get('okPourPaiement') === 'true',
+    fournisseurId: params.get('fournisseurId'),
+  };
   const recherche = useDebouncedValue(etat.search.trim());
 
   function changer(patch: Partial<EtatFiltresAchat>) {
     setPage(0);
-    const { natures, nonSoldes, ...autres } = patch;
+    const { natures, nonSoldes, okPourPaiement, fournisseurId, ...autres } = patch;
     setLocal((courant) => ({ ...courant, ...autres }));
-    if (natures === undefined && nonSoldes === undefined) return;
     const suivant = new URLSearchParams(params);
     if (natures !== undefined) {
       suivant.delete('natures');
       natures.forEach((n) => suivant.append('natures', n));
     }
-    if (nonSoldes !== undefined) {
-      if (nonSoldes) suivant.set('nonSoldes', 'true');
-      else suivant.delete('nonSoldes');
-    }
-    setParams(suivant, { replace: true });
+    poser(suivant, 'nonSoldes', nonSoldes ? 'true' : null, nonSoldes !== undefined);
+    poser(suivant, 'okPourPaiement', okPourPaiement ? 'true' : null, okPourPaiement !== undefined);
+    poser(suivant, 'fournisseurId', fournisseurId ?? null, fournisseurId !== undefined);
+    if (suivant.toString() !== params.toString()) setParams(suivant, { replace: true });
   }
 
   function reinitialiser() {
@@ -94,12 +112,14 @@ export default function DocumentsAchatList() {
     du: etat.du || undefined,
     au: etat.au || undefined,
     nonSoldes: etat.nonSoldes || undefined,
+    okPourPaiement: etat.okPourPaiement || undefined,
     search: recherche || undefined,
   };
 
   const referentiels = useApi(() => getReferentielsAchat(), [], 'achat-referentiels');
   const liste = useApi(() => getDocumentsAchat(filtres, { page, size: DEFAULT_PAGE_SIZE }), [JSON.stringify(filtres), page], 'achat-documents');
-  const exportListe = useExportListe(cheminExportDocumentsAchat(), { ...filtres }, 'pieces-achat');
+  const totaux = useApi(() => (etat.nonSoldes ? getTotauxDocumentsAchat(filtres) : Promise.resolve(null)), [JSON.stringify(filtres), etat.nonSoldes], 'achat-documents-totaux');
+  const exportListe =useExportListe(cheminExportDocumentsAchat(), { ...filtres }, 'pieces-achat');
 
   const lignes = liste.data?.content ?? [];
   const decompte = liste.data ? pluriel(liste.data.totalElements, 'pièce') : undefined;
@@ -128,6 +148,7 @@ export default function DocumentsAchatList() {
             </Button>
           </div>
         )}
+        {!liste.error && !totaux.error && totaux.data && <BandeTotauxAchat totaux={totaux.data} />}
         {!liste.error && liste.data && (
           <ResultsRegion loading={liste.loading}>
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">

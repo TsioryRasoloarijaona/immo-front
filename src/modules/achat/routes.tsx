@@ -5,6 +5,8 @@ import { arbreAchat } from './arbre';
 
 const DocumentsAchatList = lazy(() => import('../../pages/achat/DocumentsAchatList'));
 
+const SoldesFournisseursList = lazy(() => import('../../pages/achat/SoldesFournisseursList'));
+
 const achat: ModuleApp = {
   slug: 'achat',
   label: 'Achat',
@@ -16,6 +18,7 @@ const achat: ModuleApp = {
   routes: [
     { path: '/achat/documents', element: <DocumentsAchatList /> },
     { path: '/achat/documents/:id', element: <DocumentsAchatList /> },
+    { path: '/achat/fournisseurs', element: <SoldesFournisseursList /> },
   ],
 };
 
