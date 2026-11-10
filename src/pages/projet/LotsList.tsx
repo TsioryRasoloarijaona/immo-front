@@ -15,7 +15,7 @@ import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
 import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import type { LotListItemDto } from '../../types/projet';
 import { BadgeStatut, BarreAvancement, CorpsListe } from './commun';
-import { libelleReferentiel, useFournisseursItems, useReferentielsProjet } from './hooks';
+import { fournisseursItems, libelleReferentiel, useReferentielsProjet } from './hooks';
 
 const COLONNES: ColonneGrille<LotListItemDto>[] = [
   { nom: 'code', libelle: 'Code', largeur: 6 },
@@ -45,7 +45,7 @@ const COLONNES: ColonneGrille<LotListItemDto>[] = [
 export default function LotsList() {
   const navigate = useNavigate();
   const referentiels = useReferentielsProjet();
-  const fournisseurs = useFournisseursItems();
+  const fournisseurs = fournisseursItems(referentiels.data);
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('projet-lots'));
   const [projetIds, setProjetIds] = useState<string[]>([]);
   const [statutId, setStatutId] = useState<string | null>(null);

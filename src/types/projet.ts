@@ -30,6 +30,7 @@ export interface ReferentielsProjetDto {
   statutsLot: StatutLotProjetDto[];
   statutsFacture: ElementReferentielProjetDto[];
   categories: ElementReferentielProjetDto[];
+  fournisseurs: ElementReferentielProjetDto[];
 }
 
 export interface LotListItemDto {

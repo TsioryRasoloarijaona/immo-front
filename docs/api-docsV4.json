@@ -60057,7 +60057,7 @@
       },
       "ReferentielsProjetDto": {
         "type": "object",
-        "description": "Listes de choix des filtres Lots et Décomptes ; projets et catégories limités au périmètre de l'appelant.",
+        "description": "Listes de choix des filtres Lots et Décomptes ; projets, catégories et fournisseurs limités au périmètre de l'appelant.",
         "properties": {
           "projets": {
             "type": "array",
@@ -60082,7 +60082,7 @@
           },
           "statutsFacture": {
             "type": "array",
-            "description": "Statuts de facture (BuyDocumentStatus), tri par code.",
+            "description": "Statuts de facture (BuyDocumentStatus), tri par ordre du circuit (sorting) puis code.",
             "items": {
               "$ref": "#/components/schemas/ElementReferentielProjetDto"
             }
@@ -60090,6 +60090,13 @@
           "categories": {
             "type": "array",
             "description": "Catégories (StlCategory) portées par au moins un lot visible.",
+            "items": {
+              "$ref": "#/components/schemas/ElementReferentielProjetDto"
+            }
+          },
+          "fournisseurs": {
+            "type": "array",
+            "description": "Fournisseurs (CfgTier) d'un lot ou d'un décompte visible, tri par nom ; description = nom affiché.",
             "items": {
               "$ref": "#/components/schemas/ElementReferentielProjetDto"
             }

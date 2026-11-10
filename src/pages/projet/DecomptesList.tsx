@@ -14,7 +14,7 @@ import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
 import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import { CorpsListe } from './commun';
 import { COLONNES_DECOMPTES } from './colonnesDecomptes';
-import { libelleReferentiel, useFournisseursItems, useReferentielsProjet } from './hooks';
+import { fournisseursItems, libelleReferentiel, useReferentielsProjet } from './hooks';
 
 const CASE = 'flex items-center gap-1.5 text-body text-foreground';
 
@@ -23,7 +23,7 @@ export default function DecomptesList() {
   const [params, setParams] = useSearchParams();
   const lotId = params.get('lotId');
   const referentiels = useReferentielsProjet();
-  const fournisseurs = useFournisseursItems();
+  const fournisseurs = fournisseursItems(referentiels.data);
   const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('projet-decomptes'));
   const [projetIds, setProjetIds] = useState<string[]>([]);
   const [fournisseurId, setFournisseurId] = useState<string | null>(null);
