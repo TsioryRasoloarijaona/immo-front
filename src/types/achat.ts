@@ -81,6 +81,11 @@ export interface DocumentAchatListItemDto {
   resteARegler: number;
   solde: boolean;
   tropRegle: boolean;
+  /** Décompte dont `PrjWorkingOut.BuyDocumentId` pointe la pièce ; null sans décompte. */
+  decompteId: UUID | null;
+  decompteCode: string | null;
+  /** N° d'ordre du décompte dans son lot. */
+  decompteNumero: number | null;
 }
 
 export interface LigneDocumentAchatDto {
