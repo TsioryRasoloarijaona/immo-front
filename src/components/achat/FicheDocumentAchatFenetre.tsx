@@ -33,6 +33,7 @@ function CorpsDocument({ d }: Readonly<{ d: DocumentAchatDetailDto }>) {
           <ChampFiche libelle="Référence" valeur={d.reference} />
           <ChampFiche libelle="Projet" valeur={d.projetCode} />
           <ChampFiche libelle="Lot" valeur={d.lotCode} />
+          <ChampFiche libelle="Décompte" valeur={d.decompteCode} lien={d.decompteId ? `/projet/decomptes/${d.decompteId}` : undefined} />
           <ChampFiche libelle="Valide compta" valeur={d.valideComptabilite} type="case" />
           <ChampFiche libelle="Désignation" valeur={d.description} large />
           {d.notes && <ChampFiche libelle="Notes" valeur={d.notes} large />}

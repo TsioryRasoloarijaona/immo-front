@@ -1,4 +1,4 @@
-import { FileText, HardHat, ListChecks, Shapes, Tags } from 'lucide-react';
+import { Banknote, FileText, HardHat, ListChecks, Receipt, Shapes, Tags, Wallet } from 'lucide-react';
 import { estAdministrateur } from '../../lib/roles';
 import type { ArbreModule } from '../arbre';
 
@@ -11,6 +11,15 @@ export const arbreProjet: ArbreModule = ({ user }) => [
     entrees: [
       { to: '/projet/lots', libelle: 'Lots', Icone: ListChecks, couleur: COULEUR },
       { to: '/projet/decomptes', libelle: 'Décomptes', Icone: FileText, couleur: COULEUR },
+    ],
+  },
+  {
+    cle: 'depenses',
+    titre: 'Dépenses',
+    entrees: [
+      { to: '/projet/depenses', libelle: 'Synthèse', Icone: Wallet, couleur: COULEUR },
+      { to: '/projet/depenses/factures', libelle: 'Factures', Icone: Receipt, couleur: COULEUR },
+      { to: '/projet/depenses/reglements', libelle: 'Décaissements', Icone: Banknote, couleur: COULEUR },
     ],
   },
   {
