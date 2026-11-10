@@ -38473,7 +38473,7 @@
         ],
         "summary": "Export Excel du solde fournisseurs, mêmes filtres et mêmes lignes",
         "description": "Mêmes filtres et mêmes lignes que `GET /api/achat/fournisseurs/soldes`, sans la ligne de total.",
-        "operationId": "exporter_26",
+        "operationId": "exporterSoldes",
         "parameters": [
           {
             "name": "format",
@@ -38884,7 +38884,7 @@
           "Achat"
         ],
         "summary": "Export Excel de la liste des pièces d'achat, mêmes filtres et même requête que la liste",
-        "operationId": "exporter_27",
+        "operationId": "exporter_26",
         "parameters": [
           {
             "name": "format",
