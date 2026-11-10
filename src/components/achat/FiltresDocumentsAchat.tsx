@@ -32,6 +32,7 @@ export default function FiltresDocumentsAchat({
     ...puceSelection('Projet', projets, etat.projetIds),
     ...puceUnique(fournisseurs, etat.fournisseurId),
     ...(etat.nonSoldes ? ['Non soldées'] : []),
+    ...(etat.okPourPaiement ? ['Validées seulement'] : []),
     ...(etat.search ? [`« ${etat.search} »`] : []),
   ];
 
@@ -62,6 +63,15 @@ export default function FiltresDocumentsAchat({
         <label className={CLASSE_LIGNE}>
           <input type="checkbox" className="m-0 accent-(--brand)" checked={etat.nonSoldes} onChange={(e) => onChange({ nonSoldes: e.target.checked })} />
           <span className="truncate">Non soldées</span>
+        </label>
+        <label className={CLASSE_LIGNE}>
+          <input
+            type="checkbox"
+            className="m-0 accent-(--brand)"
+            checked={etat.okPourPaiement}
+            onChange={(e) => onChange({ okPourPaiement: e.target.checked })}
+          />
+          <span className="truncate">Validées seulement</span>
         </label>
       </CadreBoiteFiltre>
     </PanneauFiltresCoches>
