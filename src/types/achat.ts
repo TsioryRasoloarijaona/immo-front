@@ -86,6 +86,11 @@ export interface DocumentAchatListItemDto {
   tropRegle: boolean;
   /** À payer < −0,05 : récupération d'avance sur décompte. */
   aDeduire: boolean;
+  /** Décompte dont `PrjWorkingOut.BuyDocumentId` pointe la pièce ; null sans décompte. */
+  decompteId: UUID | null;
+  decompteCode: string | null;
+  /** N° d'ordre du décompte dans son lot. */
+  decompteNumero: number | null;
 }
 
 export interface LigneDocumentAchatDto {

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import Pagination from '../../components/Pagination';
 import { Badge, EmptyState, ErrorState, ResultsRegion } from '../../components/ui';
@@ -86,6 +87,15 @@ export function BarreAvancement({ pct }: Readonly<{ pct: number | null }>) {
       </span>
       <span>{formatPercentValue(pct, 2)}</span>
     </span>
+  );
+}
+
+/** Lien dans une cellule de grille : le clic ne remonte pas à la ligne (qui ouvre la fiche). */
+export function LienCellule({ to, children }: Readonly<{ to: string; children: ReactNode }>) {
+  return (
+    <Link className="underline" to={to} onClick={(e) => e.stopPropagation()}>
+      {children}
+    </Link>
   );
 }
 

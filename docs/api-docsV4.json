@@ -92,6 +92,10 @@
       "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
     },
     {
+      "name": "Projet — dépenses",
+      "description": "Dépenses des projets de chantier en **lecture seule** : factures fournisseurs (`BuyDocument.DocType = 'INVOICE'`) et\nrèglements qui leur sont affectés. Voir `FEATURE-achat-depenses-projet.md`.\n\n**Visibilité, comme OMRAN** : projets des lignes `AdmUserHabilitation.PrjProjectId` de l'appelant, **quel que soit son\nrôle** (aucune exemption Administrateur). Un filtre hors périmètre (projet, lot, facture) donne une réponse vide (200),\njamais 403 ni 404. Documents à régler, avoirs, commandes, devis et bons de livraison ne sont ni comptés ni sommés.\n\n**Solde** : celui de `GET /api/achat/documents` (même calcul) : réglé = Σ des lignes de règlement non annulées\n(`CANCELED` exclu), reste = à payer − réglé ; un total de projet ou de lot = Σ à payer − Σ réglé, arrondi une fois."
+    },
+    {
       "name": "Projet — configuration",
       "description": "Configuration du module Projet : projets de chantier (`PrjProject`) et statuts de lot. Les projets sont réservés à l'Administrateur et montrés tous, hors périmètre ; les statuts de lot se lisent par tout utilisateur authentifié. Les types de lot passent par le moteur `/api/referentiels-admin/types-lot` (famille `PROJET`). Voir `instructions/FEATURE-projet-config.md`."
     },
@@ -27199,6 +27203,148 @@
         }
       }
     },
+    "/api/projet/depenses": {
+      "get": {
+        "tags": [
+          "Projet — dépenses"
+        ],
+        "summary": "Synthèse des dépenses (factures fournisseurs) par projet visible et par lot",
+        "description": "Un élément par projet visible (restreint à `projetIds` s'il est fourni) **ayant au moins une facture**, tri par code de\nprojet. `lots[]` : une ligne par lot ayant des factures, tri par code, puis la ligne « Hors lot » (`lotId` null).\nNon soldée = reste > 0,05 ; trop réglée = reste < −0,05 sur une pièce à payer positive, comptée à part, jamais parmi\nles non soldées. « À payer » d'un lot = toutes ses factures : il diffère du « Facturé » de la fiche lot (factures des\ndécomptes seulement) quand une facture du lot n'a pas de décompte.",
+        "operationId": "depenses",
+        "parameters": [
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), paramètre répété ; un projet hors périmètre est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Un élément par projet visible ayant au moins une facture.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DepensesProjetDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "projetIds mal formé."
+          }
+        }
+      }
+    },
+    "/api/projet/depenses/reglements": {
+      "get": {
+        "tags": [
+          "Projet — dépenses"
+        ],
+        "summary": "Affectations de règlement (décaissements) des factures des projets visibles",
+        "description": "Une ligne par affectation `StlSettlementLine` sur une facture d'un projet visible. Un règlement réparti sur plusieurs\nprojets ne montre que ses lignes visibles, chacune avec son montant. Les lignes des règlements annulés sont listées avec\n`annule = true` (exclues avec `inclureAnnules=false`). `du` / `au` portent sur la date du règlement (jour, bornes\nincluses). Tri fixe : date du règlement décroissante, puis n° de règlement décroissant ; `sort` est ignoré.",
+        "operationId": "reglements",
+        "parameters": [
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), paramètre répété ; un projet hors périmètre est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "lotId",
+            "in": "query",
+            "description": "Lot de marché (PrjMarket.PKey) de la facture réglée.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "factureId",
+            "in": "query",
+            "description": "Facture réglée (BuyDocument.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date du règlement à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date du règlement jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "inclureAnnules",
+            "in": "query",
+            "description": "false : lignes des règlements annulés (CANCELED) exclues ; absent = true.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes ; vide si rien n'est visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoReglementProjetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre mal formé (UUID, date)."
+          }
+        }
+      }
+    },
     "/api/projet/decomptes": {
       "get": {
         "tags": [
@@ -38557,7 +38703,7 @@
           "Achat"
         ],
         "summary": "Liste paginée des pièces d'achat visibles (habilitations projet)",
-        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `search` cherche, sans tenir compte de la casse, dans le code, la référence, la description et le nom du fournisseur. Tri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler` ; une autre propriété répond 400.",
+        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `search` cherche, sans tenir compte de la casse, dans le code, la référence, la description et le nom du fournisseur. Tri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode` ; une autre propriété répond 400.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
         "operationId": "liste",
         "parameters": [
           {
@@ -61221,6 +61367,236 @@
           }
         }
       },
+      "DepensesLotDto": {
+        "type": "object",
+        "description": "Dépenses d'un lot du projet : factures (INVOICE) du lot, ou hors lot si lotId est null.",
+        "properties": {
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot de marché (PrjMarket.PKey) ; null = factures du projet sans lot (« Hors lot »)."
+          },
+          "lotCode": {
+            "type": "string",
+            "description": "Code du lot ; null pour la ligne « Hors lot »."
+          },
+          "nbFactures": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de factures."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Σ des montants TTC (AmountTTC)."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "Σ des montants à payer, chacun arrondi à 2 décimales."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Σ des réglés des factures, règlements annulés exclus."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Σ à payer − Σ réglé."
+          },
+          "nbNonSoldees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Factures dont le reste dépasse 0,05."
+          },
+          "nbTropReglees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Factures trop réglées (reste < −0,05, pièce à payer positive)."
+          },
+          "nbFacturesDecompte": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Factures liées à un décompte (PrjWorkingOut.BuyDocumentId)."
+          }
+        }
+      },
+      "DepensesProjetDto": {
+        "type": "object",
+        "description": "Synthèse des dépenses d'un projet visible : ses factures fournisseurs (INVOICE) seulement.",
+        "properties": {
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet de chantier (PrjProject.PKey)."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "projetDescription": {
+            "type": "string",
+            "description": "Description du projet."
+          },
+          "nbFactures": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de factures du projet."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Σ des montants TTC (AmountTTC)."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "Σ des montants à payer, chacun arrondi à 2 décimales."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Σ des réglés des factures, règlements annulés exclus."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Σ à payer − Σ réglé (les factures trop réglées le diminuent)."
+          },
+          "nbNonSoldees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Factures dont le reste dépasse 0,05."
+          },
+          "resteNonSoldees": {
+            "type": "number",
+            "description": "Σ des restes des seules factures non soldées."
+          },
+          "nbTropReglees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Factures trop réglées (reste < −0,05, pièce à payer positive)."
+          },
+          "nbFacturesDecompte": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Factures liées à un décompte (PrjWorkingOut.BuyDocumentId)."
+          },
+          "lots": {
+            "type": "array",
+            "description": "Une ligne par lot ayant des factures, tri par code, puis la ligne « Hors lot » en dernier.",
+            "items": {
+              "$ref": "#/components/schemas/DepensesLotDto"
+            }
+          }
+        }
+      },
+      "PageDtoReglementProjetDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReglementProjetDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ReglementProjetDto": {
+        "type": "object",
+        "description": "Affectation d'un règlement fournisseur (StlSettlementLine) à une facture d'un projet visible.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la ligne d'affectation (StlSettlementLine.PKey)."
+          },
+          "reglementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Règlement (StlSettlement.PKey)."
+          },
+          "reglementCode": {
+            "type": "string",
+            "description": "N° du règlement."
+          },
+          "dateReglement": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du règlement (DocDate)."
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'échéance du règlement (EcheanceDate) ; null si absente."
+          },
+          "typeCode": {
+            "type": "string",
+            "description": "Code du type de règlement ; null sans type."
+          },
+          "typeDescription": {
+            "type": "string",
+            "description": "Libellé du type de règlement ; null sans type."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant affecté à la facture (StlSettlementLine.Amount), brut."
+          },
+          "annule": {
+            "type": "boolean",
+            "description": "Vrai si le règlement est annulé (CANCELED) : la ligne n'entre dans aucun réglé."
+          },
+          "factureId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Facture réglée (BuyDocument.PKey)."
+          },
+          "factureCode": {
+            "type": "string",
+            "description": "N° de la facture."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur de la facture."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet de la facture (PrjProject.PKey)."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot de la facture (PrjMarket.PKey) ; null hors lot."
+          },
+          "lotCode": {
+            "type": "string",
+            "description": "Code du lot ; null hors lot."
+          },
+          "decompteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Décompte lié à la facture (PrjWorkingOut.PKey) ; null sans décompte."
+          },
+          "decompteCode": {
+            "type": "string",
+            "description": "Code du décompte ; null sans décompte."
+          }
+        }
+      },
       "PageDtoDecompteListItemDto": {
         "type": "object",
         "properties": {
@@ -67423,6 +67799,20 @@
           "aDeduire": {
             "type": "boolean",
             "description": "Vrai si le montant à payer est inférieur à −0,05 (récupération d'avance à déduire)."
+          },
+          "decompteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Décompte lié (PrjWorkingOut.PKey, par PrjWorkingOut.BuyDocumentId) ; null sans décompte."
+          },
+          "decompteCode": {
+            "type": "string",
+            "description": "Code du décompte lié ; null sans décompte."
+          },
+          "decompteNumero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "N° d'ordre du décompte dans son lot (Sorting) ; null sans décompte."
           }
         }
       },
@@ -67577,6 +67967,20 @@
           "aDeduire": {
             "type": "boolean",
             "description": "Vrai si le montant à payer est inférieur à −0,05 (récupération d'avance à déduire)."
+          },
+          "decompteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Décompte lié (PrjWorkingOut.PKey, par PrjWorkingOut.BuyDocumentId) ; null sans décompte."
+          },
+          "decompteCode": {
+            "type": "string",
+            "description": "Code du décompte lié ; null sans décompte."
+          },
+          "decompteNumero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "N° d'ordre du décompte dans son lot (Sorting) ; null sans décompte."
           },
           "notes": {
             "type": "string",

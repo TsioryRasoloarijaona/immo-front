@@ -71,7 +71,7 @@ function CarteFacture({ d }: Readonly<{ d: DecompteDetailDto }>) {
     <Card title="Facture">
       {f ? (
         <FieldGrid>
-          <Field label="Code" value={f.code} />
+          <Field label="Code" value={<Link className="underline" to={`/projet/depenses/factures/${f.id}`}>{f.code}</Link>} />
           <Field label="Statut" value={<BadgeStatut libelle={f.statutDescription ?? f.statutCode} />} />
           <Field label="Date" value={formatDate(f.dateDocument)} />
           <Field label="Échéance" value={formatDate(f.dateEcheance)} />

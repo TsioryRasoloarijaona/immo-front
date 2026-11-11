@@ -7,7 +7,7 @@ import { formatCurrency, formatDate, formatNumber, formatPercentValue } from '..
 import type { LotDetailDto } from '../../types/projet';
 import { BarreAvancement, EtatFiche } from './commun';
 import { useFiche } from './hooks';
-import { OngletBordereau, OngletDecomptes } from './OngletsLot';
+import { OngletBordereau, OngletDecomptes, OngletFactures, OngletReglements } from './OngletsLot';
 
 const TAUX: [string, (l: LotDetailDto) => number | null][] = [
   ['Retenue de garantie', (l) => l.tauxRetenueGarantie],
@@ -63,7 +63,7 @@ function Resume({ lot }: Readonly<{ lot: LotDetailDto }>) {
       </Card>
       <Card title="Facturation">
         <FieldGrid>
-          <Field label="Facturé" value={formatCurrency(lot.totalFacture)} />
+          <Field label="Facturé (décomptes)" value={formatCurrency(lot.totalFacture)} />
           <Field label="Réglé" value={formatCurrency(lot.totalRegle)} />
           <Field label="Reste à régler" value={formatCurrency(lot.resteARegler)} />
         </FieldGrid>
@@ -99,8 +99,16 @@ function Contenu({ lot }: Readonly<{ lot: LotDetailDto }>) {
       <Tabs defaultValue="decomptes">
         <TabsList>
           <TabsTrigger value="decomptes">Décomptes</TabsTrigger>
+          <TabsTrigger value="factures">Factures</TabsTrigger>
+          <TabsTrigger value="reglements">Règlements</TabsTrigger>
           <TabsTrigger value="bordereau">Bordereau</TabsTrigger>
         </TabsList>
+        <TabsContent value="factures">
+          <OngletFactures lotId={lot.id} />
+        </TabsContent>
+        <TabsContent value="reglements">
+          <OngletReglements lotId={lot.id} />
+        </TabsContent>
         <TabsContent value="decomptes">
           <OngletDecomptes lotId={lot.id} />
         </TabsContent>

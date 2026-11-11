@@ -7,6 +7,9 @@ const LotsList = lazy(() => import('../../pages/projet/LotsList'));
 const LotDetail = lazy(() => import('../../pages/projet/LotDetail'));
 const DecomptesList = lazy(() => import('../../pages/projet/DecomptesList'));
 const DecompteDetail = lazy(() => import('../../pages/projet/DecompteDetail'));
+const DepensesProjet = lazy(() => import('../../pages/projet/DepensesProjet'));
+const FacturesProjetList = lazy(() => import('../../pages/projet/FacturesProjetList'));
+const ReglementsProjetList = lazy(() => import('../../pages/projet/ReglementsProjetList'));
 const ProjetsConfigList = lazy(() => import('../../pages/projet/config/ProjetsConfigList'));
 const ReferentielTypesLotPage = lazy(() => import('../../pages/projet/config/ReferentielTypesLotPage'));
 const StatutsLotList = lazy(() => import('../../pages/projet/config/StatutsLotList'));
@@ -24,6 +27,9 @@ const projet: ModuleApp = {
     { path: '/projet/lots/:id', element: <LotDetail /> },
     { path: '/projet/decomptes', element: <DecomptesList /> },
     { path: '/projet/decomptes/:id', element: <DecompteDetail /> },
+    { path: '/projet/depenses', element: <DepensesProjet /> },
+    { path: '/projet/depenses/factures/:id?', element: <FacturesProjetList /> },
+    { path: '/projet/depenses/reglements', element: <ReglementsProjetList /> },
     { path: '/projet/config/projets', element: <ProjetsConfigList /> },
     { path: '/projet/config/types-lot', element: <ReferentielTypesLotPage /> },
     { path: '/projet/config/statuts-lot', element: <StatutsLotList /> },
