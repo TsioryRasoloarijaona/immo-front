@@ -236,6 +236,10 @@
       "description": "Onglet « Cadeaux » de la fiche dossier (`ComFolderGift`) : cadeau du catalogue, prix, livré, disponibilité, raison, date du bon d'achat, date de livraison, note. Aide OMRAN : « Si la case livré est coché, le champ date livraison devient obligatoire » (400 sinon). Choisir un cadeau reprend son prix et sa disponibilité (quantités reçues − cadeaux livrés > 0, `FolderGift.cs:SetPrice`). Ajouter et supprimer demandent le droit OMRAN « toolAddDeleteGifts », ouvert ici aux rôles Administrateur et Commercial Chef ; la modification est ouverte au périmètre, mais seul ce droit change la raison. Chaque écriture signe le dossier."
     },
     {
+      "name": "Projet — configuration, onglets",
+      "description": "Onglets de la fiche projet de l'écran de configuration (Administrateur seul, tous projets hors périmètre) : statut et transitions, historique, ventilation par tranches, critères d'avancement. Voir `instructions/FEATURE-projets-config-parite.md`."
+    },
+    {
       "name": "Suivi des prévisions",
       "description": "Écran « Suivi des prévisions de vente » (Vente › Tableaux de bord, OMRAN F_0250). Ouvert à tout utilisateur connecté, sans\ndroit par rôle ; les données sont bornées aux tranches visibles de l'appelant (société active, périmètre commercial, tranche\nen vente). Aucune clé d'API n'a accès à ces routes (403 `HORS_PORTEE`). Voir `instructions/FEATURE-tdb-vente-previsions.md`.\n\n**Paramètres de requête** (ceux de `/parametres`) : `annee` (défaut : année courante, [1900 ; 2200]), `trancheId` répété\n(absent = toutes les tranches visibles ; un `trancheId` hors de ces tranches est ignoré, et si aucun n'est visible le\nrésultat est à zéro, jamais « toutes les tranches »), `frais` : `SANS` (défaut), `AVEC` ou `SEULS`.\n\n**Prévu** : aucune prévision n'est saisie aujourd'hui ; les colonnes `base`, `ancienPrevu`, `prevu` valent 0 et\nl'avertissement « Prévu non saisi… » est renvoyé. Un pourcentage dont le dénominateur vaut 0 est `null` (affiché « — »)."
     },
@@ -1920,6 +1924,66 @@
         }
       }
     },
+    "/api/projet/config/types-lot/defaut": {
+      "get": {
+        "tags": [
+          "Projet — configuration"
+        ],
+        "summary": "Type de lot par défaut (onglet « Valeurs par défaut » des types de lot, tout authentifié)",
+        "operationId": "typeLotParDefaut",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypeLotParDefautDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projet — configuration"
+        ],
+        "summary": "Enregistre le type de lot par défaut ; null l'efface",
+        "operationId": "enregistrerTypeLotParDefaut",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TypeLotParDefautDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Type de lot inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypeLotParDefautDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TypeLotParDefautDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projet/config/projets/{id}": {
       "get": {
         "tags": [
@@ -1967,6 +2031,7 @@
           "Projet — configuration"
         ],
         "summary": "Remplace les champs saisissables d'un projet (statut et type d'objet inchangés)",
+        "description": "Remplacement complet des champs obligatoires ; les champs facultatifs absents (booléens, taux, 4 dates, nivellement, projet référence, lot prorata) restent inchangés. Pour vider une date ou un lien, le nommer dans `champsAVider`. Le lot gestionnaire du compte prorata doit être un lot de ce projet ; le projet référence, un autre projet existant.",
         "operationId": "modifier",
         "parameters": [
           {
@@ -1992,7 +2057,7 @@
         },
         "responses": {
           "400": {
-            "description": "Code, libellé ou société manquant, société ou gestionnaire inconnu, texte trop long.",
+            "description": "Code, libellé ou société manquant ; société, gestionnaire, nivellement, référence ou lot invalide ; texte trop long.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2064,6 +2129,236 @@
           },
           "409": {
             "description": "« Utilisé par … » : une autre table référence le projet."
+          }
+        }
+      }
+    },
+    "/api/projet/config/projets/{id}/ventilations/{ligneId}": {
+      "put": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Remplace la tranche et le taux d'une ligne de ventilation",
+        "description": "Mêmes règles que l'ajout, la ligne modifiée étant comptée avec son nouveau taux.",
+        "operationId": "modifierVentilation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "Id de la ligne de l'onglet.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VentilationTrancheEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Tranche absente, inconnue, hors société du projet ou déjà ventilée ; taux absent ; Σ arrondie > 1.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VentilationTrancheDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VentilationTrancheDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable, ou ligne absente de ce projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VentilationTrancheDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Retire une tranche de la ventilation (suppression libre, comme OMRAN)",
+        "operationId": "supprimerVentilation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "Id de la ligne de l'onglet.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ligne supprimée."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Projet introuvable, ou ligne absente de ce projet."
+          }
+        }
+      }
+    },
+    "/api/projet/config/projets/{id}/criteres/{ligneId}": {
+      "put": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Modifie l'O.D.T., la description et la catégorie d'un critère",
+        "operationId": "modifierCritere",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "Id de la ligne de l'onglet.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CritereAvancementEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Description absente ou > 255 caractères ; catégorie absente, inconnue ou de recette.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CritereAvancementDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CritereAvancementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable, ou ligne absente de ce projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CritereAvancementDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Supprime un critère qu'aucun PV de réunion ne cite",
+        "operationId": "supprimerCritere",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "Id de la ligne de l'onglet.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Critère supprimé."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Projet introuvable, ou ligne absente de ce projet."
+          },
+          "409": {
+            "description": "Critère cité par un PV de réunion."
           }
         }
       }
@@ -8132,7 +8427,7 @@
           "Projet — configuration"
         ],
         "summary": "Crée un projet et habilite son créateur dans la même transaction",
-        "description": "Le statut (« Nouveau », seul statut du workflow projet) et le type d'objet (`StrEntity` « PrjProject ») sont posés par le serveur. Défauts : non ventilé, taux 0, sans parties communes. Une habilitation (`AdmUserHabilitation`, portée projet seule) est créée pour l'utilisateur courant dans la même transaction : un échec de l'une annule l'autre.",
+        "description": "Le statut (premier statut de type « Nouveau » du workflow projet) et le type d'objet (`StrEntity` « PrjProject ») sont posés par le serveur, avec une ligne d'historique `StrHistory` « Création ». Défauts : non ventilé, taux 0, sans parties communes. Une habilitation (`AdmUserHabilitation`, portée projet seule) est créée pour l'utilisateur courant dans la même transaction : un échec de l'une annule l'autre.",
         "operationId": "creer_7",
         "requestBody": {
           "content": {
@@ -8156,7 +8451,7 @@
             }
           },
           "400": {
-            "description": "Code, libellé ou société manquant, société ou gestionnaire inconnu, texte trop long.",
+            "description": "Code, libellé ou société manquant ; société, gestionnaire, nivellement, référence ou lot invalide ; texte trop long.",
             "content": {
               "*/*": {
                 "schema": {
@@ -8181,6 +8476,397 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ProjetConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projet/config/projets/{id}/ventilations": {
+      "get": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Ventilation du projet par tranche, par code de tranche",
+        "operationId": "ventilations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VentilationTrancheDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VentilationTrancheDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Ajoute une tranche à la ventilation du projet",
+        "description": "Règle OMRAN (`Project.cs:Verif`) : la somme des taux du projet, arrondie à 2 décimales, ne dépasse pas 1, sinon 400 « La ventilation de votre document est incorrecte ! ». Une somme inférieure à 1 est acceptée. La tranche doit appartenir à la société du projet et ne pas être déjà ventilée sur ce projet.",
+        "operationId": "ajouterVentilation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VentilationTrancheEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Ligne créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VentilationTrancheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Tranche absente, inconnue, hors société du projet ou déjà ventilée ; taux absent ; Σ arrondie > 1.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VentilationTrancheDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VentilationTrancheDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VentilationTrancheDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projet/config/projets/{id}/transition": {
+      "post": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Exécute une transition de statut et écrit sa ligne d'historique",
+        "description": "Seules les transitions partant du statut courant sont permises (toutes, sans filtre d'intervenant, comme `StrStatus.GetNextWorkFlowList`) ; une autre, inconnue ou déjà faite répond 409 avec `transitionsAutorisees` (codes des statuts d'arrivée permis). Une transition `WithPassword` (second utilisateur) répond 409. Une ligne `StrHistory` est écrite : `« {transition}: {départ}=>{arrivée}({login} & ) »`, notes = commentaire.",
+        "operationId": "executerTransition_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionTransitionProjetDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Commentaire absent alors que la transition l'exige.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetConfigDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetConfigDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projet/config/projets/{id}/criteres": {
+      "get": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Critères d'avancement du projet, par O.D.T.",
+        "operationId": "criteres",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CritereAvancementDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CritereAvancementDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Ajoute un critère d'avancement",
+        "operationId": "ajouterCritere",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CritereAvancementEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Critère créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CritereAvancementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Description absente ou > 255 caractères ; catégorie absente, inconnue ou de recette.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CritereAvancementDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CritereAvancementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CritereAvancementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projet/config/projets/{id}/criteres/importer": {
+      "post": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Remplace tous les critères du projet par des copies de ceux d'un autre projet",
+        "description": "Supprime tous les critères du projet puis copie ceux du projet source (O.D.T., description, catégorie). Refusé en 409 si un critère actuel du projet est cité par un PV de réunion (`BulMeetingPrjProjectProgressCriteriaLine`) : rien n'est changé.",
+        "operationId": "importerCriteres",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportCriteresDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Projet source absent, inconnu ou égal au projet importateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CritereAvancementDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CritereAvancementDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CritereAvancementDto"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Un critère actuel du projet est cité par un PV de réunion.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CritereAvancementDto"
+                  }
                 }
               }
             }
@@ -9973,7 +10659,7 @@
         ],
         "summary": "Exécute une transition : contrôles OMRAN, statut, historique, recalcul",
         "description": "Contrôles dans l'ordre : étude bloquée → 409 « Étude bloquée » ; transition inconnue → 404 ; transition hors de celles\nde `GET …/transitions` (départ ≠ statut courant, aucun rôle commun) → 409 avec `transitionsAutorisees` (descriptions\ndes transitions permises) ; champs vides de la transition et documents manquants → 400, tous les messages ; Verif de\nl'étude (surfaces des unités, poids et ventilation des tranches) → 400 ; champs\nobligatoires du nouveau statut vides → 400, rien n'est écrit. Sinon : statut écrit, ligne d'historique (date,\nstatut, utilisateur), recalcul complet de l'étude (bilan, trésorerie) dans la même transaction. La note obligatoire,\nla notification et l'e-mail de la transition sont stockés sans effet (comme OMRAN).",
-        "operationId": "executerTransition_1",
+        "operationId": "executerTransition_2",
         "parameters": [
           {
             "name": "id",
@@ -28131,6 +28817,147 @@
         }
       }
     },
+    "/api/projet/config/projets/{id}/transitions": {
+      "get": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Transitions partant du statut courant du projet",
+        "operationId": "transitions_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionProjetDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionProjetDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projet/config/projets/{id}/historique": {
+      "get": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Historique des statuts du projet (StrHistory), le plus récent d'abord",
+        "operationId": "historique_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoriqueProjetDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoriqueProjetDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projet/config/projets/{id}/choix": {
+      "get": {
+        "tags": [
+          "Projet — configuration, onglets"
+        ],
+        "summary": "Listes de choix du projet : tranches ventilables et lots (gestionnaire du compte prorata)",
+        "operationId": "choix_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChoixProjetDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChoixProjetDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pre-prospections/totaux": {
       "get": {
         "tags": [
@@ -30219,7 +31046,7 @@
         ],
         "summary": "Historique des statuts de l'étude, par date",
         "description": "Une ligne par changement de statut, création comprise : date, code, libellé et ordre du statut, utilisateur\n(`AdmUser.Description`).",
-        "operationId": "historique_2",
+        "operationId": "historique_3",
         "parameters": [
           {
             "name": "id",
@@ -37036,7 +37863,7 @@
         ],
         "summary": "Historique des statuts des dossiers de l'article",
         "description": "Lignes `StrFolderStatusHistory` dont `StkItemId` est l'article, plus celles d'un **transfert produit légalisé**\n(`ComSaleWithdrawalProduct.IsLegalized = 1`) dont l'article est l'ancien ou le nouveau. Tri par date décroissante (OMRAN\ntrie par date croissante ; le CRM garde l'ordre de l'historique du tiers). Une ligne d'un dossier de vente hors\npérimètre commercial est masquée ; une ligne sans dossier de vente (location, syndic) l'est si l'article est hors\npérimètre, comme dans l'onglet Dossiers. Origine : `ComFolderId` → VENTE, sinon `RntFolderId` → LOCATION, sinon `SynFolderId` →\nSYNDIC. Auteur : le compte de la ligne, sinon la ligne `StrHistory` jumelle du dossier de vente, sinon « Système ».",
-        "operationId": "historique_3",
+        "operationId": "historique_4",
         "parameters": [
           {
             "name": "id",
@@ -39788,7 +40615,7 @@
         ],
         "summary": "Transitions des pièces d'achat par gestion, avec rôles et usage réel (lecture seule)",
         "description": "Les transitions sont **propres à une gestion** (`StrEntityId`). Tri : libellé de gestion (la ligne sans gestion, « Sans gestion », en dernier), puis `ordre`, puis `description`. `roles` est vide pour une transition sans rôle. `nombrePassages` compte les lignes d'historique (`BuyDocumentStatusHistory.buyDocumentWorkFlowId`) portant **l'identifiant** de la transition, quelle que soit la gestion actuelle de la pièce ; la ligne de création d'une pièce n'en porte aucune.",
-        "operationId": "transitions_3",
+        "operationId": "transitions_4",
         "parameters": [
           {
             "name": "utilisees",
@@ -42387,6 +43214,17 @@
           }
         }
       },
+      "TypeLotParDefautDto": {
+        "type": "object",
+        "description": "Type de lot par défaut (AdmParamsGuid « DefaultMarketType »), onglet « Valeurs par défaut ».",
+        "properties": {
+          "typeLotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de lot (PrjMarketType.PKey) ; null = aucun type par défaut."
+          }
+        }
+      },
       "ProjetConfigRequest": {
         "type": "object",
         "description": "Saisie d'un projet (création ou remplacement complet) ; statut et type d'objet sont posés par le serveur.",
@@ -42433,6 +43271,48 @@
           "partiesCommunes": {
             "type": "boolean",
             "description": "Parties communes ; absent = faux à la création, inchangé en modification."
+          },
+          "dateLancementPrevisionnelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Lancement prévisionnel des travaux ; absent = inchangé."
+          },
+          "dateAchevementPrevisionnelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Achèvement prévisionnel des travaux ; absent = inchangé."
+          },
+          "dateLancementReelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Lancement réel des travaux ; absent = inchangé."
+          },
+          "dateAchevementReelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Achèvement réel des travaux ; absent = inchangé."
+          },
+          "nivellementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Nivellement (StkLeveling.PKey) ; absent = inchangé, inconnu → 400."
+          },
+          "projetReferenceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet référence ; absent = inchangé, inconnu ou le projet lui-même → 400."
+          },
+          "lotGestionnaireProrataId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot gestionnaire du compte prorata ; absent = inchangé, lot inconnu ou d'un autre projet → 400."
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "Champs à vider (NULL) parmi les 4 dates, nivellementId, projetReferenceId, lotGestionnaireProrataId.",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -42550,6 +43430,147 @@
           "modifiePar": {
             "type": "string",
             "description": "Auteur de la dernière modification (UserUpdate)."
+          },
+          "dateLancementPrevisionnelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Lancement prévisionnel des travaux (ProvisionalWorkStartDate), null si vide."
+          },
+          "dateAchevementPrevisionnelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Achèvement prévisionnel des travaux (ProvisionalCompletingWorkDate), null si vide."
+          },
+          "dateLancementReelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Lancement réel des travaux (RealWorkStartDate), null si vide."
+          },
+          "dateAchevementReelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Achèvement réel des travaux (RealCompletingWorkDate), null si vide."
+          },
+          "nivellementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Nivellement (StkLeveling.PKey, colonne StkLevelingId), null si aucun."
+          },
+          "projetReferenceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet référence (PrjProject.PKey, colonne ReferenceId), null si aucun."
+          },
+          "lotGestionnaireProrataId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot du projet gestionnaire du compte prorata (PrjMarket.PKey), null si aucun."
+          }
+        }
+      },
+      "VentilationTrancheEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'une ligne de ventilation par tranche (ajout ou remplacement).",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche de la société du projet, pas déjà ventilée sur ce projet. Obligatoire."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux en fraction, obligatoire ; Σ des taux du projet arrondie à 2 décimales ≤ 1.",
+            "example": 0.25
+          }
+        },
+        "required": [
+          "taux",
+          "trancheId"
+        ]
+      },
+      "VentilationTrancheDto": {
+        "type": "object",
+        "description": "Ligne de ventilation du projet par tranche (PrjProjectCfgTrancheVentilation).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjProjectCfgTrancheVentilation.PKey."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche (CfgTranche.PKey)."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de la tranche, null si la tranche n'existe plus."
+          },
+          "trancheDescription": {
+            "type": "string",
+            "description": "Libellé de la tranche."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux (VentilationRate), fraction : 0,25 = 25 %.",
+            "example": 0.25
+          }
+        }
+      },
+      "CritereAvancementEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'un critère d'avancement (ajout ou remplacement).",
+        "properties": {
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T. ; absent à l'ajout = nombre de critères du projet + 1, absent en modification = inchangé."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description, obligatoire, 255 caractères au plus."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de dépense (StlCategory non crédit), obligatoire."
+          }
+        },
+        "required": [
+          "categorieId",
+          "description"
+        ]
+      },
+      "CritereAvancementDto": {
+        "type": "object",
+        "description": "Critère d'avancement du projet (PrjProjectProgressCriteriaLine), par ordre.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjProjectProgressCriteriaLine.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T. (Sorting)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description, 255 caractères au plus."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de dépense (StlCategory.PKey)."
+          },
+          "categorieCode": {
+            "type": "string",
+            "description": "Code de la catégorie, null si elle n'existe plus."
+          },
+          "categorieDescription": {
+            "type": "string",
+            "description": "Libellé de la catégorie."
           }
         }
       },
@@ -50663,6 +51684,43 @@
         },
         "required": [
           "dateDocument"
+        ]
+      },
+      "ExecutionTransitionProjetDto": {
+        "type": "object",
+        "description": "Exécution d'une transition de statut du projet.",
+        "properties": {
+          "transitionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Transition (id d'une TransitionProjetDto). Obligatoire."
+          },
+          "commentaire": {
+            "type": "string",
+            "description": "Commentaire (StrHistory.Notes), obligatoire si la transition l'exige."
+          },
+          "dateUtilisateur": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date utilisateur, lue si la transition l'accepte ; défaut maintenant."
+          }
+        },
+        "required": [
+          "transitionId"
+        ]
+      },
+      "ImportCriteresDto": {
+        "type": "object",
+        "description": "Import des critères d'avancement d'un autre projet.",
+        "properties": {
+          "projetSourceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet source (PrjProject.PKey), autre que le projet importateur. Obligatoire."
+          }
+        },
+        "required": [
+          "projetSourceId"
         ]
       },
       "CreerPreProspectionRequest": {
@@ -63163,6 +64221,116 @@
           "gestionnaires": {
             "type": "array",
             "description": "Personnel (CfgTier de type EMP), choix du gestionnaire ; description = nom.",
+            "items": {
+              "$ref": "#/components/schemas/ReferentielItemDto"
+            }
+          },
+          "nivellements": {
+            "type": "array",
+            "description": "Nivellements (StkLeveling), par code ; description = code.",
+            "items": {
+              "$ref": "#/components/schemas/ReferentielItemDto"
+            }
+          },
+          "categoriesDepense": {
+            "type": "array",
+            "description": "Catégories de dépense (StlCategory non crédit), choix de la catégorie d'un critère d'avancement.",
+            "items": {
+              "$ref": "#/components/schemas/ReferentielItemDto"
+            }
+          }
+        }
+      },
+      "TransitionProjetDto": {
+        "type": "object",
+        "description": "Transition sortante du statut courant du projet (StrWorkFlow de l'entité PrjProject).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrWorkFlow.PKey, à renvoyer dans POST …/transition."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la transition."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de la transition."
+          },
+          "statutCible": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Statut d'arrivée."
+          },
+          "commentaireObligatoire": {
+            "type": "boolean",
+            "description": "WithComment : commentaire obligatoire (400 sinon)."
+          },
+          "avecDateUtilisateur": {
+            "type": "boolean",
+            "description": "WithUserDate : la dateUtilisateur saisie est enregistrée (UserDate)."
+          },
+          "secondUtilisateur": {
+            "type": "boolean",
+            "description": "WithPassword : second utilisateur exigé, non pris en charge (409)."
+          }
+        }
+      },
+      "HistoriqueProjetDto": {
+        "type": "object",
+        "description": "Ligne d'historique de statut du projet (StrHistory), la plus récente d'abord.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrHistory.PKey."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "DocDate : moment de l'écriture."
+          },
+          "description": {
+            "type": "string",
+            "description": "« Création », ou « {transition}: {départ}=>{arrivée}({login} & ) »."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "AdmUserDescription : nom affiché de l'auteur."
+          },
+          "transition": {
+            "type": "string",
+            "description": "StrWorkflowDescription, null pour la création."
+          },
+          "statut": {
+            "type": "string",
+            "description": "StrStatusDescription : statut d'arrivée."
+          },
+          "commentaire": {
+            "type": "string",
+            "description": "Notes : commentaire de la transition."
+          },
+          "dateUtilisateur": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UserDate."
+          }
+        }
+      },
+      "ChoixProjetDto": {
+        "type": "object",
+        "description": "Listes de choix propres à un projet, par code.",
+        "properties": {
+          "tranches": {
+            "type": "array",
+            "description": "Tranches ventilables : celles de la société du projet (CfgTranche → CfgProject.CfgCompanyId).",
+            "items": {
+              "$ref": "#/components/schemas/ReferentielItemDto"
+            }
+          },
+          "lots": {
+            "type": "array",
+            "description": "Lots du projet (PrjMarket.PrjProjectId), choix du gestionnaire du compte prorata.",
             "items": {
               "$ref": "#/components/schemas/ReferentielItemDto"
             }
