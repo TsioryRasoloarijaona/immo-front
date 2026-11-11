@@ -12,6 +12,10 @@
   ],
   "tags": [
     {
+      "name": "Achat — configuration",
+      "description": "Configuration des pièces d'achat en **lecture seule** : statuts (`BuyDocumentStatus`) et transitions (`BuyDocumentWorkFlow`). OMRAN reste maître du paramétrage ; aucune écriture. Tout compte connecté lit. Voir `instructions/FEATURE-achat-regle-commune.md` §4."
+    },
+    {
       "name": "Lotissements",
       "description": "Écran OMRAN « LOTISSEMENTS » : lots de terrain, c'est-à-dire terrains (nature TER) rattachés à une tranche, d'entité\n« article » (StrEntity StkItem) et de vocation autre que PROJET. Fiche, écritures (Administrateur) et fiche PDF ;\nimport de lots par `/api/import-patrimoine/lotissements?trancheId=`. Notes, actions, audit et pièces jointes d'un lot\npassent par les routes article."
     },
@@ -39189,6 +39193,67 @@
         }
       }
     },
+    "/api/achat/config/transitions": {
+      "get": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Transitions des pièces d'achat par gestion, avec rôles et usage réel (lecture seule)",
+        "description": "Les transitions sont **propres à une gestion** (`StrEntityId`). Tri : libellé de gestion (la ligne sans gestion, « Sans gestion », en dernier), puis `ordre`, puis `description`. `roles` est vide pour une transition sans rôle. `nombrePassages` compte les lignes d'historique (`BuyDocumentStatusHistory.buyDocumentWorkFlowId`) portant **l'identifiant** de la transition, quelle que soit la gestion actuelle de la pièce ; la ligne de création d'une pièce n'en porte aucune.",
+        "operationId": "transitions_3",
+        "parameters": [
+          {
+            "name": "utilisees",
+            "in": "query",
+            "description": "true = seulement les transitions déjà empruntées (nombrePassages > 0).",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionAchatDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/achat/config/statuts": {
+      "get": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Statuts des pièces d'achat, par ordre puis code (lecture seule, tout compte connecté)",
+        "operationId": "statuts_4",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StatutAchatConfigDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/{porteur}/{id}/pieces-jointes/{pieceId}": {
       "delete": {
         "tags": [
@@ -68146,6 +68211,159 @@
           "resteDu": {
             "type": "number",
             "description": "Σ des restes supérieurs à 0,05 seulement : ce qui est vraiment dû."
+          }
+        }
+      },
+      "RoleTransitionDto": {
+        "type": "object",
+        "description": "Rôle autorisé à emprunter une transition (BuyDocumentWorkFlowAdmRole → AdmRole).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmRole.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du rôle (AdmRole.Code).",
+            "example": "Comptabilité"
+          }
+        }
+      },
+      "TransitionAchatDto": {
+        "type": "object",
+        "description": "Transition de statut d'une pièce d'achat (BuyDocumentWorkFlow), propre à une gestion, en lecture seule.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyDocumentWorkFlow.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre dans la gestion (Sorting), null si absent.",
+            "example": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de la transition.",
+            "example": "Validation pour paiement"
+          },
+          "gestionCode": {
+            "type": "string",
+            "description": "Code de la gestion (StrEntity.Code), null sans gestion.",
+            "example": "PrjInvoiceDebit"
+          },
+          "gestionLibelle": {
+            "type": "string",
+            "description": "Libellé de la gestion (StrEntity.Description), « Sans gestion » si aucune."
+          },
+          "statutDepartId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de départ (BuyDocumentStatus.PKey)."
+          },
+          "statutDepartCode": {
+            "type": "string",
+            "description": "Code du statut de départ.",
+            "example": "EN COURS"
+          },
+          "statutArriveeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut d'arrivée (BuyDocumentStatus.PKey)."
+          },
+          "statutArriveeCode": {
+            "type": "string",
+            "description": "Code du statut d'arrivée.",
+            "example": "VALIDE POUR PAIEMENT"
+          },
+          "noteObligatoire": {
+            "type": "boolean",
+            "description": "Commentaire obligatoire (NotesMandatory = 1)."
+          },
+          "valideeParDeclencheur": {
+            "type": "boolean",
+            "description": "Validée par le déclencheur de la pièce (IsValidatedByCfgTierTrigger = 1)."
+          },
+          "roles": {
+            "type": "array",
+            "description": "Rôles autorisés, triés par code ; vide si aucun rôle.",
+            "items": {
+              "$ref": "#/components/schemas/RoleTransitionDto"
+            }
+          },
+          "nombrePassages": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Lignes d'historique (BuyDocumentStatusHistory) portant cette transition.",
+            "example": 1655
+          },
+          "dernierPassage": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du dernier passage, null si jamais empruntée."
+          }
+        }
+      },
+      "StatutAchatConfigDto": {
+        "type": "object",
+        "description": "Statut de pièce d'achat (BuyDocumentStatus), en lecture seule.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyDocumentStatus.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du statut.",
+            "example": "EN COURS"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting), null si absent.",
+            "example": 10
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Type d'état (AdmWorkFlowStateType.Description), null si absent.",
+            "example": "Nouveau"
+          },
+          "couleur": {
+            "type": "string",
+            "description": "Nom de couleur .NET (ColorName) tel quel, null si absent.",
+            "example": "Pink"
+          },
+          "okPourPaiement": {
+            "type": "boolean",
+            "description": "OK pour paiement (IsOkForPayement) ; NULL lu false."
+          },
+          "valideComptabilite": {
+            "type": "boolean",
+            "description": "Validé en comptabilité (IsValidatedOnAccounting) ; NULL lu false."
+          },
+          "lectureSeule": {
+            "type": "boolean",
+            "description": "Pièce en lecture seule dans ce statut (IsReadOnly) ; NULL lu false."
+          },
+          "dureeVieJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de vie en jours (Delay), null si absente.",
+            "example": 0
+          },
+          "nombrePieces": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de pièces (BuyDocument) portant ce statut aujourd'hui.",
+            "example": 473
           }
         }
       }

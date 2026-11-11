@@ -1,4 +1,4 @@
-import { BadgeCheck, FileText, Receipt, Users, Wallet } from 'lucide-react';
+import { BadgeCheck, FileText, Receipt, Tags, Users, Wallet, Workflow } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
 
 const DOCUMENTS = '/achat/documents';
@@ -21,6 +21,14 @@ export const arbreAchat: ArbreModule = () => [
       { to: `${IMPAYES}&okPourPaiement=true`, libelle: 'Validées, non réglées', Icone: BadgeCheck },
       { to: IMPAYES, libelle: 'Tous les impayés', Icone: Wallet },
       { to: '/achat/fournisseurs', libelle: 'Soldes fournisseurs', Icone: Users },
+    ],
+  },
+  {
+    cle: 'configuration',
+    titre: 'Configuration',
+    entrees: [
+      { to: '/achat/config/statuts', libelle: 'Statuts', Icone: Tags },
+      { to: '/achat/config/transitions', libelle: 'Transitions', Icone: Workflow },
     ],
   },
 ];
