@@ -62,6 +62,7 @@ export default function FacturesProjetList() {
 
   const filtres: FiltresDocumentsAchat = {
     natures: ['INVOICE'],
+    moduleProjet: true,
     projetIds: projetIds.length > 0 ? projetIds : undefined,
     lotId: lotId ?? undefined,
     nonSoldes: nonSoldes || undefined,
