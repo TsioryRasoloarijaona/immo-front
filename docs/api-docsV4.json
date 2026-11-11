@@ -152,10 +152,6 @@
       "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les devis dont la tranche relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un devis sans tranche reste visible."
     },
     {
-      "name": "Achat",
-      "description": "Pièces d'achat (`BuyDocument`) en **lecture seule** : factures, bons de commande, devis, documents à régler, bons de livraison, avoirs. Voir `instructions/FEATURE-achat-lecture-factures.md`.\n\n**Visibilité, comme OMRAN** : une pièce est visible si et seulement si son projet (`PrjProjectId`) figure dans les habilitations projet de l'appelant (`AdmUserHabilitation.PrjProjectId`), **pour tous les rôles** (aucune exemption Administrateur / Direction générale). Une pièce sans projet n'est jamais visible. Une pièce hors périmètre répond 404, comme un id inconnu.\n\n**Solde** : `montantRegle` = somme des lignes de règlement (`StlSettlementLine.Amount`) de la pièce dont le règlement n'est pas annulé (`CANCELED`) ; `resteARegler` = `montantAPayer` (`AmountToPay`) − réglé, à 2 décimales ; `solde` = |reste| ≤ 0,05 ; `tropRegle` = reste < −0,05. « Payé » ne se lit jamais dans le statut."
-    },
-    {
       "name": "Modèles de documents",
       "description": "Modèles de documents modifiables par un administrateur (FEATURE-modeles-documents.md). Un modèle appartient à une\n**catégorie** (type de fiche source, lot 1 : `DOSSIER_VENTE`) ; son contenu est un **HTML restreint** (liste blanche :\n`p`, `h1`–`h3`, `strong`, `em`, `u`, `br`, listes, `hr`, tableaux, images `<img data-image=\"<id>\" alt=\"…\">` **sans\n`src`**, l'id venant de `POST /api/modeles-documents/images`) où les valeurs de la fiche s'écrivent\n`<span data-champ=\"cle\">libellé</span>`, les lignes répétées `data-repeter=\"liste\"` (sur `tr`, `li`, `p`, `span`), les\nblocs conditionnels `data-si=\"cle\"` (+ `data-valeur` pour un booléen), les titres numérotés `<h2 data-numero>` et les\nsauts de page `<div data-saut-page></div>`, les pages répétées `<div data-repeter=\"liste\" data-saut-page>` (une page par\nélément) et les blocs positionnés `<div data-bloc data-x data-y data-l data-h [data-taille] [data-gras] [data-align]>`\n(centimètres décimaux depuis le coin haut gauche de la page A4, x + l ≤ 21 et y + h ≤ 29,7 ; taille 6 à 72 pt, Helvetica,\ngras si `data-gras=\"true\"` ; `data-align` left, center ou right ; texte et champs seulement, ni tableau ni image). Tout autre élément, attribut ou style → 400 qui nomme l'élément fautif ;\ntexte de la version (contenu, en-tête et pied) : 1 Mo au plus. Chaque enregistrement crée une version, jamais\nd'écrasement ; pas de suppression : `actif = false`. Concevoir = rôle `Administrateur` ; imprimer = accès à la fiche\n(404 hors périmètre)."
     },
@@ -314,6 +310,10 @@
     {
       "name": "Dossiers — schéma de financement",
       "description": "Opérations du schéma de financement de la fiche dossier, comme OMRAN (aide « DOSSIERS DE VENTE », liste du schéma de financement) : « Si on ajoute (ou on augmente son montant) un document paramétré \"Mettre à jour le schéma de financement\" --> Le système soustrait son montant de la ligne \"Autofinancement\" sinon de la linge \"Crédit\". Si on supprime (on diminue son montant) un document paramétré \" Mettre à jour le schéma de financement\" --> Le système ajoute son montant à la ligne \"Autofinancement\" sinon à la ligne \"Crédit\". » Ce report s'applique aussi à `POST` et `PATCH /api/dossiers/{id}/echeancier`. Après chaque écriture, le prix contractuel, le montant d'accord et le net à payer du dossier sont recalculés et le dossier est signé. Comme OMRAN, l'équilibre n'est pas forcé hors de ces reports (ligne sans « mise à jour du schéma », pas de ligne d'autofinancement ni de crédit) : chaque écriture renvoie l'écart restant (`ecartSchema` sur la ligne, `ecart` après suppression), à afficher tant qu'il est non nul.\n\nContrôle à l'enregistrement (`Sale.cs:VerifSchema`, FEATURE-dossier-finitions.md §1) : si le statut courant du dossier est « avec vérification du schéma » (`StrStatus.BoolField012`) et que le dossier n'est ni annulé ni désisté, une écriture de l'échéancier (`POST`, `PATCH`, suppression, périodicité) qui laisse un écart plus grand en valeur absolue que celui d'avant est refusée en 409, avant toute écriture, avec le message d'OMRAN (« Votre schéma de financement ne correspond pas au montant contractuel : vous devez ajouter / soustraire dans le schéma de financement un montant de … ! »). Une écriture qui réduit l'écart ou le laisse inchangé passe : les dossiers déjà déséquilibrés restent modifiables pour être rééquilibrés."
+    },
+    {
+      "name": "Achat",
+      "description": "Pièces d'achat (`BuyDocument`) en **lecture seule** : factures, bons de commande, devis, documents à régler, bons de livraison, avoirs. Voir `instructions/FEATURE-achat-lecture-factures.md`.\n\n**Visibilité, comme OMRAN** : une pièce est visible si et seulement si son projet (`PrjProjectId`) figure dans les habilitations projet de l'appelant (`AdmUserHabilitation.PrjProjectId`), **pour tous les rôles** (aucune exemption Administrateur / Direction générale). Une pièce sans projet n'est jamais visible. Une pièce hors périmètre répond 404, comme un id inconnu.\n\n**Solde** : `montantRegle` = somme des lignes de règlement (`StlSettlementLine.Amount`) de la pièce dont le règlement n'est pas annulé (`CANCELED`) ; `resteARegler` = `montantAPayer` (`AmountToPay`) − réglé, à 2 décimales ; `solde` = |reste| ≤ 0,05 ; `aDeduire` = à payer < −0,05 (récupération d'avance sur décompte, jamais « trop réglée ») ; `tropRegle` = reste < −0,05 sur une pièce qui n'est pas à déduire. « Payé » ne se lit jamais dans le statut. Calcul unique : `SoldeDocumentAchat` (FEATURE-achat-impayes.md §3.1)."
     },
     {
       "name": "Dossiers — acquéreurs",
@@ -38542,13 +38542,164 @@
         }
       }
     },
+    "/api/achat/fournisseurs/soldes": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Solde par fournisseur et société, sur les pièces visibles (non paginé)",
+        "description": "Solde de chaque fournisseur, une ligne par (fournisseur, société), sur les factures et documents à régler (avoirs exclus) **des projets visibles de l'appelant** (habilitations projet, aucune exemption de rôle) : deux utilisateurs aux projets différents voient deux soldes différents pour le même fournisseur. Les règlements non affectés à une pièce ne sont pas comptés. À payer = `AmountToPay`, réglé = lignes de règlement non annulées, reste = différence (calcul `SoldeDocumentAchat`). `projetIds` hors périmètre est ignoré ; `search` compare le nom du fournisseur sans espaces ni casse ; `nonSoldes=true` masque les lignes soldées (|reste| ≤ 0,05). Non paginé, trié par nom de fournisseur puis code société ; `sort` est ignoré. `total` somme les lignes rendues.",
+        "operationId": "soldes",
+        "parameters": [
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; un projet hors périmètre est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "societeCodes",
+            "in": "query",
+            "description": "Sociétés (CfgCompany.Code), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Nom du fournisseur, espaces et casse ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nonSoldes",
+            "in": "query",
+            "description": "true : masque les lignes soldées (|reste| ≤ 0,05).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes et total ; vides si l'appelant n'a aucun projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SoldesFournisseursDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre mal formé (UUID)."
+          }
+        }
+      }
+    },
+    "/api/achat/fournisseurs/soldes/export": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Export Excel du solde fournisseurs, mêmes filtres et mêmes lignes",
+        "description": "Mêmes filtres et mêmes lignes que `GET /api/achat/fournisseurs/soldes`, sans la ligne de total.",
+        "operationId": "exporterSoldes",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; un projet hors périmètre est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "societeCodes",
+            "in": "query",
+            "description": "Sociétés (CfgCompany.Code), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Nom du fournisseur, espaces et casse ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nonSoldes",
+            "in": "query",
+            "description": "true : masque les lignes soldées (|reste| ≤ 0,05).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille DONNEES.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre mal formé ou format autre que xlsx."
+          }
+        }
+      }
+    },
     "/api/achat/documents": {
       "get": {
         "tags": [
           "Achat"
         ],
         "summary": "Liste paginée des pièces d'achat visibles (habilitations projet)",
-        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée n'y figure pas. `search` cherche, sans tenir compte de la casse, dans le code, la référence, la description et le nom du fournisseur. Tri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode` ; une autre propriété répond 400.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
+        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `search` cherche, sans tenir compte de la casse, dans le code, la référence, la description et le nom du fournisseur. Tri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode` ; une autre propriété répond 400.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
         "operationId": "liste",
         "parameters": [
           {
@@ -38659,6 +38810,15 @@
             }
           },
           {
+            "name": "okPourPaiement",
+            "in": "query",
+            "description": "true : statut « OK pour paiement » seulement ; absent ou false : pas de filtre.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -38717,6 +38877,149 @@
           },
           "404": {
             "description": "Pièce introuvable, sans projet ou hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/achat/documents/totaux": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Totaux de la liste des pièces d'achat : mêmes filtres, toutes pages",
+        "description": "Totaux de la liste pour les mêmes filtres (même requête, toutes pages ; `sort`, `page` et `size` ignorés) : `nombre` = `totalElements` de la liste, `resteARegler` = Σ à payer − Σ réglé (signé), `resteDu` = Σ des seuls restes supérieurs à 0,05 et `nombreARegler` leur nombre. Aucun projet visible : tout à zéro.",
+        "operationId": "totaux_2",
+        "parameters": [
+          {
+            "name": "natures",
+            "in": "query",
+            "description": "Natures (DocType), paramètre répété ; valeur inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "INVOICE",
+                  "ORDER",
+                  "QUOTE",
+                  "DOCUMENT_TO_PAY",
+                  "DELIVRY",
+                  "REFUND"
+                ]
+              }
+            },
+            "example": "INVOICE"
+          },
+          {
+            "name": "statutIds",
+            "in": "query",
+            "description": "Statuts (BuyDocumentStatus.id), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; un projet hors périmètre est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "lotId",
+            "in": "query",
+            "description": "Lot de marché (PrjMarket.id).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fournisseurId",
+            "in": "query",
+            "description": "Fournisseur (CfgTier.id).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date de la pièce à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date de la pièce jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "nonSoldes",
+            "in": "query",
+            "description": "true : pièces dont le reste à régler dépasse 0,05 (trop réglées exclues).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche insensible à la casse : code, référence, description, fournisseur.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "okPourPaiement",
+            "in": "query",
+            "description": "true : statut « OK pour paiement » seulement ; absent ou false : pas de filtre.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Totaux ; à zéro si l'appelant n'a aucun projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotauxDocumentsAchatDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre mal formé (UUID, date, nature, booléen)."
           }
         }
       }
@@ -38844,6 +39147,15 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "okPourPaiement",
+            "in": "query",
+            "description": "true : statut « OK pour paiement » seulement ; absent ou false : pas de filtre.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -67223,6 +67535,81 @@
           }
         }
       },
+      "SoldeFournisseurDto": {
+        "type": "object",
+        "description": "Solde d'un fournisseur dans une société : factures et documents à régler visibles, avoirs exclus.",
+        "properties": {
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.id) ; null sur le total."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur (CfgTier.Description) ; null sur le total."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société (CfgCompany.Code) ; null sur le total."
+          },
+          "nombrePieces": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de pièces comptées."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "Σ des montants à payer (négatifs compris)."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Σ des réglés (règlements annulés exclus)."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Σ à payer − Σ réglé, signé."
+          },
+          "solde": {
+            "type": "boolean",
+            "description": "Vrai si |reste| ≤ 0,05."
+          },
+          "nombreARegler": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de pièces dont le reste dépasse 0,05."
+          },
+          "nombreValideesARegler": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de pièces « OK pour paiement » dont le reste dépasse 0,05."
+          },
+          "resteValideARegler": {
+            "type": "number",
+            "description": "Σ des restes > 0,05 des pièces « OK pour paiement » : payable tout de suite."
+          },
+          "montantADeduire": {
+            "type": "number",
+            "description": "Σ des montants à payer négatifs (récupérations d'avance), ≤ 0."
+          }
+        }
+      },
+      "SoldesFournisseursDto": {
+        "type": "object",
+        "description": "Solde des fournisseurs sur les projets visibles de l'appelant, par fournisseur et société.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Une ligne par (fournisseur, société), triées par nom de fournisseur puis société.",
+            "items": {
+              "$ref": "#/components/schemas/SoldeFournisseurDto"
+            }
+          },
+          "total": {
+            "$ref": "#/components/schemas/SoldeFournisseurDto",
+            "description": "Total des lignes ; fournisseurId, fournisseurNom et societeCode nuls."
+          }
+        }
+      },
       "DocumentAchatListItemDto": {
         "type": "object",
         "description": "Pièce d'achat (BuyDocument) dans la liste ; mêmes valeurs en tête de la fiche.",
@@ -67342,7 +67729,11 @@
           },
           "tropRegle": {
             "type": "boolean",
-            "description": "Vrai si le reste est inférieur à −0,05 (pièce trop réglée)."
+            "description": "Vrai si le réglé dépasse de plus de 0,05 un à-payer positif ; faux pour une pièce négative."
+          },
+          "aDeduire": {
+            "type": "boolean",
+            "description": "Vrai si le montant à payer est inférieur à −0,05 (récupération d'avance à déduire)."
           },
           "decompteId": {
             "type": "string",
@@ -67506,7 +67897,11 @@
           },
           "tropRegle": {
             "type": "boolean",
-            "description": "Vrai si le reste est inférieur à −0,05 (pièce trop réglée)."
+            "description": "Vrai si le réglé dépasse de plus de 0,05 un à-payer positif ; faux pour une pièce négative."
+          },
+          "aDeduire": {
+            "type": "boolean",
+            "description": "Vrai si le montant à payer est inférieur à −0,05 (récupération d'avance à déduire)."
           },
           "decompteId": {
             "type": "string",
@@ -67715,6 +68110,42 @@
             "type": "number",
             "description": "Taux de ventilation, fraction (0,75 = 75 %).",
             "example": 0.75
+          }
+        }
+      },
+      "TotauxDocumentsAchatDto": {
+        "type": "object",
+        "description": "Totaux de la liste des pièces d'achat, mêmes filtres, toutes pages.",
+        "properties": {
+          "nombre": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de pièces retenues (= totalElements de la liste)."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Σ des montants TTC."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "Σ des montants à payer."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Σ des réglés (règlements annulés exclus)."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Σ à payer − Σ réglé : reste signé de la sélection."
+          },
+          "nombreARegler": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de pièces dont le reste dépasse 0,05."
+          },
+          "resteDu": {
+            "type": "number",
+            "description": "Σ des restes supérieurs à 0,05 seulement : ce qui est vraiment dû."
           }
         }
       }

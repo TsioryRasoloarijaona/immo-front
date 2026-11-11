@@ -77,6 +77,7 @@ export default function FicheDocumentAchatFenetre({
           <>
             <Badge tone={tonStatutAchat(d)}>{libelleStatutAchat(d)}</Badge>
             {d.tropRegle && <Badge tone="amber">Trop réglé</Badge>}
+            {d.aDeduire && <Badge tone="amber">Avance à déduire</Badge>}
             <span className="text-label font-semibold tabular-nums text-foreground">{formatCurrency(d.montantTTC)}</span>
           </>
         )
