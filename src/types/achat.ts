@@ -16,6 +16,8 @@ export interface FiltresDocumentsAchat {
   /** Reste à régler > 0,05 ; les pièces trop réglées n'y figurent pas. */
   nonSoldes?: boolean;
   search?: string;
+  /** Statut « OK pour paiement » seulement ; absent ou false = pas de filtre. */
+  okPourPaiement?: boolean;
 }
 
 export interface NatureAchatDto {
@@ -80,7 +82,10 @@ export interface DocumentAchatListItemDto {
   /** Négatif si la pièce est trop réglée. */
   resteARegler: number;
   solde: boolean;
+  /** Réglé au-delà d'un à-payer positif ; faux pour une pièce à déduire. */
   tropRegle: boolean;
+  /** À payer < −0,05 : récupération d'avance sur décompte. */
+  aDeduire: boolean;
 }
 
 export interface LigneDocumentAchatDto {
@@ -119,6 +124,54 @@ export interface ReglementDocumentAchatDto {
   montant: number | null;
   /** Listé mais exclu du réglé. */
   annule: boolean;
+}
+
+// FEATURE-achat-impayes.md §4.
+export interface TotauxDocumentsAchatDto {
+  /** = totalElements de la liste pour les mêmes filtres. */
+  nombre: number;
+  montantTTC: number;
+  montantAPayer: number;
+  montantRegle: number;
+  /** Σ à payer − Σ réglé, signé. */
+  resteARegler: number;
+  nombreARegler: number;
+  /** Σ des restes > 0,05 seulement : ce qui est vraiment dû. */
+  resteDu: number;
+}
+
+export interface FiltresSoldesFournisseurs {
+  /** Un projet hors périmètre est ignoré. */
+  projetIds?: UUID[];
+  societeCodes?: string[];
+  /** Nom du fournisseur, espaces et casse ignorés. */
+  search?: string;
+  /** Masque les lignes soldées. */
+  nonSoldes?: boolean;
+}
+
+export interface SoldeFournisseurDto {
+  /** null sur la ligne de total. */
+  fournisseurId: UUID | null;
+  fournisseurNom: string | null;
+  societeCode: string | null;
+  nombrePieces: number;
+  montantAPayer: number;
+  montantRegle: number;
+  /** Signé. */
+  resteARegler: number;
+  solde: boolean;
+  nombreARegler: number;
+  nombreValideesARegler: number;
+  /** Payable tout de suite : restes > 0,05 des pièces « OK pour paiement ». */
+  resteValideARegler: number;
+  /** Σ des à-payer négatifs, ≤ 0. */
+  montantADeduire: number;
+}
+
+export interface SoldesFournisseursDto {
+  lignes: SoldeFournisseurDto[];
+  total: SoldeFournisseurDto;
 }
 
 export interface DocumentAchatDetailDto extends DocumentAchatListItemDto {

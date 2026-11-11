@@ -9,6 +9,7 @@ export interface EtatFiltresAchat {
   du: string;
   au: string;
   nonSoldes: boolean;
+  okPourPaiement: boolean;
   search: string;
 }
 
@@ -20,6 +21,7 @@ export const FILTRES_ACHAT_VIDES: EtatFiltresAchat = {
   du: '',
   au: '',
   nonSoldes: false,
+  okPourPaiement: false,
   search: '',
 };
 
