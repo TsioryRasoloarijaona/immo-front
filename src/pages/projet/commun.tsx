@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import Pagination from '../../components/Pagination';
@@ -45,6 +45,8 @@ export function CorpsListe<T extends { id: string }>({
   messageVide,
   onOuvrir,
   onPage,
+  totauxServeur,
+  selection,
 }: Readonly<{
   etat: ApiState<PageDto<T>>;
   rows: T[];
@@ -53,6 +55,8 @@ export function CorpsListe<T extends { id: string }>({
   messageVide: string;
   onOuvrir: (id: string) => void;
   onPage: (page: number) => void;
+  totauxServeur?: ComponentProps<typeof DataGrid>['totauxServeur'];
+  selection?: ComponentProps<typeof DataGrid>['selection'];
 }>) {
   const { data, loading, error } = etat;
   return (
@@ -65,7 +69,7 @@ export function CorpsListe<T extends { id: string }>({
             {rows.length === 0 ? (
               <EmptyState title={messageVide} />
             ) : (
-              <DataGrid rows={rows} colonnes={colonnes} cleOrdre={cleOrdre} onOuvrir={onOuvrir} bandeauRegroupement={false} />
+              <DataGrid rows={rows} colonnes={colonnes} cleOrdre={cleOrdre} onOuvrir={onOuvrir} bandeauRegroupement={false} totauxServeur={totauxServeur} selection={selection} />
             )}
           </div>
           <div className="shrink-0">
