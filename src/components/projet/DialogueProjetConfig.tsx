@@ -6,9 +6,16 @@ import { Button } from '../ui/button';
 import { DialogFooter } from '../ui/dialog';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Textarea } from '../ui/textarea';
-import { createProjetConfig, getReferentielsProjetConfig, updateProjetConfig } from '../../lib/apiProjetConfig';
-import { brouillonDepuis, useSaisie, type ChampDef } from '../../lib/saisiePatrimoine';
+import {
+  createProjetConfig, getChoixProjet, getReferentielsProjetConfig, listProjetsConfig, updateProjetConfig,
+} from '../../lib/apiProjetConfig';
+import { brouillonDepuis, corpsDepuis, useSaisie, type ChampDef } from '../../lib/saisiePatrimoine';
+import BoutonStatutProjet from './BoutonStatutProjet';
+import OngletCriteresProjet from './OngletCriteresProjet';
+import OngletHistoriqueProjet from './OngletHistoriqueProjet';
+import OngletVentilationProjet from './OngletVentilationProjet';
 import { useApi } from '../../lib/useApi';
 import type { ReferentielItemDto } from '../../types';
 import type { ProjetConfigDto, ProjetConfigRequest } from '../../types/projetConfig';
@@ -24,7 +31,17 @@ const CHAMPS: ChampDef[] = [
   { nom: 'ventile', libelle: 'Ventilé', type: 'booleen' },
   { nom: 'tauxVentilationDefaut', libelle: 'Taux de ventilation par défaut', type: 'ratio' },
   { nom: 'partiesCommunes', libelle: 'Parties communes', type: 'booleen' },
+  { nom: 'dateLancementPrevisionnelle', libelle: 'Lancement prévisionnel', type: 'date' },
+  { nom: 'dateAchevementPrevisionnelle', libelle: 'Achèvement prévisionnel', type: 'date' },
+  { nom: 'dateLancementReelle', libelle: 'Lancement réel', type: 'date' },
+  { nom: 'dateAchevementReelle', libelle: 'Achèvement réel', type: 'date' },
+  { nom: 'nivellementId', libelle: 'Nivellement', type: 'liste' },
+  { nom: 'projetReferenceId', libelle: 'Projet référence', type: 'liste' },
+  { nom: 'lotGestionnaireProrataId', libelle: 'Gestionnaire compte prorata', type: 'liste' },
 ];
+
+/** Champs « absent = inchangé » du corps : seuls les changés partent, un champ effacé part dans `champsAVider`. */
+const CHAMPS_OPTIONNELS = CHAMPS.slice(10);
 
 const items = (liste: ReferentielItemDto[] | undefined, libelle: (i: ReferentielItemDto) => string) =>
   (liste ?? []).map((i) => ({ value: i.id, label: libelle(i) }));
@@ -36,6 +53,13 @@ export default function DialogueProjetConfig({ projet, onClose, onSaved }: Reado
   onSaved: () => void;
 }>) {
   const referentiels = useApi(getReferentielsProjetConfig, [], 'projet-config-referentiels');
+  const projets = useApi(listProjetsConfig, []);
+  const choixProjet = useApi(
+    () => (projet ? getChoixProjet(projet.id) : Promise.resolve({ tranches: [], lots: [] })),
+    [projet?.id],
+  );
+  const [statut, setStatut] = useState(projet?.statutCode);
+  const [statutChange, setStatutChange] = useState(false);
   const [depart] = useState(() => brouillonDepuis(CHAMPS, projet));
   const { brouillon, modifier, envoi, erreur, champErreur, envoyer } = useSaisie(CHAMPS, depart);
   const texte = (nom: string) => String(brouillon[nom] ?? '');
@@ -54,6 +78,7 @@ export default function DialogueProjetConfig({ projet, onClose, onSaved }: Reado
       ventile: brouillon.ventile === true,
       tauxVentilationDefaut: taux === '' ? null : Number(taux),
       partiesCommunes: brouillon.partiesCommunes === true,
+      ...corpsDepuis(CHAMPS_OPTIONNELS, brouillon, projet ? depart : undefined),
     };
     void envoyer(() => (projet ? updateProjetConfig(projet.id, corps) : createProjetConfig(corps)), onSaved);
   }
@@ -68,7 +93,7 @@ export default function DialogueProjetConfig({ projet, onClose, onSaved }: Reado
       </Field>
     );
   };
-  const saisie = (nom: string, type: 'text' | 'number' = 'text') => (
+  const saisie = (nom: string, type: 'text' | 'number' | 'date' = 'text') => (
     <Input id={`pc-${nom}`} type={type} step={type === 'number' ? 'any' : undefined} min={type === 'number' ? 0 : undefined}
       value={texte(nom)} aria-invalid={champErreur === nom ? true : undefined} onChange={(e) => modifier(nom, e.target.value)} />
   );
@@ -79,7 +104,7 @@ export default function DialogueProjetConfig({ projet, onClose, onSaved }: Reado
     <div className="flex gap-1.5">
       <SearchableSelect id={`pc-${nom}`} items={choix} value={texte(nom) || null} placeholder="Choisir…" emptyMessage="Aucun choix"
         className="w-full min-w-0" onValueChange={(v) => modifier(nom, v ?? '')} />
-      {nom === 'gestionnaireId' && texte(nom) !== '' && (
+      {!CHAMPS.find((c) => c.nom === nom)?.obligatoire && texte(nom) !== '' && (
         <Button type="button" variant="outline" size="sm" onClick={() => modifier(nom, '')}>Effacer</Button>
       )}
     </div>
@@ -92,30 +117,64 @@ export default function DialogueProjetConfig({ projet, onClose, onSaved }: Reado
   );
 
   const ref = referentiels.data;
+  const choix = choixProjet.data;
+  const libelle = (i: ReferentielItemDto) => i.description ?? i.code ?? '—';
+  const autresProjets = (projets.data ?? []).filter((p) => p.id !== projet?.id)
+    .map((p) => ({ value: p.id, label: `${p.code ?? ''} ${p.description ?? ''}`.trim() }));
+  const fermer = () => (statutChange ? onSaved() : onClose());
+
+  const formulaire = ref && (
+    <form onSubmit={enregistrer}>
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+        {ligne('code', saisie('code'))}
+        {ligne('description', saisie('description'))}
+        {ligne('societeId', liste('societeId', items(ref.societes, libelle)))}
+        {ligne('gestionnaireId', liste('gestionnaireId', items(ref.gestionnaires, libelle)))}
+        {ligne('adresse', saisie('adresse'))}
+        {ligne('tauxVentilationDefaut', saisie('tauxVentilationDefaut', 'number'))}
+        {ligne('dateLancementPrevisionnelle', saisie('dateLancementPrevisionnelle', 'date'))}
+        {ligne('dateAchevementPrevisionnelle', saisie('dateAchevementPrevisionnelle', 'date'))}
+        {ligne('dateLancementReelle', saisie('dateLancementReelle', 'date'))}
+        {ligne('dateAchevementReelle', saisie('dateAchevementReelle', 'date'))}
+        {ligne('nivellementId', liste('nivellementId', items(ref.nivellements, libelle)))}
+        {ligne('projetReferenceId', liste('projetReferenceId', autresProjets))}
+        {ligne('lotGestionnaireProrataId', liste('lotGestionnaireProrataId', items(choix?.lots, libelle)))}
+        {ligne('descriptionLongue', zone('descriptionLongue'))}
+        {ligne('notes', zone('notes'))}
+        {caseACocher('ventile')}
+        {caseACocher('partiesCommunes')}
+      </div>
+      {erreur && champErreur === null && <p className="mt-3 text-body text-destructive">{erreur}</p>}
+      <DialogFooter className="mt-5">
+        <Button type="button" variant="outline" onClick={fermer} disabled={envoi}>Annuler</Button>
+        <Button type="submit" disabled={envoi}>{envoi ? 'Enregistrement…' : 'Enregistrer'}</Button>
+      </DialogFooter>
+    </form>
+  );
+
   return (
-    <Modal title={projet ? `Modifier le projet ${projet.code ?? ''}` : 'Nouveau projet'} onClose={onClose} width={720}>
+    <Modal title={projet ? `Modifier le projet ${projet.code ?? ''}` : 'Nouveau projet'} onClose={fermer} width={720}>
       {referentiels.loading && !ref && <LoadingState />}
       {referentiels.error && <ErrorState message={referentiels.error} />}
-      {!referentiels.error && ref && (
-        <form onSubmit={enregistrer}>
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-            {ligne('code', saisie('code'))}
-            {ligne('description', saisie('description'))}
-            {ligne('societeId', liste('societeId', items(ref.societes, (s) => s.description ?? s.code ?? '—')))}
-            {ligne('gestionnaireId', liste('gestionnaireId', items(ref.gestionnaires, (g) => g.description ?? g.code ?? '—')))}
-            {ligne('adresse', saisie('adresse'))}
-            {ligne('tauxVentilationDefaut', saisie('tauxVentilationDefaut', 'number'))}
-            {ligne('descriptionLongue', zone('descriptionLongue'))}
-            {ligne('notes', zone('notes'))}
-            {caseACocher('ventile')}
-            {caseACocher('partiesCommunes')}
-          </div>
-          {erreur && champErreur === null && <p className="mt-3 text-body text-destructive">{erreur}</p>}
-          <DialogFooter className="mt-5">
-            <Button type="button" variant="outline" onClick={onClose} disabled={envoi}>Annuler</Button>
-            <Button type="submit" disabled={envoi}>{envoi ? 'Enregistrement…' : 'Enregistrer'}</Button>
-          </DialogFooter>
-        </form>
+      {!referentiels.error && ref && !projet && formulaire}
+      {!referentiels.error && ref && projet && (
+        <div className="flex flex-col gap-3">
+          <BoutonStatutProjet projetId={projet.id} statut={statut}
+            onChange={(p) => { setStatut(p.statutCode); setStatutChange(true); }} />
+          {choixProjet.error && <ErrorState message={choixProjet.error} />}
+          <Tabs defaultValue="general">
+            <TabsList>
+              <TabsTrigger value="general">Général</TabsTrigger>
+              <TabsTrigger value="ventilation">Ventilation par tranches</TabsTrigger>
+              <TabsTrigger value="criteres">Critères d'avancement</TabsTrigger>
+              <TabsTrigger value="historique">Historique</TabsTrigger>
+            </TabsList>
+            <TabsContent value="general">{formulaire}</TabsContent>
+            <TabsContent value="ventilation"><OngletVentilationProjet projetId={projet.id} tranches={choix?.tranches ?? []} /></TabsContent>
+            <TabsContent value="criteres"><OngletCriteresProjet projetId={projet.id} categories={ref.categoriesDepense} /></TabsContent>
+            <TabsContent value="historique"><OngletHistoriqueProjet projetId={projet.id} /></TabsContent>
+          </Tabs>
+        </div>
       )}
     </Modal>
   );
