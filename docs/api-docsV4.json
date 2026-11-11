@@ -39650,6 +39650,15 @@
             }
           },
           {
+            "name": "moduleProjet",
+            "in": "query",
+            "description": "true : pièces du module Projet (PRJ) seulement, comme Projet › Dépenses ; absent : tous.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -39836,6 +39845,15 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "moduleProjet",
+            "in": "query",
+            "description": "true : pièces du module Projet (PRJ) seulement, comme Projet › Dépenses ; absent : tous.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -39984,6 +40002,15 @@
             "name": "okPourPaiement",
             "in": "query",
             "description": "true : statut « OK pour paiement » seulement ; absent ou false : pas de filtre.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "moduleProjet",
+            "in": "query",
+            "description": "true : pièces du module Projet (PRJ) seulement, comme Projet › Dépenses ; absent : tous.",
             "required": false,
             "schema": {
               "type": "boolean"
