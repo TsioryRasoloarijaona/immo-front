@@ -38601,7 +38601,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Lignes et total ; vides si l'appelant n'a aucun projet.",
+            "description": "Lignes et total ; vides si aucune pièce visible (société, projet).",
             "content": {
               "*/*": {
                 "schema": {
@@ -38833,7 +38833,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Page de pièces ; vide si l'appelant n'a aucun projet.",
+            "description": "Page de pièces ; vide si aucune pièce visible (société, projet).",
             "content": {
               "*/*": {
                 "schema": {
@@ -39013,7 +39013,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Totaux ; à zéro si l'appelant n'a aucun projet.",
+            "description": "Totaux ; à zéro si aucune pièce visible (société, projet).",
             "content": {
               "*/*": {
                 "schema": {
