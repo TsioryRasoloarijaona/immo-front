@@ -15,6 +15,7 @@ import {
   getDecompte,
   getLignesRechargeesDecompte,
   recalculerDecompte,
+  rechargerCumulsDecompte,
   supprimerDecompte,
 } from '../../lib/apiProjet';
 import { useConfirm } from '../../lib/confirmContext';
@@ -171,7 +172,13 @@ function Fiche({ initial }: Readonly<{ initial: DecompteDetailDto }>) {
     });
   }
 
+  async function rechargerCumuls() {
+    const ok = await confirmer({ title: 'Recharger les cumuls', message: 'Les cumuls précédents des lignes seront recalculés et enregistrés.', confirmLabel: 'Recharger' });
+    if (ok) await executer(async () => appliquer(await rechargerCumulsDecompte(d.id)));
+  }
+
   function agir(action: ActionDecompte) {
+    if (action === 'cumuls') void rechargerCumuls();
     if (action === 'enregistrer') void executer(async () => appliquer(await enregistrerDecompte(d.id, demandeDepuis(saisie, lignes))));
     if (action === 'dernier') void executer(async () => appliquer(await definirDernierDecompte(d.id)));
     if (action === 'recalculer') void executer(async () => appliquer(await recalculerDecompte(d.id)));
