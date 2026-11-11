@@ -8062,6 +8062,48 @@
         }
       }
     },
+    "/api/projet/decomptes/{id}/cumuls": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Recharger les cumuls : quantité antérieure de chaque ligne relue sur les décomptes précédents",
+        "operationId": "rechargerCumuls",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du décompte (PrjWorkingOut.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche relue après écriture ; les quantités saisies restent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecompteDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit OMRAN (AdmRight) manquant pour cette action."
+          },
+          "404": {
+            "description": "Décompte ou lot introuvable : id inconnu ou projet non habilité."
+          },
+          "409": {
+            "description": "Décompte facturé ou qui n'est pas le dernier de son lot."
+          }
+        }
+      }
+    },
     "/api/projet/config/projets": {
       "get": {
         "tags": [

@@ -67,6 +67,11 @@ export function definirDernierDecompte(id: UUID): Promise<DecompteDetailDto> {
   return request('POST', `${DECOMPTES}/${id}/dernier`);
 }
 
+/** « Recharger les cumuls » : relit la quantité antérieure de chaque ligne, écrit, renvoie la fiche. */
+export function rechargerCumulsDecompte(id: UUID): Promise<DecompteDetailDto> {
+  return request('POST', `${DECOMPTES}/${id}/cumuls`);
+}
+
 export function recalculerDecompte(id: UUID): Promise<DecompteDetailDto> {
   return request('POST', `${DECOMPTES}/${id}/recalcul`);
 }
