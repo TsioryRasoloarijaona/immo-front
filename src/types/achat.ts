@@ -18,6 +18,8 @@ export interface FiltresDocumentsAchat {
   search?: string;
   /** Statut « OK pour paiement » seulement ; absent ou false = pas de filtre. */
   okPourPaiement?: boolean;
+  /** Pièces du module Projet (PRJ) seulement, comme Projet › Dépenses ; absent = tous les modules. */
+  moduleProjet?: boolean;
 }
 
 export interface NatureAchatDto {
