@@ -40,6 +40,10 @@
       "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b), et import générique avec mapping (P9e) des entités\njuridiques, programmes, tranches et prospections terrain. Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul.\n\n`fournisseurs` et `contacts` : import générique sans tranche ; `Pivot` se compare au code dans le type, vide ou inconnu =\ncréation avec un code du compteur, trouvé une fois = mise à jour (cellule vide = valeur gardée), plusieurs fois = erreur.\n\n`banques` et `organismes` : même import, colonne `Code` obligatoire : vide = erreur de ligne, inconnu dans le type = création\navec ce code, deux fois dans le fichier = erreur de ligne.\n\n`personnels` : même import que `contacts`, personnes physiques seules : `Prénom` et `Nom` requis, ligne sans eux = erreur de\nligne. Forme sociale et devise facultatives. Aucune colonne de paie : un tel en-tête est ignoré comme tout en-tête inconnu."
     },
     {
+      "name": "Projet",
+      "description": "Module Projet (chantier OMRAN), en **lecture seule** : lots (`PrjMarket`, « marché » dans la base), bordereau, décomptes\n(`PrjWorkingOut`) et leurs factures. Voir `FEATURE-projet-lots-decomptes.md`.\n\n**Visibilité, comme OMRAN** : l'appelant voit les projets de ses lignes `AdmUserHabilitation.PrjProjectId`, **quel que soit\nson rôle** (aucune exemption Administrateur ni Direction Générale). Sans ligne d'habilitation, ou appelant non identifiable :\nlistes vides. **Lots** : il faut en plus, comme OMRAN (`StrStatus.GetStatusFilterQueryClauseForListing`), que le statut\ndu lot soit lié (`StrStatusIntervener`) à un intervenant dont le rôle est un rôle de l'appelant ou qui est l'appelant ; seule\nexemption : un rôle de l'appelant à `AdmRole.WithSequenceFreeRestriction = 0` (aucune exemption par le code de rôle). Lot\nsans statut ou statut sans intervenant : invisible. Un lot sans projet, hors périmètre ou au statut invisible répond **404**\ncomme un identifiant inconnu (jamais 403), fiche et sous-routes. Les décomptes (`/api/projet/decomptes`) ne suivent que\nle projet. Voir `FEATURE-visibilite-omran.md` R1, R2, R7."
+    },
+    {
       "name": "Dossiers — actions",
       "description": "Onglet « Actions » du dossier de vente (règle GEN0005 d'OMRAN) et instructions adressées au commercial du dossier. Les actions sont des `ComActionMessage` rattachées au dossier par `ComFolderId` ; leur catégorie est déduite du statut du dossier (Réservation → « Dossier de vente (Réservation) », Annulation ou Désistement → « Désistement et annulation », tout autre statut → « Dossier de vente (Livraison) »), comme `Sale.cs:AttachNotes`. Toute écriture signe le dossier (`UserUpdate`, `UserUpdateDateTime`)."
     },
@@ -68,6 +72,10 @@
       "description": "Journal d'audit OMRAN (AdmWebHistorics) : patrimoine, entités juridiques, prospections terrain, études, rendez-vous."
     },
     {
+      "name": "Achat",
+      "description": "Pièces d'achat (`BuyDocument`) en **lecture seule** : factures, bons de commande, devis, documents à régler, bons de livraison, avoirs. Voir `instructions/FEATURE-achat-lecture-factures.md`.\n\n**Visibilité, comme les listes OMRAN** : une pièce est visible si et seulement si sa société (`CfgCompanyId`) figure dans les habilitations société de l'appelant (`AdmUserHabilitation.CfgCompanyId`) **et** son projet (`PrjProjectId`) dans ses habilitations projet (`AdmUserHabilitation.PrjProjectId`) **ou** la pièce n'a pas de projet ; **pour tous les rôles** (aucune exemption Administrateur / Direction générale). Sans habilitation société : rien. Un filtre `projetIds` exclut les pièces sans projet. Une pièce hors périmètre répond 404, comme un id inconnu. Voir `instructions/FEATURE-visibilite-omran.md` R3.\n\n**Solde** : `montantRegle` = somme des lignes de règlement (`StlSettlementLine.Amount`) de la pièce dont le règlement n'est pas annulé (`CANCELED`) ; `resteARegler` = `montantAPayer` (`AmountToPay`) − réglé, à 2 décimales ; `solde` = |reste| ≤ 0,05 ; `aDeduire` = à payer < −0,05 (récupération d'avance sur décompte, jamais « trop réglée ») ; `tropRegle` = reste < −0,05 sur une pièce qui n'est pas à déduire. « Payé » ne se lit jamais dans le statut. Calcul unique : `SoldeDocumentAchat` (FEATURE-achat-impayes.md §3.1)."
+    },
+    {
       "name": "Dossiers — visites techniques",
       "description": "Calendrier des visites techniques (bouton à gauche du champ « Visite technique / réception » de la fiche OMRAN). Une visite est un `AdmEvent` rattaché au dossier (`ComFolderId`) et à la tranche de son article (`CfgTrancheId`) ; les créneaux et le quota sont comptés par tranche."
     },
@@ -90,10 +98,6 @@
     {
       "name": "Suivi des actions",
       "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
-    },
-    {
-      "name": "Projet — dépenses",
-      "description": "Dépenses des projets de chantier en **lecture seule** : factures fournisseurs (`BuyDocument.DocType = 'INVOICE'`) et\nrèglements qui leur sont affectés. Voir `FEATURE-achat-depenses-projet.md`.\n\n**Visibilité, comme OMRAN** : projets des lignes `AdmUserHabilitation.PrjProjectId` de l'appelant, **quel que soit son\nrôle** (aucune exemption Administrateur). Un filtre hors périmètre (projet, lot, facture) donne une réponse vide (200),\njamais 403 ni 404. Documents à régler, avoirs, commandes, devis et bons de livraison ne sont ni comptés ni sommés.\n\n**Solde** : celui de `GET /api/achat/documents` (même calcul) : réglé = Σ des lignes de règlement non annulées\n(`CANCELED` exclu), reste = à payer − réglé ; un total de projet ou de lot = Σ à payer − Σ réglé, arrondi une fois."
     },
     {
       "name": "Projet — configuration",
@@ -140,6 +144,10 @@
       "description": "Le panneau « Actions récentes » : ce qui vient d'être fait sur les prospections, pré-prospections et dossiers, avec de quoi rouvrir la fiche. Détail : `instructions/FEATURE-actions-recentes.md`."
     },
     {
+      "name": "Projet — dépenses",
+      "description": "Dépenses des projets de chantier en **lecture seule** : factures fournisseurs (`BuyDocument.DocType = 'INVOICE'`) et\nrèglements qui leur sont affectés. Voir `FEATURE-achat-depenses-projet.md`.\n\n**Visibilité, comme OMRAN** : celle de `GET /api/achat/documents` (société habilitée ET projet habilité ou sans projet,\n**quel que soit le rôle**) restreinte aux pièces du module Projet (`AdmModuleId` = module `PRJ`). Une facture sans projet\nfigure dans les règlements, jamais dans la synthèse par projet. Un filtre hors périmètre (projet, lot, facture) donne une réponse vide (200),\njamais 403 ni 404. Documents à régler, avoirs, commandes, devis et bons de livraison ne sont ni comptés ni sommés.\n\n**Solde** : celui de `GET /api/achat/documents` (même calcul) : réglé = Σ des lignes de règlement non annulées\n(`CANCELED` exclu), reste = à payer − réglé ; un total de projet ou de lot = Σ à payer − Σ réglé, arrondi une fois."
+    },
+    {
       "name": "Rôles (administration)",
       "description": "Écran « Rôles » d'OMRAN, réservé à l'Administrateur. Le code d'un rôle porte les autorisations : il ne change jamais après création. Le rôle Administrateur est verrouillé. Les restrictions sont stockées ; seule `rapports` est lue ailleurs. Voir `instructions/FEATURE-admin-roles.md`."
     },
@@ -170,10 +178,6 @@
     {
       "name": "Articles — onglets",
       "description": "Onglets de lecture de la fiche article : prospections, dossiers, historique."
-    },
-    {
-      "name": "Projet",
-      "description": "Module Projet (chantier OMRAN), en **lecture seule** : lots (`PrjMarket`, « marché » dans la base), bordereau, décomptes\n(`PrjWorkingOut`) et leurs factures. Voir `FEATURE-projet-lots-decomptes.md`.\n\n**Visibilité, comme OMRAN** : l'appelant voit les projets de ses lignes `AdmUserHabilitation.PrjProjectId`, **quel que soit\nson rôle** (aucune exemption Administrateur ni Direction Générale). Sans ligne d'habilitation, ou appelant non identifiable :\nlistes vides. Un lot sans projet, ou dont le projet n'est pas visible, répond **404** comme un identifiant inconnu (jamais 403)."
     },
     {
       "name": "Synchronisation",
@@ -314,10 +318,6 @@
     {
       "name": "Dossiers — schéma de financement",
       "description": "Opérations du schéma de financement de la fiche dossier, comme OMRAN (aide « DOSSIERS DE VENTE », liste du schéma de financement) : « Si on ajoute (ou on augmente son montant) un document paramétré \"Mettre à jour le schéma de financement\" --> Le système soustrait son montant de la ligne \"Autofinancement\" sinon de la linge \"Crédit\". Si on supprime (on diminue son montant) un document paramétré \" Mettre à jour le schéma de financement\" --> Le système ajoute son montant à la ligne \"Autofinancement\" sinon à la ligne \"Crédit\". » Ce report s'applique aussi à `POST` et `PATCH /api/dossiers/{id}/echeancier`. Après chaque écriture, le prix contractuel, le montant d'accord et le net à payer du dossier sont recalculés et le dossier est signé. Comme OMRAN, l'équilibre n'est pas forcé hors de ces reports (ligne sans « mise à jour du schéma », pas de ligne d'autofinancement ni de crédit) : chaque écriture renvoie l'écart restant (`ecartSchema` sur la ligne, `ecart` après suppression), à afficher tant qu'il est non nul.\n\nContrôle à l'enregistrement (`Sale.cs:VerifSchema`, FEATURE-dossier-finitions.md §1) : si le statut courant du dossier est « avec vérification du schéma » (`StrStatus.BoolField012`) et que le dossier n'est ni annulé ni désisté, une écriture de l'échéancier (`POST`, `PATCH`, suppression, périodicité) qui laisse un écart plus grand en valeur absolue que celui d'avant est refusée en 409, avant toute écriture, avec le message d'OMRAN (« Votre schéma de financement ne correspond pas au montant contractuel : vous devez ajouter / soustraire dans le schéma de financement un montant de … ! »). Une écriture qui réduit l'écart ou le laisse inchangé passe : les dossiers déjà déséquilibrés restent modifiables pour être rééquilibrés."
-    },
-    {
-      "name": "Achat",
-      "description": "Pièces d'achat (`BuyDocument`) en **lecture seule** : factures, bons de commande, devis, documents à régler, bons de livraison, avoirs. Voir `instructions/FEATURE-achat-lecture-factures.md`.\n\n**Visibilité, comme OMRAN** : une pièce est visible si et seulement si son projet (`PrjProjectId`) figure dans les habilitations projet de l'appelant (`AdmUserHabilitation.PrjProjectId`), **pour tous les rôles** (aucune exemption Administrateur / Direction générale). Une pièce sans projet n'est jamais visible. Une pièce hors périmètre répond 404, comme un id inconnu.\n\n**Solde** : `montantRegle` = somme des lignes de règlement (`StlSettlementLine.Amount`) de la pièce dont le règlement n'est pas annulé (`CANCELED`) ; `resteARegler` = `montantAPayer` (`AmountToPay`) − réglé, à 2 décimales ; `solde` = |reste| ≤ 0,05 ; `aDeduire` = à payer < −0,05 (récupération d'avance sur décompte, jamais « trop réglée ») ; `tropRegle` = reste < −0,05 sur une pièce qui n'est pas à déduire. « Payé » ne se lit jamais dans le statut. Calcul unique : `SoldeDocumentAchat` (FEATURE-achat-impayes.md §3.1)."
     },
     {
       "name": "Dossiers — acquéreurs",
@@ -26989,7 +26989,7 @@
           "Projet"
         ],
         "summary": "Listes de choix des filtres Lots et Décomptes",
-        "description": "Listes de choix des écrans Lots et Décomptes. `projets` et `categories` ne contiennent que ce que l'appelant voit ;\n`typesLot`, `statutsLot` et `statutsFacture` sont des référentiels complets. Le statut d'un lot n'est pas tenu à jour dans\nla donnée OMRAN : c'est une étiquette, jamais une règle.",
+        "description": "Listes de choix des écrans Lots et Décomptes. `projets` (projets habilités dont le statut est visible, même clause que les\nlots), `nbLots`, `categories` et `fournisseurs` ne contiennent que ce que l'appelant voit ; `typesLot`, `statutsLot` et\n`statutsFacture` sont des référentiels complets.",
         "operationId": "referentiels",
         "responses": {
           "200": {
@@ -27121,7 +27121,7 @@
             }
           },
           "404": {
-            "description": "Lot introuvable : id inconnu, lot sans projet ou projet hors périmètre."
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
           }
         }
       }
@@ -27161,7 +27161,7 @@
             }
           },
           "404": {
-            "description": "Lot introuvable : id inconnu, lot sans projet ou projet hors périmètre."
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
           }
         }
       }
@@ -27198,7 +27198,7 @@
             }
           },
           "404": {
-            "description": "Lot introuvable : id inconnu, lot sans projet ou projet hors périmètre."
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
           }
         }
       }
@@ -38552,7 +38552,7 @@
           "Achat"
         ],
         "summary": "Solde par fournisseur et société, sur les pièces visibles (non paginé)",
-        "description": "Solde de chaque fournisseur, une ligne par (fournisseur, société), sur les factures et documents à régler (avoirs exclus) **des projets visibles de l'appelant** (habilitations projet, aucune exemption de rôle) : deux utilisateurs aux projets différents voient deux soldes différents pour le même fournisseur. Les règlements non affectés à une pièce ne sont pas comptés. À payer = `AmountToPay`, réglé = lignes de règlement non annulées, reste = différence (calcul `SoldeDocumentAchat`). `projetIds` hors périmètre est ignoré ; `search` compare le nom du fournisseur sans espaces ni casse ; `nonSoldes=true` masque les lignes soldées (|reste| ≤ 0,05). Non paginé, trié par nom de fournisseur puis code société ; `sort` est ignoré. `total` somme les lignes rendues.",
+        "description": "Solde de chaque fournisseur, une ligne par (fournisseur, société), sur les factures et documents à régler (avoirs exclus) **visibles de l'appelant** (même règle que la liste : société habilitée et projet habilité ou sans projet, aucune exemption de rôle) : deux utilisateurs aux projets différents voient deux soldes différents pour le même fournisseur. Les règlements non affectés à une pièce ne sont pas comptés. À payer = `AmountToPay`, réglé = lignes de règlement non annulées, reste = différence (calcul `SoldeDocumentAchat`). `projetIds` hors périmètre est ignoré ; `search` compare le nom du fournisseur sans espaces ni casse ; `nonSoldes=true` masque les lignes soldées (|reste| ≤ 0,05). Non paginé, trié par nom de fournisseur puis code société ; `sort` est ignoré. `total` somme les lignes rendues.",
         "operationId": "soldes",
         "parameters": [
           {
@@ -38702,7 +38702,7 @@
         "tags": [
           "Achat"
         ],
-        "summary": "Liste paginée des pièces d'achat visibles (habilitations projet)",
+        "summary": "Liste paginée des pièces d'achat visibles (société et projet habilités)",
         "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `search` cherche, sans tenir compte de la casse, dans le code, la référence, la description et le nom du fournisseur. Tri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode` ; une autre propriété répond 400.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
         "operationId": "liste",
         "parameters": [
@@ -38880,7 +38880,7 @@
             }
           },
           "404": {
-            "description": "Pièce introuvable, sans projet ou hors périmètre."
+            "description": "Pièce introuvable ou hors périmètre (société, projet)."
           }
         }
       }
@@ -38891,7 +38891,7 @@
           "Achat"
         ],
         "summary": "Totaux de la liste des pièces d'achat : mêmes filtres, toutes pages",
-        "description": "Totaux de la liste pour les mêmes filtres (même requête, toutes pages ; `sort`, `page` et `size` ignorés) : `nombre` = `totalElements` de la liste, `resteARegler` = Σ à payer − Σ réglé (signé), `resteDu` = Σ des seuls restes supérieurs à 0,05 et `nombreARegler` leur nombre. Aucun projet visible : tout à zéro.",
+        "description": "Totaux de la liste pour les mêmes filtres (même requête, toutes pages ; `sort`, `page` et `size` ignorés) : `nombre` = `totalElements` de la liste, `resteARegler` = Σ à payer − Σ réglé (signé), `resteDu` = Σ des seuls restes supérieurs à 0,05 et `nombreARegler` leur nombre. Aucune pièce visible : tout à zéro.",
         "operationId": "totaux_2",
         "parameters": [
           {
@@ -60584,7 +60584,7 @@
         "properties": {
           "projets": {
             "type": "array",
-            "description": "Projets visibles (habilitations de l'appelant), tri par code.",
+            "description": "Projets visibles (habilitations et statut de projet de l'appelant), tri par code.",
             "items": {
               "$ref": "#/components/schemas/ProjetFiltreDto"
             }
