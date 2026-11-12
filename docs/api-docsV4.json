@@ -46600,6 +46600,11 @@
             "type": "string",
             "format": "date",
             "description": "Date du dernier passage, null si jamais empruntée."
+          },
+          "gestionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Gestion (StrEntity.PKey), null sans gestion ; à renvoyer tel quel dans un PUT."
           }
         }
       },
