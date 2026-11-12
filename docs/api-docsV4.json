@@ -28901,7 +28901,7 @@
           "Projet"
         ],
         "summary": "Prévisions du lot : séries mensuelles du graphe",
-        "description": "Fenêtre « Prévisions » (`FEATURE-lot-sous-fenetres.md` §4.6) : un point par mois, du mois précédant le premier point au dernier,\nsans trou. `prevision` = Σ `PrjMarketPaymentPrevision.Amount` par mois de `PaymentDate`, `avancementPrevision` = son avancement\nmaximal du mois (null si négatif ou lot multi-fournisseur). `reel` = Σ net à payer des pièces du lot hors avoirs par mois\nd'échéance ; `avancementReel` = avancement des décomptes facturés du mois. `estimation` / `avancementEstimation` = estimation\nde base : `PrjMarketUserPrevision`, sinon courbe générée depuis les dates et le montant manuels du lot (aucun point si une date\nmanque). Montants à 0 et avancements null pour un mois sans donnée ; `mois` vide si le lot n'a aucun point.",
+        "description": "Fenêtre « Prévisions » (`FEATURE-lot-sous-fenetres.md` §4.6) : un point par mois, du mois précédant le premier point au dernier,\nsans trou. `prevision` = Σ `PrjMarketPaymentPrevision.Amount` par mois de `PaymentDate`, `avancementPrevision` = son avancement\nmaximal du mois (null si négatif ou lot multi-fournisseur). `reel` = Σ net à payer des pièces du lot hors avoirs par mois\nd'échéance ; `avancementReel` = avancement maximal des décomptes facturés du mois (null si lot multi-fournisseur).\n`estimation` / `avancementEstimation` (estimation de base OMRAN) ne sont pas encore calculées : toujours 0 et null.\nMontants à 0 et avancements null pour un mois sans donnée ; `mois` vide si le lot n'a aucun point.",
         "operationId": "previsions",
         "parameters": [
           {
@@ -68055,11 +68055,11 @@
           },
           "estimation": {
             "type": "number",
-            "description": "Estimation de base : montant du mois."
+            "description": "Estimation de base : montant du mois (pas encore calculée, toujours 0)."
           },
           "avancementEstimation": {
             "type": "number",
-            "description": "Estimation de base : avancement (fraction 0–1)."
+            "description": "Estimation de base : avancement 0–1 (pas encore calculé, toujours null)."
           },
           "prevision": {
             "type": "number",
