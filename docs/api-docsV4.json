@@ -28901,7 +28901,7 @@
           "Projet"
         ],
         "summary": "Prévisions du lot : séries mensuelles du graphe",
-        "description": "Fenêtre « Prévisions » (`FEATURE-lot-sous-fenetres.md` §4.6) : un point par mois, du mois précédant le premier point au dernier,\nsans trou. `prevision` = Σ `PrjMarketPaymentPrevision.Amount` par mois de `PaymentDate`, `avancementPrevision` = son avancement\nmaximal du mois (null si négatif ou lot multi-fournisseur). `reel` = Σ net à payer des pièces du lot hors avoirs par mois\nd'échéance ; `avancementReel` = avancement maximal des décomptes facturés du mois (null si lot multi-fournisseur).\n`estimation` / `avancementEstimation` (estimation de base OMRAN) ne sont pas encore calculées : toujours 0 et null.\nMontants à 0 et avancements null pour un mois sans donnée ; `mois` vide si le lot n'a aucun point.",
+        "description": "Fenêtre « Prévisions » (`FEATURE-lot-sous-fenetres.md` §4.6) : un point par mois, du mois précédant le premier point au dernier,\nsans trou. `prevision` = Σ `PrjMarketPaymentPrevision.Amount` par mois de `PaymentDate`, `avancementPrevision` = son avancement\nmaximal du mois (null si négatif ou lot multi-fournisseur). `reel` = Σ net à payer des pièces payables du lot hors avoirs par mois\nd'échéance ; `avancementReel` = avancement maximal des décomptes facturés du mois (null si lot multi-fournisseur).\n`estimation` / `avancementEstimation` (estimation de base OMRAN) ne sont pas encore calculées : toujours 0 et null.\nMontants à 0 et avancements null pour un mois sans donnée ; `mois` vide si le lot n'a aucun point.",
         "operationId": "previsions",
         "parameters": [
           {
@@ -68071,7 +68071,7 @@
           },
           "reel": {
             "type": "number",
-            "description": "Σ net à payer des pièces du lot hors avoirs, par mois d'échéance."
+            "description": "Σ net à payer des pièces payables du lot hors avoirs, par mois d'échéance."
           },
           "avancementReel": {
             "type": "number",
