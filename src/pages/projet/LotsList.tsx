@@ -77,7 +77,7 @@ export default function LotsList() {
   const liste = useApi(
     () =>
       listLots(
-        { projetIds: projetIds.length > 0 ? projetIds : undefined, statutId: statutId ?? undefined, typeId: typeId ?? undefined, fournisseurId: fournisseurId ?? undefined, search: debouncedSearch || undefined },
+        { projetIds: projetIds.length > 0 ? projetIds : undefined, statutIds: statutId ? [statutId] : undefined, typeId: typeId ?? undefined, fournisseurId: fournisseurId ?? undefined, search: debouncedSearch || undefined },
         { page, size: DEFAULT_PAGE_SIZE },
       ),
     [projetIds.join(','), statutId, typeId, fournisseurId, debouncedSearch, page],
