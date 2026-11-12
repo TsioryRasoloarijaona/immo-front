@@ -155,6 +155,41 @@ export interface DocumentAchatListItemDto {
   aCloturer: boolean;
   /** Nom de couleur .NET du statut. */
   statutCouleur: string | null;
+  /** Agrégats du BC (FEATURE-achat-bc-agregats.md) ; null hors bon de commande. */
+  agregats: AgregatsBonCommandeDto | null;
+}
+
+/** Agrégats d'un BC, calculés côté serveur sur ses pièces liées (BuyOrderId) ; montants signés. */
+export interface AgregatsBonCommandeDto {
+  factureHT: number;
+  factureTVA: number;
+  factureTTC: number;
+  factureNetAPayer: number;
+  livreHT: number;
+  livreTTC: number;
+  livreNetAPayer: number;
+  resteALivrerHT: number;
+  resteALivrerTTC: number;
+  resteALivrerNetAPayer: number;
+  avance: number;
+  /** Fraction (0.2 = 20 %) ; null dans les totaux. */
+  avanceTauxPrevu: number | null;
+  /** Fraction ; null dans les totaux. */
+  avanceTauxEffectif: number | null;
+  avanceAmortie: number;
+  avanceRegle: number;
+  avanceReste: number;
+  avanceResteAAmortir: number;
+  garantieRetenue: number;
+  garantieRestituee: number;
+  garantieReste: number;
+  regle: number;
+  resteAPayerSurFacture: number;
+  resteAPayerTotal: number;
+  /** Codes séparés par « , » ; null sans BL ou dans les totaux. */
+  bonsLivraisonCodes: string | null;
+  facturesCodes: string | null;
+  devisCode: string | null;
 }
 
 export interface LigneDocumentAchatDto {
@@ -209,6 +244,8 @@ export interface TotauxDocumentsAchatDto {
   resteDu: number;
   montantHT: number;
   montantTVA: number;
+  /** Σ des agrégats des BC du jeu (ratios et codes null) ; null sans BC. */
+  agregats: AgregatsBonCommandeDto | null;
 }
 
 export interface FiltresSoldesFournisseurs {
