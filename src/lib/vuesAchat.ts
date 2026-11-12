@@ -1,10 +1,13 @@
-import type { NatureDocumentAchat } from '../types/achat';
+import type { AgregatsBonCommandeDto, NatureDocumentAchat } from '../types/achat';
+
+/** Colonnes agrégées d'un BC : la clé est le nom wire de `agregats` (et la clé de tri serveur). */
+export type CleAgregatAchat = Exclude<keyof AgregatsBonCommandeDto, 'factureTVA'>;
 
 export type CleColonneAchat =
   | 'aCloturer' | 'statut' | 'code' | 'dateAlerte' | 'dateDocument' | 'dateEcheance' | 'societeNom' | 'moduleLibelle'
   | 'fournisseurNom' | 'personneAContacter' | 'typeLotLibelle' | 'reference' | 'referenceBureauOrdre' | 'categories'
   | 'montantHT' | 'montantTVA' | 'montantTTC' | 'montantAPayer' | 'montantRegle' | 'resteARegler' | 'deviseCode'
-  | 'projetCode' | 'lotCode' | 'dossierGroupement' | 'archive';
+  | 'projetCode' | 'lotCode' | 'dossierGroupement' | 'archive' | 'description' | CleAgregatAchat;
 
 /** Un écran de pièces d'achat : natures forcées, colonnes (ordre OMRAN), filtres visibles et ligne de totaux. */
 export interface VueAchat {
@@ -14,8 +17,10 @@ export interface VueAchat {
   /** Absent : les natures viennent de l'URL ou des cases de nature. */
   natures?: NatureDocumentAchat[];
   filtres: { statut: boolean; nature: boolean; projet: boolean; lot: boolean };
-  totaux: 'devis' | 'depenses' | 'simple';
+  totaux: 'devis' | 'depenses' | 'simple' | 'commande';
   colonnes: CleColonneAchat[];
+  /** Colonnes de `colonnes` décochées à l'ouverture (cochables dans le sélecteur). */
+  masquees?: CleColonneAchat[];
 }
 
 const DEPENSES_COLONNES: CleColonneAchat[] = [
@@ -40,8 +45,18 @@ export const VUES_ACHAT: VueAchat[] = [
     chemin: '/achat/bons-de-commande',
     natures: ['ORDER'],
     filtres: { statut: true, nature: false, projet: false, lot: false },
-    totaux: 'simple',
-    colonnes: ['aCloturer', 'statut', 'code', 'dateAlerte', 'dateDocument', 'dateEcheance', 'societeNom', 'moduleLibelle', 'fournisseurNom', 'personneAContacter', 'typeLotLibelle', 'reference'],
+    totaux: 'commande',
+    colonnes: [
+      'aCloturer', 'statut', 'code', 'dateAlerte', 'dateDocument', 'dateEcheance', 'societeNom', 'moduleLibelle', 'fournisseurNom', 'personneAContacter', 'typeLotLibelle', 'reference',
+      'factureTTC', 'livreTTC', 'resteALivrerTTC', 'avanceTauxPrevu', 'avanceTauxEffectif', 'avance', 'avanceAmortie', 'avanceResteAAmortir', 'avanceRegle', 'avanceReste',
+      'garantieRetenue', 'garantieRestituee', 'garantieReste',
+      'factureHT', 'factureNetAPayer', 'livreHT', 'livreNetAPayer', 'resteALivrerHT', 'resteALivrerNetAPayer', 'regle', 'resteAPayerSurFacture', 'resteAPayerTotal',
+      'bonsLivraisonCodes', 'facturesCodes', 'devisCode', 'projetCode', 'lotCode', 'dossierGroupement', 'description',
+    ],
+    masquees: [
+      'factureHT', 'factureNetAPayer', 'livreHT', 'livreNetAPayer', 'resteALivrerHT', 'resteALivrerNetAPayer', 'regle', 'resteAPayerSurFacture', 'resteAPayerTotal',
+      'bonsLivraisonCodes', 'facturesCodes', 'devisCode', 'projetCode', 'lotCode', 'dossierGroupement', 'description',
+    ],
   },
   {
     cle: 'bons-de-livraison',
