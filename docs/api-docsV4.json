@@ -39945,7 +39945,8 @@
         "tags": [
           "Achat"
         ],
-        "summary": "Listes de choix des filtres : natures, statuts, projets et fournisseurs visibles",
+        "summary": "Listes de choix des filtres : natures, statuts, projets, fournisseurs, sociétés, modules, types de lot",
+        "description": "`societes` = sociétés habilitées de l'appelant seulement (vide sans habilitation société) ; `modules` = BUY (Achat), PRJ (Projet), STL (Trésorerie) ; `typesLot` = tous les types de lot (`PrjMarketType`).",
         "operationId": "referentiels_2",
         "responses": {
           "200": {
@@ -40118,7 +40119,7 @@
           "Achat"
         ],
         "summary": "Liste paginée des pièces d'achat visibles (société et projet habilités)",
-        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `search` cherche, sans tenir compte de la casse, dans le code, la référence, la description et le nom du fournisseur. Tri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode` ; une autre propriété répond 400.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
+        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `societeIds` est de même croisé avec les sociétés habilitées : une société non habilitée est ignorée, et si aucune ne reste la page est vide (jamais « aucun filtre »). Une liste vide ou un paramètre vide (`societeIds=`) = pas de filtre. `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `modules` se combine par ET avec `moduleProjet`. `montantDe` / `montantA` sont inclus et portent sur `AmountToPay` (`montantDe > montantA` = page vide). `du` / `au` (inclus) portent sur la colonne de `champDate` (`DATE_PIECE` = `DocDate`, `ECHEANCE` = `MaturityDate`) ; `dateRenseignee=true` garde les pièces dont cette colonne est renseignée et ignore `du` / `au`. `search` cherche, sans tenir compte de la casse, dans le code, la référence, la référence bureau d'ordre, la description, les notes, le fournisseur, le projet (code, description), le lot (code, description) et le dossier de groupement.\n\n**Bons de commande** (`natures=ORDER` seul, écran « Bons de commande ») : comme OMRAN (`OrderView.cs:803`), seuls les BC dont le déclencheur (`CfgTierTriggerId`) est le personnel du compte (`AdmUser.CfgEmployeeId`) sont rendus, sauf droit OMRAN `Yes.Buy.Front.Order.OrderList.WithNoRestriction` (l'Administrateur l'a) ; un compte sans personnel n'est pas restreint. Toute autre combinaison de natures n'est pas restreinte. Mêmes règles pour les totaux et l'export.\n\n**À clôturer** (`aCloturer`) : bon de commande dont le HT est inférieur ou égal à la Σ des HT de ses factures (`BuyOrderId`), et dont le statut n'est ni « Terminé avec succès » ni « Terminé avec échec » (une annulation alerte) ; faux sans statut et pour toute autre nature.\n\nTri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode`, `typeLotLibelle`, `moduleLibelle`, `societeNom`, `archive`, `comptabilise`, `referenceBureauOrdre`, `personneAContacter`, `dossierGroupement`, `aCloturer`, `deviseCode`, `categories`, `dateAlerte` ; une autre propriété répond 400.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
         "operationId": "liste",
         "parameters": [
           {
@@ -40191,7 +40192,7 @@
           {
             "name": "du",
             "in": "query",
-            "description": "Date de la pièce à partir de ce jour inclus.",
+            "description": "Date (colonne de champDate) à partir de ce jour inclus.",
             "required": false,
             "schema": {
               "type": "string",
@@ -40202,7 +40203,7 @@
           {
             "name": "au",
             "in": "query",
-            "description": "Date de la pièce jusqu'à ce jour inclus.",
+            "description": "Date (colonne de champDate) jusqu'à ce jour inclus.",
             "required": false,
             "schema": {
               "type": "string",
@@ -40222,7 +40223,7 @@
           {
             "name": "search",
             "in": "query",
-            "description": "Recherche insensible à la casse : code, référence, description, fournisseur.",
+            "description": "Recherche multi-critère insensible à la casse ; champs lus : voir la description de la liste.",
             "required": false,
             "schema": {
               "type": "string"
@@ -40241,6 +40242,110 @@
             "name": "moduleProjet",
             "in": "query",
             "description": "true : pièces du module Projet (PRJ) seulement, comme Projet › Dépenses ; absent : tous.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "societeIds",
+            "in": "query",
+            "description": "Sociétés (CfgCompany.id), paramètre répété ; une société non habilitée est ignorée.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "modules",
+            "in": "query",
+            "description": "Modules de la pièce (AdmModule.Code), paramètre répété ; valeur inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "BUY",
+                  "PRJ",
+                  "STL"
+                ]
+              }
+            },
+            "example": "BUY"
+          },
+          {
+            "name": "typeLotIds",
+            "in": "query",
+            "description": "Types de lot (PrjMarketType.id), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "description": "true : archivées (IsClosed = 1) ; false : non archivées (0 ou NULL) ; absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "comptabilise",
+            "in": "query",
+            "description": "true : comptabilisées (IsAccounted = 1) ; false : 0 ou NULL ; absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "montantDe",
+            "in": "query",
+            "description": "Montant à payer (AmountToPay) supérieur ou égal.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100
+          },
+          {
+            "name": "montantA",
+            "in": "query",
+            "description": "Montant à payer (AmountToPay) inférieur ou égal.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 5000
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Colonne portée par du / au : DATE_PIECE (défaut) ou ECHEANCE ; valeur inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DATE_PIECE",
+                "ECHEANCE"
+              ]
+            }
+          },
+          {
+            "name": "dateRenseignee",
+            "in": "query",
+            "description": "true : la colonne de champDate est renseignée, du / au ignorés ; false ou absent : sans effet.",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -40267,7 +40372,7 @@
             }
           },
           "400": {
-            "description": "Filtre mal formé (UUID, date, nature) ou tri inconnu."
+            "description": "Filtre mal formé (UUID, date, nature, module, champDate, montant) ou tri inconnu."
           }
         }
       }
@@ -40315,7 +40420,7 @@
           "Achat"
         ],
         "summary": "Totaux de la liste des pièces d'achat : mêmes filtres, toutes pages",
-        "description": "Totaux de la liste pour les mêmes filtres (même requête, toutes pages ; `sort`, `page` et `size` ignorés) : `nombre` = `totalElements` de la liste, `resteARegler` = Σ à payer − Σ réglé (signé), `resteDu` = Σ des seuls restes supérieurs à 0,05 et `nombreARegler` leur nombre. Aucune pièce visible : tout à zéro.",
+        "description": "Totaux de la liste pour les mêmes filtres (même requête, toutes pages ; `sort`, `page` et `size` ignorés) : `nombre` = `totalElements` de la liste, `resteARegler` = Σ à payer − Σ réglé (signé), `resteDu` = Σ des seuls restes supérieurs à 0,05 et `nombreARegler` leur nombre, `montantHT` / `montantTVA` = Σ HT / TVA des lignes. Aucune pièce visible : tout à zéro.",
         "operationId": "totaux_3",
         "parameters": [
           {
@@ -40388,7 +40493,7 @@
           {
             "name": "du",
             "in": "query",
-            "description": "Date de la pièce à partir de ce jour inclus.",
+            "description": "Date (colonne de champDate) à partir de ce jour inclus.",
             "required": false,
             "schema": {
               "type": "string",
@@ -40399,7 +40504,7 @@
           {
             "name": "au",
             "in": "query",
-            "description": "Date de la pièce jusqu'à ce jour inclus.",
+            "description": "Date (colonne de champDate) jusqu'à ce jour inclus.",
             "required": false,
             "schema": {
               "type": "string",
@@ -40419,7 +40524,7 @@
           {
             "name": "search",
             "in": "query",
-            "description": "Recherche insensible à la casse : code, référence, description, fournisseur.",
+            "description": "Recherche multi-critère insensible à la casse ; champs lus : voir la description de la liste.",
             "required": false,
             "schema": {
               "type": "string"
@@ -40442,6 +40547,110 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "societeIds",
+            "in": "query",
+            "description": "Sociétés (CfgCompany.id), paramètre répété ; une société non habilitée est ignorée.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "modules",
+            "in": "query",
+            "description": "Modules de la pièce (AdmModule.Code), paramètre répété ; valeur inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "BUY",
+                  "PRJ",
+                  "STL"
+                ]
+              }
+            },
+            "example": "BUY"
+          },
+          {
+            "name": "typeLotIds",
+            "in": "query",
+            "description": "Types de lot (PrjMarketType.id), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "description": "true : archivées (IsClosed = 1) ; false : non archivées (0 ou NULL) ; absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "comptabilise",
+            "in": "query",
+            "description": "true : comptabilisées (IsAccounted = 1) ; false : 0 ou NULL ; absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "montantDe",
+            "in": "query",
+            "description": "Montant à payer (AmountToPay) supérieur ou égal.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100
+          },
+          {
+            "name": "montantA",
+            "in": "query",
+            "description": "Montant à payer (AmountToPay) inférieur ou égal.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 5000
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Colonne portée par du / au : DATE_PIECE (défaut) ou ECHEANCE ; valeur inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DATE_PIECE",
+                "ECHEANCE"
+              ]
+            }
+          },
+          {
+            "name": "dateRenseignee",
+            "in": "query",
+            "description": "true : la colonne de champDate est renseignée, du / au ignorés ; false ou absent : sans effet.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -40456,7 +40665,7 @@
             }
           },
           "400": {
-            "description": "Filtre mal formé (UUID, date, nature, booléen)."
+            "description": "Filtre mal formé (UUID, date, nature, module, champDate, montant, booléen)."
           }
         }
       }
@@ -40549,7 +40758,7 @@
           {
             "name": "du",
             "in": "query",
-            "description": "Date de la pièce à partir de ce jour inclus.",
+            "description": "Date (colonne de champDate) à partir de ce jour inclus.",
             "required": false,
             "schema": {
               "type": "string",
@@ -40560,7 +40769,7 @@
           {
             "name": "au",
             "in": "query",
-            "description": "Date de la pièce jusqu'à ce jour inclus.",
+            "description": "Date (colonne de champDate) jusqu'à ce jour inclus.",
             "required": false,
             "schema": {
               "type": "string",
@@ -40580,7 +40789,7 @@
           {
             "name": "search",
             "in": "query",
-            "description": "Recherche insensible à la casse : code, référence, description, fournisseur.",
+            "description": "Recherche multi-critère insensible à la casse ; champs lus : voir la description de la liste.",
             "required": false,
             "schema": {
               "type": "string"
@@ -40599,6 +40808,110 @@
             "name": "moduleProjet",
             "in": "query",
             "description": "true : pièces du module Projet (PRJ) seulement, comme Projet › Dépenses ; absent : tous.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "societeIds",
+            "in": "query",
+            "description": "Sociétés (CfgCompany.id), paramètre répété ; une société non habilitée est ignorée.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "modules",
+            "in": "query",
+            "description": "Modules de la pièce (AdmModule.Code), paramètre répété ; valeur inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "BUY",
+                  "PRJ",
+                  "STL"
+                ]
+              }
+            },
+            "example": "BUY"
+          },
+          {
+            "name": "typeLotIds",
+            "in": "query",
+            "description": "Types de lot (PrjMarketType.id), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "archive",
+            "in": "query",
+            "description": "true : archivées (IsClosed = 1) ; false : non archivées (0 ou NULL) ; absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "comptabilise",
+            "in": "query",
+            "description": "true : comptabilisées (IsAccounted = 1) ; false : 0 ou NULL ; absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "montantDe",
+            "in": "query",
+            "description": "Montant à payer (AmountToPay) supérieur ou égal.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100
+          },
+          {
+            "name": "montantA",
+            "in": "query",
+            "description": "Montant à payer (AmountToPay) inférieur ou égal.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 5000
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Colonne portée par du / au : DATE_PIECE (défaut) ou ECHEANCE ; valeur inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DATE_PIECE",
+                "ECHEANCE"
+              ]
+            }
+          },
+          {
+            "name": "dateRenseignee",
+            "in": "query",
+            "description": "true : la colonne de champDate est renseignée, du / au ignorés ; false ou absent : sans effet.",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -69723,6 +70036,22 @@
           }
         }
       },
+      "ModuleAchatDto": {
+        "type": "object",
+        "description": "Module OMRAN (AdmModule).",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code (AdmModule.Code).",
+            "example": "BUY"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé.",
+            "example": "Achat"
+          }
+        }
+      },
       "NatureAchatDto": {
         "type": "object",
         "description": "Nature de pièce (DocType).",
@@ -69789,6 +70118,46 @@
             "items": {
               "$ref": "#/components/schemas/FournisseurAchatDto"
             }
+          },
+          "societes": {
+            "type": "array",
+            "description": "Sociétés habilitées de l'appelant (filtre Entité), par code ; vide sans habilitation.",
+            "items": {
+              "$ref": "#/components/schemas/SocieteAchatDto"
+            }
+          },
+          "modules": {
+            "type": "array",
+            "description": "Modules d'une pièce : BUY, PRJ, STL.",
+            "items": {
+              "$ref": "#/components/schemas/ModuleAchatDto"
+            }
+          },
+          "typesLot": {
+            "type": "array",
+            "description": "Types de lot (PrjMarketType), par libellé.",
+            "items": {
+              "$ref": "#/components/schemas/TypeLotAchatDto"
+            }
+          }
+        }
+      },
+      "SocieteAchatDto": {
+        "type": "object",
+        "description": "Société (CfgCompany) habilitée.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la société."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé (Description)."
           }
         }
       },
@@ -69821,6 +70190,26 @@
             "type": "integer",
             "format": "int32",
             "description": "Ordre d'affichage (Sorting) ; null si absent."
+          }
+        }
+      },
+      "TypeLotAchatDto": {
+        "type": "object",
+        "description": "Type de lot (PrjMarketType).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du type."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé (Description).",
+            "example": "TRAVAUX"
           }
         }
       },
@@ -70037,6 +70426,73 @@
             "type": "integer",
             "format": "int32",
             "description": "N° d'ordre du décompte dans son lot (Sorting) ; null sans décompte."
+          },
+          "societeNom": {
+            "type": "string",
+            "description": "Libellé de la société (CfgCompany.Description), colonne « Entité »."
+          },
+          "moduleCode": {
+            "type": "string",
+            "description": "Code du module de la pièce (AdmModule.Code) : BUY, PRJ, STL ; null sans module.",
+            "example": "BUY"
+          },
+          "moduleLibelle": {
+            "type": "string",
+            "description": "Libellé du module (AdmModule.Description) ; null sans module.",
+            "example": "Achat"
+          },
+          "typeLotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de lot (PrjMarketType.id) ; null sans type."
+          },
+          "typeLotLibelle": {
+            "type": "string",
+            "description": "Libellé du type de lot (colonne « Type ») ; null sans type.",
+            "example": "TRAVAUX"
+          },
+          "archive": {
+            "type": "boolean",
+            "description": "Archivée (IsClosed) ; NULL en base = false."
+          },
+          "comptabilise": {
+            "type": "boolean",
+            "description": "Comptabilisée (IsAccounted) ; NULL en base = false."
+          },
+          "referenceBureauOrdre": {
+            "type": "string",
+            "description": "Référence bureau d'ordre (OfficeOrderRef) ; null si absente."
+          },
+          "personneAContacter": {
+            "type": "string",
+            "description": "Personne à contacter (PersonToContact) ; null si absente."
+          },
+          "dossierGroupement": {
+            "type": "string",
+            "description": "Dossier de groupement (BuyFolder.Description) ; null sans dossier."
+          },
+          "categories": {
+            "type": "string",
+            "description": "Catégories de ventilation (StlCategory.Description), séparées par « , » ; null sans ventilation."
+          },
+          "deviseCode": {
+            "type": "string",
+            "description": "Code de la devise (StlCurrency.Code) ; null sans devise.",
+            "example": "MAD"
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'alerte : toujours null, comme la vue OMRAN (null AS AlerteDate)."
+          },
+          "aCloturer": {
+            "type": "boolean",
+            "description": "Bon de commande à clôturer : HT ≤ Σ HT de ses factures, statut non terminé ; false sinon."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (BuyDocumentStatus.ColorName, nom .NET) ; null sans statut.",
+            "example": "Green"
           }
         }
       },
@@ -70205,6 +70661,73 @@
             "type": "integer",
             "format": "int32",
             "description": "N° d'ordre du décompte dans son lot (Sorting) ; null sans décompte."
+          },
+          "societeNom": {
+            "type": "string",
+            "description": "Libellé de la société (CfgCompany.Description), colonne « Entité »."
+          },
+          "moduleCode": {
+            "type": "string",
+            "description": "Code du module de la pièce (AdmModule.Code) : BUY, PRJ, STL ; null sans module.",
+            "example": "BUY"
+          },
+          "moduleLibelle": {
+            "type": "string",
+            "description": "Libellé du module (AdmModule.Description) ; null sans module.",
+            "example": "Achat"
+          },
+          "typeLotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de lot (PrjMarketType.id) ; null sans type."
+          },
+          "typeLotLibelle": {
+            "type": "string",
+            "description": "Libellé du type de lot (colonne « Type ») ; null sans type.",
+            "example": "TRAVAUX"
+          },
+          "archive": {
+            "type": "boolean",
+            "description": "Archivée (IsClosed) ; NULL en base = false."
+          },
+          "comptabilise": {
+            "type": "boolean",
+            "description": "Comptabilisée (IsAccounted) ; NULL en base = false."
+          },
+          "referenceBureauOrdre": {
+            "type": "string",
+            "description": "Référence bureau d'ordre (OfficeOrderRef) ; null si absente."
+          },
+          "personneAContacter": {
+            "type": "string",
+            "description": "Personne à contacter (PersonToContact) ; null si absente."
+          },
+          "dossierGroupement": {
+            "type": "string",
+            "description": "Dossier de groupement (BuyFolder.Description) ; null sans dossier."
+          },
+          "categories": {
+            "type": "string",
+            "description": "Catégories de ventilation (StlCategory.Description), séparées par « , » ; null sans ventilation."
+          },
+          "deviseCode": {
+            "type": "string",
+            "description": "Code de la devise (StlCurrency.Code) ; null sans devise.",
+            "example": "MAD"
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'alerte : toujours null, comme la vue OMRAN (null AS AlerteDate)."
+          },
+          "aCloturer": {
+            "type": "boolean",
+            "description": "Bon de commande à clôturer : HT ≤ Σ HT de ses factures, statut non terminé ; false sinon."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (BuyDocumentStatus.ColorName, nom .NET) ; null sans statut.",
+            "example": "Green"
           },
           "notes": {
             "type": "string",
@@ -70435,6 +70958,14 @@
           "resteDu": {
             "type": "number",
             "description": "Σ des restes supérieurs à 0,05 seulement : ce qui est vraiment dû."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Σ des montants HT."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Σ des montants de TVA."
           }
         }
       },
