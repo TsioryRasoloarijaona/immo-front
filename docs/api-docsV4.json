@@ -21658,7 +21658,7 @@
           "Achat"
         ],
         "summary": "Change le statut d'une pièce d'achat par une transition de sa gestion",
-        "description": "Transitions candidates : celles de la **gestion de la pièce** (`StrEntityId`) qui partent du statut courant, triées par ordre (`Sorting`). Une transition est permise au compte si l'un de ses rôles (`AdmUserRole`) figure dans les rôles de la transition, **ou** si elle est validée par le déclencheur et que le déclencheur de la pièce est l'employé du compte. L'Administrateur n'a **aucune** exemption. Ordre des refus : 404 pièce → 400 `statutId` absent → 409 → 403 → 400 note vide (après `trim`) exigée par la transition. Écrit le statut, l'auteur et la date de modification, et une ligne d'historique (note ou vide, transition retenue = la première autorisée par ordre). Une pièce à statut en lecture seule peut changer de statut. Les statuts acceptés sont exactement ceux de `actions.transitions` de la fiche.",
+        "description": "Transitions candidates : celles de la **gestion de la pièce** (`StrEntityId`) qui partent du statut courant, triées par ordre (`Sorting`). Une transition est permise au compte si l'un de ses rôles (`AdmUserRole`) figure dans les rôles de la transition, **ou** si elle est validée par le déclencheur et que le déclencheur de la pièce est l'employé du compte. L'Administrateur n'a **aucune** exemption. Ordre des refus : 404 pièce → 400 `statutId` absent → 409 → 403 → 400 note vide (après `trim`) exigée par la transition, ou note de plus de 1000 caractères. Écrit le statut, l'auteur et la date de modification, et une ligne d'historique (note ou vide, transition retenue = la première autorisée par ordre). Une pièce à statut en lecture seule peut changer de statut. Les statuts acceptés sont exactement ceux de `actions.transitions` de la fiche.",
         "operationId": "modifierStatut_2",
         "parameters": [
           {
@@ -41368,7 +41368,7 @@
           "Achat"
         ],
         "summary": "Supprime une pièce d'achat avec ses lignes, ventilations et historique",
-        "description": "Natures : devis, bon de commande, bon de livraison, facture, avoir. Ordre des refus : 404 → 403 → 409. Supprime aussi les lignes, les ventilations catégorie et projet, l'historique des statuts et les liens `BuyOrderInvoice` côté facture ; vide `BuyQuoteId` des pièces issues d'un devis supprimé et `BuyInvoiceId` des pièces liées à une facture supprimée. Tout ou rien.",
+        "description": "Natures : devis, bon de commande, bon de livraison, facture, avoir. Ordre des refus : 404 → 403 → 409 (un document à régler, sans droit OMRAN de suppression, répond 409 dès après le 404). Supprime aussi les lignes, les ventilations catégorie et projet, l'historique des statuts et les liens `BuyOrderInvoice` côté facture ; vide `BuyQuoteId` des pièces issues d'un devis supprimé et `BuyInvoiceId` des pièces liées à une facture supprimée. Tout ou rien.",
         "operationId": "supprimer_21",
         "parameters": [
           {
@@ -62246,7 +62246,7 @@
           },
           "note": {
             "type": "string",
-            "description": "Note du passage ; obligatoire si la transition l'exige, facultative sinon."
+            "description": "Note du passage (≤ 1000 caractères) ; obligatoire si la transition l'exige, facultative sinon."
           }
         }
       },
