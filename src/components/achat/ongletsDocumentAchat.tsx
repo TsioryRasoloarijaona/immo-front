@@ -111,11 +111,28 @@ export function VentilationDocumentAchat({ d }: Readonly<{ d: DocumentAchatDetai
   );
 }
 
+const ENTETES_REGLEMENTS = [{ libelle: 'Code' }, { libelle: 'Date' }, { libelle: 'Type' }, { libelle: 'Montant', droite: true }];
+const ENTETES_POINTAGE = [
+  { libelle: 'État' },
+  { libelle: 'Date pointage' },
+  { libelle: 'Date pointage prévue' },
+  { libelle: 'Pointage reporté' },
+  { libelle: 'Date pointage reportée' },
+  { libelle: 'Montant brut', droite: true },
+];
+
+function oui(valeur: boolean | null): string {
+  if (valeur === null) return '—';
+  return valeur ? 'Oui' : 'Non';
+}
+
 export function ReglementsDocumentAchat({ d }: Readonly<{ d: DocumentAchatDetailDto }>) {
+  const pointage = d.nature === 'ORDER';
   return (
     <Grille
-      entetes={[{ libelle: 'Code' }, { libelle: 'Date' }, { libelle: 'Type' }, { libelle: 'Montant', droite: true }]}
+      entetes={pointage ? [...ENTETES_REGLEMENTS, ...ENTETES_POINTAGE] : ENTETES_REGLEMENTS}
       vide={d.reglements.length === 0}
+      titreVide="Aucun règlement"
     >
       {d.reglements.map((r) => (
         <TableRow key={r.id} className={r.annule ? 'text-muted-foreground line-through' : undefined}>
@@ -126,6 +143,16 @@ export function ReglementsDocumentAchat({ d }: Readonly<{ d: DocumentAchatDetail
           <TableCell>{formatDate(r.dateDocument)}</TableCell>
           <TableCell>{r.typeDescription ?? r.typeCode}</TableCell>
           <TableCell className={DROITE}>{formatCurrency(r.montant)}</TableCell>
+          {pointage && (
+            <>
+              <TableCell>{r.etat ?? '—'}</TableCell>
+              <TableCell>{formatDate(r.datePointage) || '—'}</TableCell>
+              <TableCell>{formatDate(r.datePointagePrevue) || '—'}</TableCell>
+              <TableCell>{oui(r.pointageReporte)}</TableCell>
+              <TableCell>{formatDate(r.datePointageReportee) || '—'}</TableCell>
+              <TableCell className={DROITE}>{r.montantBrut === null ? '—' : formatCurrency(r.montantBrut)}</TableCell>
+            </>
+          )}
         </TableRow>
       ))}
     </Grille>

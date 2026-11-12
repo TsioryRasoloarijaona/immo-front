@@ -4162,6 +4162,62 @@
         }
       }
     },
+    "/api/achat/documents/{id}/bon-commande": {
+      "put": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Rattache une facture à un bon de commande (Affecter à un B.C.)",
+        "description": "Écrit seulement `BuyOrderId` de la facture et l'auteur de modification ; aucune ligne `BuyOrderInvoice`. Réaffecter une facture déjà rattachée est permis ; le statut de la facture n'est pas regardé. Ordre des refus : 404 pièce → 409 nature → 403 → 400 → 404 bon de commande → 409.",
+        "operationId": "affecterBonCommande",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la pièce d'achat (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AffecterBonCommandeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "La fiche de la facture relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentAchatDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "bonCommandeId absent."
+          },
+          "403": {
+            "description": "Sans le droit de modification des factures."
+          },
+          "404": {
+            "description": "`Pièce introuvable` (facture inconnue, hors périmètre) ou `Bon de commande introuvable` (inconnu, pas un bon de commande, hors périmètre ou d'un autre déclencheur pour un compte restreint)."
+          },
+          "409": {
+            "description": "Pièce qui n'est pas une facture ; facture gérée ailleurs ou à avance ; bon de commande d'un autre fournisseur, d'une autre société ou — la facture ayant un lot — d'un autre lot ; si le paramètre `LimitDeliveryAndInvoiceQuantityToOrder` est vrai, article absent du bon de commande ou quantité facturée au-delà de la quantité commandée (textes d'OMRAN)."
+          }
+        }
+      }
+    },
     "/api/achat/config/transitions/{id}": {
       "put": {
         "tags": [
@@ -21592,6 +21648,62 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/achat/documents/{id}/statut": {
+      "patch": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Change le statut d'une pièce d'achat par une transition de sa gestion",
+        "description": "Transitions candidates : celles de la **gestion de la pièce** (`StrEntityId`) qui partent du statut courant, triées par ordre (`Sorting`). Une transition est permise au compte si l'un de ses rôles (`AdmUserRole`) figure dans les rôles de la transition, **ou** si elle est validée par le déclencheur et que le déclencheur de la pièce est l'employé du compte. L'Administrateur n'a **aucune** exemption. Ordre des refus : 404 pièce → 400 `statutId` absent → 409 → 403 → 400 note vide (après `trim`) exigée par la transition, ou note de plus de 1000 caractères. Écrit le statut, l'auteur et la date de modification, et une ligne d'historique (note ou vide, transition retenue = la première autorisée par ordre). Une pièce à statut en lecture seule peut changer de statut. Les statuts acceptés sont exactement ceux de `actions.transitions` de la fiche.",
+        "operationId": "modifierStatut_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la pièce d'achat (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionPieceAchatRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "La fiche relue, au nouveau statut.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentAchatDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "statutId absent, ou note vide exigée par la transition."
+          },
+          "403": {
+            "description": "Transition existante mais réservée à d'autres rôles."
+          },
+          "404": {
+            "description": "Pièce introuvable, hors périmètre ou BC d'un autre déclencheur."
+          },
+          "409": {
+            "description": "Aucune transition de la gestion ne mène du statut courant au statut demandé (pièce sans workflow et statut courant vide compris). Le corps porte `transitionsPermises` : les statuts d'arrivée permis au compte, même forme que `actions.transitions`."
           }
         }
       }
@@ -41250,6 +41362,40 @@
             "description": "Pièce introuvable, hors périmètre (société, projet) ou bon de commande d'un autre déclencheur."
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Supprime une pièce d'achat avec ses lignes, ventilations et historique",
+        "description": "Natures : devis, bon de commande, bon de livraison, facture, avoir. Ordre des refus : 404 → 403 → 409 (un document à régler, sans droit OMRAN de suppression, répond 409 dès après le 404). Supprime aussi les lignes, les ventilations catégorie et projet, l'historique des statuts et les liens `BuyOrderInvoice` côté facture ; vide `BuyQuoteId` des pièces issues d'un devis supprimé et `BuyInvoiceId` des pièces liées à une facture supprimée. Tout ou rien.",
+        "operationId": "supprimer_21",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la pièce d'achat (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Pièce supprimée."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN de suppression de cette nature."
+          },
+          "404": {
+            "description": "Pièce introuvable, hors périmètre ou BC d'un autre déclencheur."
+          },
+          "409": {
+            "description": "Dans l'ordre : pièce gérée ailleurs (document à régler, pièce à `ReferenceType` — avance, frais de terrain —, facture de décompte) ; bon de commande ou facture à statut en lecture seule (texte d'OMRAN) ; règlement lié ; pièce fille (BL ou facture d'un BC, avoir d'une facture, lien `BuyOrderInvoice`) ; écriture comptable."
+          }
+        }
       }
     },
     "/api/achat/documents/totaux": {
@@ -41923,7 +42069,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_21",
+        "operationId": "supprimer_22",
         "parameters": [
           {
             "name": "porteur",
@@ -42172,7 +42318,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_22",
+        "operationId": "supprimer_23",
         "parameters": [
           {
             "name": "id",
@@ -42416,7 +42562,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_23",
+        "operationId": "supprimer_24",
         "parameters": [
           {
             "name": "id",
@@ -47288,6 +47434,1137 @@
           "verrouille": {
             "type": "boolean",
             "description": "Vrai pour le rôle Administrateur : toute écriture répond 409."
+          }
+        }
+      },
+      "AffecterBonCommandeRequest": {
+        "type": "object",
+        "description": "Bon de commande auquel rattacher une facture.",
+        "properties": {
+          "bonCommandeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du bon de commande visible (même fournisseur, société et lot) ; obligatoire."
+          }
+        }
+      },
+      "ActionsPieceAchatDto": {
+        "type": "object",
+        "description": "Actions d'écriture ouvertes au compte sur la pièce ; mêmes règles que les routes d'écriture.",
+        "properties": {
+          "peutSupprimer": {
+            "type": "boolean",
+            "description": "Droit de suppression, nature supportée, pièce non gérée ailleurs ; liens bloquants connus au clic (409)."
+          },
+          "peutAffecter": {
+            "type": "boolean",
+            "description": "Facture, droit de modification de facture porté et pièce non gérée ailleurs."
+          },
+          "transitions": {
+            "type": "array",
+            "description": "Statuts d'arrivée accessibles au compte depuis le statut courant, par ordre de transition ; vide sans transition.",
+            "items": {
+              "$ref": "#/components/schemas/TransitionPermiseAchatDto"
+            }
+          }
+        }
+      },
+      "AgregatsBonCommandeDto": {
+        "type": "object",
+        "description": "Agrégats d'un bon de commande, **calculés côté serveur** comme la grille « Bons de Commande » d'OMRAN (vue\n`BuyDocumentOrderView`), sur ses pièces liées : toutes les pièces `BuyDocument` dont `BuyOrderId` désigne le bon de\ncommande, qu'elles soient visibles ou non de l'appelant (comme OMRAN). Factures = nature `INVOICE`, bons de livraison =\n`DELIVRY`, avances = `ReferenceType` `ORDER_ADVANCE` (toute nature), restitutions de garantie = `ORDER_WARRANTY`.\nLe réglé d'une pièce exclut les règlements annulés (`CANCELED`) ; une facture annulée compte. Aucun plafonnement : un\ndépassement donne un reste négatif, affiché signé. Montants arrondis à 2 décimales (HALF_UP) sur chaque agrégat final.\n\nPrésent seulement sur un bon de commande (`nature` = `ORDER`), `null` pour toute autre nature. Un bon de commande sans\npièce liée a tous ses montants à 0, `resteALivrer*` = ses montants et `resteAPayerTotal` = son à payer.\nDans les totaux de la liste : Σ champ à champ des lignes, ratios et codes `null`. Voir FEATURE-achat-bc-agregats.md.",
+        "properties": {
+          "factureHT": {
+            "type": "number",
+            "description": "Montant facturé HT : Σ HT des factures liées (BuyOrderId)."
+          },
+          "factureTVA": {
+            "type": "number",
+            "description": "Montant facturé TVA : facturé TTC − facturé HT."
+          },
+          "factureTTC": {
+            "type": "number",
+            "description": "Montant facturé TTC : Σ TTC des factures liées."
+          },
+          "factureNetAPayer": {
+            "type": "number",
+            "description": "Montant facturé net à payer : Σ AmountToPay des factures liées."
+          },
+          "livreHT": {
+            "type": "number",
+            "description": "Montant livré HT : Σ HT des bons de livraison liés."
+          },
+          "livreTTC": {
+            "type": "number",
+            "description": "Montant livré TTC : Σ TTC des bons de livraison liés."
+          },
+          "livreNetAPayer": {
+            "type": "number",
+            "description": "Montant livré net à payer : Σ AmountToPay des bons de livraison liés."
+          },
+          "resteALivrerHT": {
+            "type": "number",
+            "description": "Reste à livrer HT : HT du bon de commande − livré HT."
+          },
+          "resteALivrerTTC": {
+            "type": "number",
+            "description": "Reste à livrer TTC : TTC du bon de commande − livré TTC."
+          },
+          "resteALivrerNetAPayer": {
+            "type": "number",
+            "description": "Reste à livrer net à payer : à payer du bon de commande − livré net à payer."
+          },
+          "avance": {
+            "type": "number",
+            "description": "Avance : Σ AmountToPay des pièces liées de référence ORDER_ADVANCE."
+          },
+          "avanceTauxPrevu": {
+            "type": "number",
+            "description": "Avance prévue (OrderAdvanceRatio), fraction 0–1 (0,2 = 20 %) ; null dans les totaux."
+          },
+          "avanceTauxEffectif": {
+            "type": "number",
+            "description": "Pourcentage effectif d'avance : avance / à payer du BC, fraction ; 0 si à payer nul ; null dans les totaux."
+          },
+          "avanceAmortie": {
+            "type": "number",
+            "description": "Avance amortie : Σ AdvanceAmount des factures liées."
+          },
+          "avanceRegle": {
+            "type": "number",
+            "description": "Avance réglée : Σ des règlements non annulés des pièces d'avance."
+          },
+          "avanceReste": {
+            "type": "number",
+            "description": "Avance reste : avance − avance réglée."
+          },
+          "avanceResteAAmortir": {
+            "type": "number",
+            "description": "Avance reste à amortir : avance − avance amortie."
+          },
+          "garantieRetenue": {
+            "type": "number",
+            "description": "Retenue de garantie retenue : Σ WarrantyAmount des factures liées."
+          },
+          "garantieRestituee": {
+            "type": "number",
+            "description": "Retenue de garantie restituée : Σ HT des pièces liées de référence ORDER_WARRANTY."
+          },
+          "garantieReste": {
+            "type": "number",
+            "description": "Retenue de garantie reste : retenue − restituée."
+          },
+          "regle": {
+            "type": "number",
+            "description": "Montant réglé : réglé des factures liées + avance réglée (règlements annulés exclus)."
+          },
+          "resteAPayerSurFacture": {
+            "type": "number",
+            "description": "Reste à payer sur facturé : facturé net à payer − réglé ; signé."
+          },
+          "resteAPayerTotal": {
+            "type": "number",
+            "description": "Reste à payer total : à payer du bon de commande − réglé ; signé."
+          },
+          "bonsLivraisonCodes": {
+            "type": "string",
+            "description": "Codes des bons de livraison liés, triés, séparés par « , » ; null sans BL ou dans les totaux."
+          },
+          "facturesCodes": {
+            "type": "string",
+            "description": "Codes des factures liées et de celles des BL liés, séparés par « , » ; null sans facture."
+          },
+          "devisCode": {
+            "type": "string",
+            "description": "Devis d'origine (BuyQuoteId) : sa référence, sinon son code ; null sans devis."
+          }
+        }
+      },
+      "AvoirAchatDto": {
+        "type": "object",
+        "description": "Avoir visible d'une facture (InvoiceSourceId = la facture) et ses lignes.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'avoir (BuyDocument.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de l'avoir."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de l'avoir (DocDate)."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de l'avoir, par ordre (Sorting), colonnes calculées comprises.",
+            "items": {
+              "$ref": "#/components/schemas/LigneDocumentAchatDto"
+            }
+          }
+        }
+      },
+      "DocumentAchatDetailDto": {
+        "type": "object",
+        "description": "Fiche d'une pièce d'achat : les champs de la ligne de liste, puis l'en-tête et les onglets.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la pièce (BuyDocument.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "N° de la pièce (Code).",
+            "example": "26/03017"
+          },
+          "nature": {
+            "type": "string",
+            "description": "Nature stockée (DocType) : INVOICE, ORDER, QUOTE, DOCUMENT_TO_PAY, DELIVRY, REFUND."
+          },
+          "natureLibelle": {
+            "type": "string",
+            "description": "Libellé de la nature.",
+            "example": "Facture"
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence fournisseur (DocRef)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de la pièce."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'échéance (MaturityDate) ; null si absente."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.id)."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur (CfgTier.Description)."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet de chantier (PrjProject.id) ; toujours dans le périmètre de l'appelant."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot de marché (PrjMarket.id) ; null si la pièce n'est pas rattachée à un lot."
+          },
+          "lotCode": {
+            "type": "string",
+            "description": "Code du lot ; null sans lot."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société (CfgCompany)."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut (BuyDocumentStatus.id) ; null pour un devis."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut ; null sans statut."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut ; null sans statut."
+          },
+          "okPourPaiement": {
+            "type": "boolean",
+            "description": "Drapeau « OK pour paiement » du statut ; false sans statut."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT (AmountHT)."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Montant de TVA (AmountVat)."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC (AmountTTC)."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "Montant à payer (AmountToPay), arrondi à 2 décimales : base du reste."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Σ des lignes de règlement de la pièce, règlements annulés exclus."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Montant à payer − réglé ; négatif si la pièce est trop réglée."
+          },
+          "solde": {
+            "type": "boolean",
+            "description": "Vrai si |reste| ≤ 0,05."
+          },
+          "tropRegle": {
+            "type": "boolean",
+            "description": "Vrai si le réglé dépasse de plus de 0,05 un à-payer positif ; faux pour une pièce négative."
+          },
+          "aDeduire": {
+            "type": "boolean",
+            "description": "Vrai si le montant à payer est inférieur à −0,05 (récupération d'avance à déduire)."
+          },
+          "decompteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Décompte lié (PrjWorkingOut.PKey, par PrjWorkingOut.BuyDocumentId) ; null sans décompte."
+          },
+          "decompteCode": {
+            "type": "string",
+            "description": "Code du décompte lié ; null sans décompte."
+          },
+          "decompteNumero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "N° d'ordre du décompte dans son lot (Sorting) ; null sans décompte."
+          },
+          "societeNom": {
+            "type": "string",
+            "description": "Libellé de la société (CfgCompany.Description), colonne « Entité »."
+          },
+          "moduleCode": {
+            "type": "string",
+            "description": "Code du module de la pièce (AdmModule.Code) : BUY, PRJ, STL ; null sans module.",
+            "example": "BUY"
+          },
+          "moduleLibelle": {
+            "type": "string",
+            "description": "Libellé du module (AdmModule.Description) ; null sans module.",
+            "example": "Achat"
+          },
+          "typeLotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de lot (PrjMarketType.id) ; null sans type."
+          },
+          "typeLotLibelle": {
+            "type": "string",
+            "description": "Libellé du type de lot (colonne « Type ») ; null sans type.",
+            "example": "TRAVAUX"
+          },
+          "archive": {
+            "type": "boolean",
+            "description": "Archivée (IsClosed) ; NULL en base = false."
+          },
+          "comptabilise": {
+            "type": "boolean",
+            "description": "Comptabilisée (IsAccounted) ; NULL en base = false."
+          },
+          "referenceBureauOrdre": {
+            "type": "string",
+            "description": "Référence bureau d'ordre (OfficeOrderRef) ; null si absente."
+          },
+          "personneAContacter": {
+            "type": "string",
+            "description": "Personne à contacter (PersonToContact) ; null si absente."
+          },
+          "dossierGroupement": {
+            "type": "string",
+            "description": "Dossier de groupement (BuyFolder.Description) ; null sans dossier."
+          },
+          "categories": {
+            "type": "string",
+            "description": "Catégories de ventilation (StlCategory.Description), séparées par « , » ; null sans ventilation."
+          },
+          "deviseCode": {
+            "type": "string",
+            "description": "Code de la devise (StlCurrency.Code) ; null sans devise.",
+            "example": "MAD"
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'alerte : toujours null, comme la vue OMRAN (null AS AlerteDate)."
+          },
+          "aCloturer": {
+            "type": "boolean",
+            "description": "Bon de commande à clôturer : HT ≤ Σ HT de ses factures, statut non terminé ; false sinon."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (BuyDocumentStatus.ColorName, nom .NET) ; null sans statut.",
+            "example": "Green"
+          },
+          "agregats": {
+            "$ref": "#/components/schemas/AgregatsBonCommandeDto",
+            "description": "Agrégats du bon de commande (factures, livraisons, avances, garanties) ; null hors bon de commande."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes de la pièce."
+          },
+          "regularisation": {
+            "type": "number",
+            "description": "Régularisation (AmountRegul)."
+          },
+          "timbreFiscal": {
+            "type": "number",
+            "description": "Timbre fiscal (FiscalStamp)."
+          },
+          "valideComptabilite": {
+            "type": "boolean",
+            "description": "Drapeau « Validé comptabilité » du statut ; false sans statut."
+          },
+          "entiteCode": {
+            "type": "string",
+            "description": "Code de l'entité (StrEntity)."
+          },
+          "entiteDescription": {
+            "type": "string",
+            "description": "Libellé de l'entité (StrEntity)."
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création (UserCreateDateTime)."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (UserCreate, tel que stocké)."
+          },
+          "dateModification": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification (UserUpdateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification (UserUpdate, tel que stocké)."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la pièce, par ordre (Sorting).",
+            "items": {
+              "$ref": "#/components/schemas/LigneDocumentAchatDto"
+            }
+          },
+          "ventilation": {
+            "type": "array",
+            "description": "Ventilation par catégorie, par code de catégorie.",
+            "items": {
+              "$ref": "#/components/schemas/VentilationDocumentAchatDto"
+            }
+          },
+          "historique": {
+            "type": "array",
+            "description": "Historique des statuts, du plus ancien au plus récent.",
+            "items": {
+              "$ref": "#/components/schemas/HistoriqueDocumentAchatDto"
+            }
+          },
+          "reglements": {
+            "type": "array",
+            "description": "Règlements de la pièce, annulés compris, par date puis code.",
+            "items": {
+              "$ref": "#/components/schemas/ReglementDocumentAchatDto"
+            }
+          },
+          "declencheurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Déclencheur (CfgTierTriggerId) ; null si absent."
+          },
+          "declencheurNom": {
+            "type": "string",
+            "description": "Nom du déclencheur (CfgTier.Description)."
+          },
+          "dateLivraisonSouhaitee": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de livraison souhaitée (PrevisionDeliveryDate), toute nature."
+          },
+          "note2": {
+            "type": "string",
+            "description": "Seconde note (Notes2)."
+          },
+          "devisSelectionne": {
+            "type": "boolean",
+            "description": "Devis sélectionné (IsSelected) ; false si absent."
+          },
+          "avoirsMontant": {
+            "type": "number",
+            "description": "Σ TTC des avoirs visibles de la pièce (InvoiceSourceId) ; 0 sans avoir, jamais soustrait."
+          },
+          "retenuesAvances": {
+            "$ref": "#/components/schemas/RetenuesAvancesAchatDto",
+            "description": "Retenues et avances (colonne droite), lues telles quelles."
+          },
+          "devisOrigineId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Devis d'origine (BuyQuoteId) ; null si absent ou hors périmètre."
+          },
+          "devisOrigineCode": {
+            "type": "string",
+            "description": "Code du devis d'origine ; null si absent ou hors périmètre."
+          },
+          "bonCommandeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Bon de commande rattaché (BuyOrderId) ; null si absent ou non visible."
+          },
+          "bonCommandeCode": {
+            "type": "string",
+            "description": "Code du bon de commande rattaché ; null si absent ou non visible."
+          },
+          "factureSourceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Facture source d'un avoir (InvoiceSourceId) ; null si absente ou hors périmètre."
+          },
+          "factureSourceCode": {
+            "type": "string",
+            "description": "Code de la facture source ; null si absente ou hors périmètre."
+          },
+          "recapTva": {
+            "type": "array",
+            "description": "Lignes groupées par taux de TVA, taux croissant ; vide sans ligne.",
+            "items": {
+              "$ref": "#/components/schemas/RecapTvaAchatDto"
+            }
+          },
+          "ventilationProjets": {
+            "type": "array",
+            "description": "Ventilation par projet, par code de projet, non filtrée par périmètre.",
+            "items": {
+              "$ref": "#/components/schemas/VentilationProjetAchatDto"
+            }
+          },
+          "bonsLivraison": {
+            "type": "array",
+            "description": "Bons de livraison visibles d'un bon de commande (BuyOrderId) ; vide pour une autre nature.",
+            "items": {
+              "$ref": "#/components/schemas/PieceLieeAchatDto"
+            }
+          },
+          "factures": {
+            "type": "array",
+            "description": "Factures visibles d'un bon de commande (BuyOrderId ∪ BuyOrderInvoice) ; vide sinon.",
+            "items": {
+              "$ref": "#/components/schemas/PieceLieeAchatDto"
+            }
+          },
+          "avoirs": {
+            "type": "array",
+            "description": "Avoirs visibles d'une facture (InvoiceSourceId), avec leurs lignes ; vide pour une autre nature.",
+            "items": {
+              "$ref": "#/components/schemas/AvoirAchatDto"
+            }
+          },
+          "actions": {
+            "$ref": "#/components/schemas/ActionsPieceAchatDto",
+            "description": "Actions d'écriture ouvertes au compte (boutons de la fiche)."
+          }
+        }
+      },
+      "DocumentAchatListItemDto": {
+        "type": "object",
+        "description": "Pièce d'achat (BuyDocument) dans la liste ; mêmes valeurs en tête de la fiche.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la pièce (BuyDocument.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "N° de la pièce (Code).",
+            "example": "26/03017"
+          },
+          "nature": {
+            "type": "string",
+            "description": "Nature stockée (DocType) : INVOICE, ORDER, QUOTE, DOCUMENT_TO_PAY, DELIVRY, REFUND."
+          },
+          "natureLibelle": {
+            "type": "string",
+            "description": "Libellé de la nature.",
+            "example": "Facture"
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence fournisseur (DocRef)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de la pièce."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'échéance (MaturityDate) ; null si absente."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.id)."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur (CfgTier.Description)."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet de chantier (PrjProject.id) ; toujours dans le périmètre de l'appelant."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot de marché (PrjMarket.id) ; null si la pièce n'est pas rattachée à un lot."
+          },
+          "lotCode": {
+            "type": "string",
+            "description": "Code du lot ; null sans lot."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société (CfgCompany)."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut (BuyDocumentStatus.id) ; null pour un devis."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut ; null sans statut."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut ; null sans statut."
+          },
+          "okPourPaiement": {
+            "type": "boolean",
+            "description": "Drapeau « OK pour paiement » du statut ; false sans statut."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT (AmountHT)."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Montant de TVA (AmountVat)."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC (AmountTTC)."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "Montant à payer (AmountToPay), arrondi à 2 décimales : base du reste."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Σ des lignes de règlement de la pièce, règlements annulés exclus."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Montant à payer − réglé ; négatif si la pièce est trop réglée."
+          },
+          "solde": {
+            "type": "boolean",
+            "description": "Vrai si |reste| ≤ 0,05."
+          },
+          "tropRegle": {
+            "type": "boolean",
+            "description": "Vrai si le réglé dépasse de plus de 0,05 un à-payer positif ; faux pour une pièce négative."
+          },
+          "aDeduire": {
+            "type": "boolean",
+            "description": "Vrai si le montant à payer est inférieur à −0,05 (récupération d'avance à déduire)."
+          },
+          "decompteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Décompte lié (PrjWorkingOut.PKey, par PrjWorkingOut.BuyDocumentId) ; null sans décompte."
+          },
+          "decompteCode": {
+            "type": "string",
+            "description": "Code du décompte lié ; null sans décompte."
+          },
+          "decompteNumero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "N° d'ordre du décompte dans son lot (Sorting) ; null sans décompte."
+          },
+          "societeNom": {
+            "type": "string",
+            "description": "Libellé de la société (CfgCompany.Description), colonne « Entité »."
+          },
+          "moduleCode": {
+            "type": "string",
+            "description": "Code du module de la pièce (AdmModule.Code) : BUY, PRJ, STL ; null sans module.",
+            "example": "BUY"
+          },
+          "moduleLibelle": {
+            "type": "string",
+            "description": "Libellé du module (AdmModule.Description) ; null sans module.",
+            "example": "Achat"
+          },
+          "typeLotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de lot (PrjMarketType.id) ; null sans type."
+          },
+          "typeLotLibelle": {
+            "type": "string",
+            "description": "Libellé du type de lot (colonne « Type ») ; null sans type.",
+            "example": "TRAVAUX"
+          },
+          "archive": {
+            "type": "boolean",
+            "description": "Archivée (IsClosed) ; NULL en base = false."
+          },
+          "comptabilise": {
+            "type": "boolean",
+            "description": "Comptabilisée (IsAccounted) ; NULL en base = false."
+          },
+          "referenceBureauOrdre": {
+            "type": "string",
+            "description": "Référence bureau d'ordre (OfficeOrderRef) ; null si absente."
+          },
+          "personneAContacter": {
+            "type": "string",
+            "description": "Personne à contacter (PersonToContact) ; null si absente."
+          },
+          "dossierGroupement": {
+            "type": "string",
+            "description": "Dossier de groupement (BuyFolder.Description) ; null sans dossier."
+          },
+          "categories": {
+            "type": "string",
+            "description": "Catégories de ventilation (StlCategory.Description), séparées par « , » ; null sans ventilation."
+          },
+          "deviseCode": {
+            "type": "string",
+            "description": "Code de la devise (StlCurrency.Code) ; null sans devise.",
+            "example": "MAD"
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'alerte : toujours null, comme la vue OMRAN (null AS AlerteDate)."
+          },
+          "aCloturer": {
+            "type": "boolean",
+            "description": "Bon de commande à clôturer : HT ≤ Σ HT de ses factures, statut non terminé ; false sinon."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (BuyDocumentStatus.ColorName, nom .NET) ; null sans statut.",
+            "example": "Green"
+          },
+          "agregats": {
+            "$ref": "#/components/schemas/AgregatsBonCommandeDto",
+            "description": "Agrégats du bon de commande (factures, livraisons, avances, garanties) ; null hors bon de commande."
+          }
+        }
+      },
+      "HistoriqueDocumentAchatDto": {
+        "type": "object",
+        "description": "Passage de la pièce dans un statut (BuyDocumentStatusHistory).",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du passage."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut atteint."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut atteint."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Utilisateur (AdmUser.Description, à défaut Code)."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note saisie au passage."
+          },
+          "transition": {
+            "type": "string",
+            "description": "Transition empruntée (BuyDocumentWorkFlow.Description) ; null à la création."
+          }
+        }
+      },
+      "LigneDocumentAchatDto": {
+        "type": "object",
+        "description": "Ligne de la pièce (BuyDocumentLine) : colonnes stockées puis calculées (vue OMRAN BuyDocumentLineView).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la ligne."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting)."
+          },
+          "designation": {
+            "type": "string",
+            "description": "Désignation (Description)."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité (Unity)."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT."
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA en % (VatRatio × 100).",
+            "example": 20
+          },
+          "remisePourcent": {
+            "type": "number",
+            "description": "Remise en % (DiscountRatio × 100).",
+            "example": 0
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la ligne ; null possible."
+          },
+          "fodecPourcent": {
+            "type": "number",
+            "description": "FODEC en % (FODECRatio × 100) ; 0 si absent.",
+            "example": 0
+          },
+          "prixUnitaireTTC": {
+            "type": "number",
+            "description": "Prix unitaire TTC stocké (UnitPriceTTC)."
+          },
+          "prixUnitaireHTNet": {
+            "type": "number",
+            "description": "PU HT net : PU HT × (1 − remise) × (1 + FODEC), sans arrondi."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT : PU HT net × quantité, sans arrondi."
+          },
+          "totalTVA": {
+            "type": "number",
+            "description": "Total TVA : total HT × taux de TVA."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Total TTC : total HT + total TVA."
+          }
+        }
+      },
+      "PieceLieeAchatDto": {
+        "type": "object",
+        "description": "Pièce liée visible (bon de livraison ou facture d'un bon de commande), mêmes valeurs que la liste.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la pièce liée (BuyDocument.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pièce."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (BuyDocumentStatus.ColorName).",
+            "example": "Green"
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence interne (DocRef)."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Total HT (AmountHT)."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Total TVA (AmountVat)."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Total TTC (AmountTTC)."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "lotCode": {
+            "type": "string",
+            "description": "Code du lot de marché."
+          }
+        }
+      },
+      "RecapTvaAchatDto": {
+        "type": "object",
+        "description": "Récapitulatif des lignes de la pièce pour un taux de TVA (sous-grille Base / TVA / Montant).",
+        "properties": {
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA en % (VatRatio × 100) ; taux absent compté à 0.",
+            "example": 20
+          },
+          "base": {
+            "type": "number",
+            "description": "Base : Σ totalHT des lignes de ce taux."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Montant de TVA : Σ totalTVA des lignes de ce taux."
+          }
+        }
+      },
+      "ReglementDocumentAchatDto": {
+        "type": "object",
+        "description": "Règlement de la pièce (StlSettlement) ; pour un bon de commande, un rang par règlement de ses factures et avances, avec le pointage.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du règlement (StlSettlement.id)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du règlement."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du règlement (StlSettlement.DocDate)."
+          },
+          "typeCode": {
+            "type": "string",
+            "description": "Code du type de règlement."
+          },
+          "typeDescription": {
+            "type": "string",
+            "description": "Libellé du type de règlement."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant de la ligne affecté à la pièce ; pour un bon de commande, montant du règlement."
+          },
+          "annule": {
+            "type": "boolean",
+            "description": "Vrai si le règlement est annulé (CANCELED) : listé, exclu du réglé."
+          },
+          "etat": {
+            "type": "string",
+            "description": "État du règlement (Status) ; bon de commande seulement, null sinon."
+          },
+          "datePointage": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de pointage (SettlementDate) ; bon de commande seulement."
+          },
+          "datePointagePrevue": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de pointage, à défaut échéance ; bon de commande seulement."
+          },
+          "pointageReporte": {
+            "type": "boolean",
+            "description": "Prévue échue et règlement non pointé (POINTED) ; null hors bon de commande."
+          },
+          "datePointageReportee": {
+            "type": "string",
+            "format": "date",
+            "description": "Prévue future : prévue ; échue : prévue si pointé, sinon aujourd'hui ; bon de commande seulement."
+          },
+          "montantBrut": {
+            "type": "number",
+            "description": "Montant brut du règlement (AmountBase) ; bon de commande seulement."
+          }
+        }
+      },
+      "RetenueAchatDto": {
+        "type": "object",
+        "description": "Retenue affichée en % et en montant.",
+        "properties": {
+          "ratio": {
+            "type": "number",
+            "description": "Taux, fraction (0,07 = 7 %).",
+            "example": 0.07
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant."
+          }
+        }
+      },
+      "RetenuesAvancesAchatDto": {
+        "type": "object",
+        "description": "Retenues et avances de la pièce (colonne droite OMRAN), lues telles quelles ; null si non renseignées.",
+        "properties": {
+          "amortissementAvance": {
+            "$ref": "#/components/schemas/RetenueAchatDto",
+            "description": "Amortissement d'avance (AdvanceRatio, AdvanceAmount)."
+          },
+          "resteAvance": {
+            "type": "number",
+            "description": "Reste de l'avance à amortir (AdvanceRest)."
+          },
+          "retenueGarantie": {
+            "$ref": "#/components/schemas/RetenueAchatDto",
+            "description": "Retenue de garantie (WarrantyRatio, WarrantyAmount)."
+          },
+          "assuranceTRC": {
+            "$ref": "#/components/schemas/RetenueAchatDto",
+            "description": "Retenue assurance TRC (InsuranceTRCRatio, InsuranceTRCAmount)."
+          },
+          "assuranceDecennale": {
+            "$ref": "#/components/schemas/RetenueAchatDto",
+            "description": "Retenue assurance décennale (InsuranceDECRatio, InsuranceDECAmount)."
+          },
+          "compteProrata": {
+            "$ref": "#/components/schemas/RetenueAchatDto",
+            "description": "Retenue compte prorata (ProportionRatio, ProportionAmount)."
+          },
+          "retenuesForfaitaires": {
+            "type": "number",
+            "description": "Retenues forfaitaires (RetainedAmount)."
+          },
+          "avanceSurDecompte": {
+            "type": "number",
+            "description": "Avance sur décompte (WorkingOutAdvanceAmount)."
+          },
+          "approvisionnement": {
+            "type": "number",
+            "description": "Approvisionnement (StockAmountToPay)."
+          },
+          "remboursementProrata": {
+            "type": "number",
+            "description": "Remboursement de compte prorata (ProrataRefundAmount)."
+          },
+          "remboursementFluctuations": {
+            "type": "number",
+            "description": "Remboursement de fluctuations (FluctuationsToPay)."
+          }
+        }
+      },
+      "TransitionPermiseAchatDto": {
+        "type": "object",
+        "description": "Statut d'arrivée d'une transition permise au compte.",
+        "properties": {
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du statut d'arrivée (BuyDocumentStatus), à envoyer en statutId."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut d'arrivée."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut d'arrivée."
+          },
+          "noteObligatoire": {
+            "type": "boolean",
+            "description": "Vrai si la transition exige une note (NotesMandatory)."
+          }
+        }
+      },
+      "VentilationDocumentAchatDto": {
+        "type": "object",
+        "description": "Ventilation de la pièce sur une catégorie (BuyVentilationCategory) : le seul taux est stocké.",
+        "properties": {
+          "categorieCode": {
+            "type": "string",
+            "description": "Code de la catégorie (StlCategory)."
+          },
+          "categorieDescription": {
+            "type": "string",
+            "description": "Libellé de la catégorie."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux de ventilation, fraction (0,75 = 75 %).",
+            "example": 0.75
+          }
+        }
+      },
+      "VentilationProjetAchatDto": {
+        "type": "object",
+        "description": "Ventilation de la pièce sur un projet (BuyVentilationExpense) ; tous les projets, même non habilités.",
+        "properties": {
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du projet (PrjProject)."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "projetDescription": {
+            "type": "string",
+            "description": "Libellé du projet."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux de ventilation, fraction (0,6 = 60 %).",
+            "example": 0.6
           }
         }
       },
@@ -60958,6 +62235,21 @@
           }
         }
       },
+      "TransitionPieceAchatRequest": {
+        "type": "object",
+        "description": "Changement de statut d'une pièce d'achat.",
+        "properties": {
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut d'arrivée (un statutId de actions.transitions) ; obligatoire."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note du passage (≤ 1000 caractères) ; obligatoire si la transition l'exige, facultative sinon."
+          }
+        }
+      },
       "Pageable": {
         "type": "object",
         "properties": {
@@ -72188,328 +73480,6 @@
           }
         }
       },
-      "AgregatsBonCommandeDto": {
-        "type": "object",
-        "description": "Agrégats d'un bon de commande, **calculés côté serveur** comme la grille « Bons de Commande » d'OMRAN (vue\n`BuyDocumentOrderView`), sur ses pièces liées : toutes les pièces `BuyDocument` dont `BuyOrderId` désigne le bon de\ncommande, qu'elles soient visibles ou non de l'appelant (comme OMRAN). Factures = nature `INVOICE`, bons de livraison =\n`DELIVRY`, avances = `ReferenceType` `ORDER_ADVANCE` (toute nature), restitutions de garantie = `ORDER_WARRANTY`.\nLe réglé d'une pièce exclut les règlements annulés (`CANCELED`) ; une facture annulée compte. Aucun plafonnement : un\ndépassement donne un reste négatif, affiché signé. Montants arrondis à 2 décimales (HALF_UP) sur chaque agrégat final.\n\nPrésent seulement sur un bon de commande (`nature` = `ORDER`), `null` pour toute autre nature. Un bon de commande sans\npièce liée a tous ses montants à 0, `resteALivrer*` = ses montants et `resteAPayerTotal` = son à payer.\nDans les totaux de la liste : Σ champ à champ des lignes, ratios et codes `null`. Voir FEATURE-achat-bc-agregats.md.",
-        "properties": {
-          "factureHT": {
-            "type": "number",
-            "description": "Montant facturé HT : Σ HT des factures liées (BuyOrderId)."
-          },
-          "factureTVA": {
-            "type": "number",
-            "description": "Montant facturé TVA : facturé TTC − facturé HT."
-          },
-          "factureTTC": {
-            "type": "number",
-            "description": "Montant facturé TTC : Σ TTC des factures liées."
-          },
-          "factureNetAPayer": {
-            "type": "number",
-            "description": "Montant facturé net à payer : Σ AmountToPay des factures liées."
-          },
-          "livreHT": {
-            "type": "number",
-            "description": "Montant livré HT : Σ HT des bons de livraison liés."
-          },
-          "livreTTC": {
-            "type": "number",
-            "description": "Montant livré TTC : Σ TTC des bons de livraison liés."
-          },
-          "livreNetAPayer": {
-            "type": "number",
-            "description": "Montant livré net à payer : Σ AmountToPay des bons de livraison liés."
-          },
-          "resteALivrerHT": {
-            "type": "number",
-            "description": "Reste à livrer HT : HT du bon de commande − livré HT."
-          },
-          "resteALivrerTTC": {
-            "type": "number",
-            "description": "Reste à livrer TTC : TTC du bon de commande − livré TTC."
-          },
-          "resteALivrerNetAPayer": {
-            "type": "number",
-            "description": "Reste à livrer net à payer : à payer du bon de commande − livré net à payer."
-          },
-          "avance": {
-            "type": "number",
-            "description": "Avance : Σ AmountToPay des pièces liées de référence ORDER_ADVANCE."
-          },
-          "avanceTauxPrevu": {
-            "type": "number",
-            "description": "Avance prévue (OrderAdvanceRatio), fraction 0–1 (0,2 = 20 %) ; null dans les totaux."
-          },
-          "avanceTauxEffectif": {
-            "type": "number",
-            "description": "Pourcentage effectif d'avance : avance / à payer du BC, fraction ; 0 si à payer nul ; null dans les totaux."
-          },
-          "avanceAmortie": {
-            "type": "number",
-            "description": "Avance amortie : Σ AdvanceAmount des factures liées."
-          },
-          "avanceRegle": {
-            "type": "number",
-            "description": "Avance réglée : Σ des règlements non annulés des pièces d'avance."
-          },
-          "avanceReste": {
-            "type": "number",
-            "description": "Avance reste : avance − avance réglée."
-          },
-          "avanceResteAAmortir": {
-            "type": "number",
-            "description": "Avance reste à amortir : avance − avance amortie."
-          },
-          "garantieRetenue": {
-            "type": "number",
-            "description": "Retenue de garantie retenue : Σ WarrantyAmount des factures liées."
-          },
-          "garantieRestituee": {
-            "type": "number",
-            "description": "Retenue de garantie restituée : Σ HT des pièces liées de référence ORDER_WARRANTY."
-          },
-          "garantieReste": {
-            "type": "number",
-            "description": "Retenue de garantie reste : retenue − restituée."
-          },
-          "regle": {
-            "type": "number",
-            "description": "Montant réglé : réglé des factures liées + avance réglée (règlements annulés exclus)."
-          },
-          "resteAPayerSurFacture": {
-            "type": "number",
-            "description": "Reste à payer sur facturé : facturé net à payer − réglé ; signé."
-          },
-          "resteAPayerTotal": {
-            "type": "number",
-            "description": "Reste à payer total : à payer du bon de commande − réglé ; signé."
-          },
-          "bonsLivraisonCodes": {
-            "type": "string",
-            "description": "Codes des bons de livraison liés, triés, séparés par « , » ; null sans BL ou dans les totaux."
-          },
-          "facturesCodes": {
-            "type": "string",
-            "description": "Codes des factures liées et de celles des BL liés, séparés par « , » ; null sans facture."
-          },
-          "devisCode": {
-            "type": "string",
-            "description": "Devis d'origine (BuyQuoteId) : sa référence, sinon son code ; null sans devis."
-          }
-        }
-      },
-      "DocumentAchatListItemDto": {
-        "type": "object",
-        "description": "Pièce d'achat (BuyDocument) dans la liste ; mêmes valeurs en tête de la fiche.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id de la pièce (BuyDocument.PKey)."
-          },
-          "code": {
-            "type": "string",
-            "description": "N° de la pièce (Code).",
-            "example": "26/03017"
-          },
-          "nature": {
-            "type": "string",
-            "description": "Nature stockée (DocType) : INVOICE, ORDER, QUOTE, DOCUMENT_TO_PAY, DELIVRY, REFUND."
-          },
-          "natureLibelle": {
-            "type": "string",
-            "description": "Libellé de la nature.",
-            "example": "Facture"
-          },
-          "reference": {
-            "type": "string",
-            "description": "Référence fournisseur (DocRef)."
-          },
-          "description": {
-            "type": "string",
-            "description": "Description de la pièce."
-          },
-          "dateDocument": {
-            "type": "string",
-            "format": "date",
-            "description": "Date de la pièce (DocDate)."
-          },
-          "dateEcheance": {
-            "type": "string",
-            "format": "date",
-            "description": "Date d'échéance (MaturityDate) ; null si absente."
-          },
-          "fournisseurId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Fournisseur (CfgTier.id)."
-          },
-          "fournisseurNom": {
-            "type": "string",
-            "description": "Nom du fournisseur (CfgTier.Description)."
-          },
-          "projetId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Projet de chantier (PrjProject.id) ; toujours dans le périmètre de l'appelant."
-          },
-          "projetCode": {
-            "type": "string",
-            "description": "Code du projet."
-          },
-          "lotId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Lot de marché (PrjMarket.id) ; null si la pièce n'est pas rattachée à un lot."
-          },
-          "lotCode": {
-            "type": "string",
-            "description": "Code du lot ; null sans lot."
-          },
-          "societeCode": {
-            "type": "string",
-            "description": "Code de la société (CfgCompany)."
-          },
-          "statutId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Statut (BuyDocumentStatus.id) ; null pour un devis."
-          },
-          "statutCode": {
-            "type": "string",
-            "description": "Code du statut ; null sans statut."
-          },
-          "statutDescription": {
-            "type": "string",
-            "description": "Libellé du statut ; null sans statut."
-          },
-          "okPourPaiement": {
-            "type": "boolean",
-            "description": "Drapeau « OK pour paiement » du statut ; false sans statut."
-          },
-          "montantHT": {
-            "type": "number",
-            "description": "Montant HT (AmountHT)."
-          },
-          "montantTVA": {
-            "type": "number",
-            "description": "Montant de TVA (AmountVat)."
-          },
-          "montantTTC": {
-            "type": "number",
-            "description": "Montant TTC (AmountTTC)."
-          },
-          "montantAPayer": {
-            "type": "number",
-            "description": "Montant à payer (AmountToPay), arrondi à 2 décimales : base du reste."
-          },
-          "montantRegle": {
-            "type": "number",
-            "description": "Σ des lignes de règlement de la pièce, règlements annulés exclus."
-          },
-          "resteARegler": {
-            "type": "number",
-            "description": "Montant à payer − réglé ; négatif si la pièce est trop réglée."
-          },
-          "solde": {
-            "type": "boolean",
-            "description": "Vrai si |reste| ≤ 0,05."
-          },
-          "tropRegle": {
-            "type": "boolean",
-            "description": "Vrai si le réglé dépasse de plus de 0,05 un à-payer positif ; faux pour une pièce négative."
-          },
-          "aDeduire": {
-            "type": "boolean",
-            "description": "Vrai si le montant à payer est inférieur à −0,05 (récupération d'avance à déduire)."
-          },
-          "decompteId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Décompte lié (PrjWorkingOut.PKey, par PrjWorkingOut.BuyDocumentId) ; null sans décompte."
-          },
-          "decompteCode": {
-            "type": "string",
-            "description": "Code du décompte lié ; null sans décompte."
-          },
-          "decompteNumero": {
-            "type": "integer",
-            "format": "int32",
-            "description": "N° d'ordre du décompte dans son lot (Sorting) ; null sans décompte."
-          },
-          "societeNom": {
-            "type": "string",
-            "description": "Libellé de la société (CfgCompany.Description), colonne « Entité »."
-          },
-          "moduleCode": {
-            "type": "string",
-            "description": "Code du module de la pièce (AdmModule.Code) : BUY, PRJ, STL ; null sans module.",
-            "example": "BUY"
-          },
-          "moduleLibelle": {
-            "type": "string",
-            "description": "Libellé du module (AdmModule.Description) ; null sans module.",
-            "example": "Achat"
-          },
-          "typeLotId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Type de lot (PrjMarketType.id) ; null sans type."
-          },
-          "typeLotLibelle": {
-            "type": "string",
-            "description": "Libellé du type de lot (colonne « Type ») ; null sans type.",
-            "example": "TRAVAUX"
-          },
-          "archive": {
-            "type": "boolean",
-            "description": "Archivée (IsClosed) ; NULL en base = false."
-          },
-          "comptabilise": {
-            "type": "boolean",
-            "description": "Comptabilisée (IsAccounted) ; NULL en base = false."
-          },
-          "referenceBureauOrdre": {
-            "type": "string",
-            "description": "Référence bureau d'ordre (OfficeOrderRef) ; null si absente."
-          },
-          "personneAContacter": {
-            "type": "string",
-            "description": "Personne à contacter (PersonToContact) ; null si absente."
-          },
-          "dossierGroupement": {
-            "type": "string",
-            "description": "Dossier de groupement (BuyFolder.Description) ; null sans dossier."
-          },
-          "categories": {
-            "type": "string",
-            "description": "Catégories de ventilation (StlCategory.Description), séparées par « , » ; null sans ventilation."
-          },
-          "deviseCode": {
-            "type": "string",
-            "description": "Code de la devise (StlCurrency.Code) ; null sans devise.",
-            "example": "MAD"
-          },
-          "dateAlerte": {
-            "type": "string",
-            "format": "date",
-            "description": "Date d'alerte : toujours null, comme la vue OMRAN (null AS AlerteDate)."
-          },
-          "aCloturer": {
-            "type": "boolean",
-            "description": "Bon de commande à clôturer : HT ≤ Σ HT de ses factures, statut non terminé ; false sinon."
-          },
-          "statutCouleur": {
-            "type": "string",
-            "description": "Couleur du statut (BuyDocumentStatus.ColorName, nom .NET) ; null sans statut.",
-            "example": "Green"
-          },
-          "agregats": {
-            "$ref": "#/components/schemas/AgregatsBonCommandeDto",
-            "description": "Agrégats du bon de commande (factures, livraisons, avances, garanties) ; null hors bon de commande."
-          }
-        }
-      },
       "PageDtoDocumentAchatListItemDto": {
         "type": "object",
         "properties": {
@@ -72534,729 +73504,6 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
-          }
-        }
-      },
-      "AvoirAchatDto": {
-        "type": "object",
-        "description": "Avoir visible d'une facture (InvoiceSourceId = la facture) et ses lignes.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id de l'avoir (BuyDocument.PKey)."
-          },
-          "code": {
-            "type": "string",
-            "description": "Code de l'avoir."
-          },
-          "dateDocument": {
-            "type": "string",
-            "format": "date",
-            "description": "Date de l'avoir (DocDate)."
-          },
-          "lignes": {
-            "type": "array",
-            "description": "Lignes de l'avoir, par ordre (Sorting), colonnes calculées comprises.",
-            "items": {
-              "$ref": "#/components/schemas/LigneDocumentAchatDto"
-            }
-          }
-        }
-      },
-      "DocumentAchatDetailDto": {
-        "type": "object",
-        "description": "Fiche d'une pièce d'achat : les champs de la ligne de liste, puis l'en-tête et les onglets.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id de la pièce (BuyDocument.PKey)."
-          },
-          "code": {
-            "type": "string",
-            "description": "N° de la pièce (Code).",
-            "example": "26/03017"
-          },
-          "nature": {
-            "type": "string",
-            "description": "Nature stockée (DocType) : INVOICE, ORDER, QUOTE, DOCUMENT_TO_PAY, DELIVRY, REFUND."
-          },
-          "natureLibelle": {
-            "type": "string",
-            "description": "Libellé de la nature.",
-            "example": "Facture"
-          },
-          "reference": {
-            "type": "string",
-            "description": "Référence fournisseur (DocRef)."
-          },
-          "description": {
-            "type": "string",
-            "description": "Description de la pièce."
-          },
-          "dateDocument": {
-            "type": "string",
-            "format": "date",
-            "description": "Date de la pièce (DocDate)."
-          },
-          "dateEcheance": {
-            "type": "string",
-            "format": "date",
-            "description": "Date d'échéance (MaturityDate) ; null si absente."
-          },
-          "fournisseurId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Fournisseur (CfgTier.id)."
-          },
-          "fournisseurNom": {
-            "type": "string",
-            "description": "Nom du fournisseur (CfgTier.Description)."
-          },
-          "projetId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Projet de chantier (PrjProject.id) ; toujours dans le périmètre de l'appelant."
-          },
-          "projetCode": {
-            "type": "string",
-            "description": "Code du projet."
-          },
-          "lotId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Lot de marché (PrjMarket.id) ; null si la pièce n'est pas rattachée à un lot."
-          },
-          "lotCode": {
-            "type": "string",
-            "description": "Code du lot ; null sans lot."
-          },
-          "societeCode": {
-            "type": "string",
-            "description": "Code de la société (CfgCompany)."
-          },
-          "statutId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Statut (BuyDocumentStatus.id) ; null pour un devis."
-          },
-          "statutCode": {
-            "type": "string",
-            "description": "Code du statut ; null sans statut."
-          },
-          "statutDescription": {
-            "type": "string",
-            "description": "Libellé du statut ; null sans statut."
-          },
-          "okPourPaiement": {
-            "type": "boolean",
-            "description": "Drapeau « OK pour paiement » du statut ; false sans statut."
-          },
-          "montantHT": {
-            "type": "number",
-            "description": "Montant HT (AmountHT)."
-          },
-          "montantTVA": {
-            "type": "number",
-            "description": "Montant de TVA (AmountVat)."
-          },
-          "montantTTC": {
-            "type": "number",
-            "description": "Montant TTC (AmountTTC)."
-          },
-          "montantAPayer": {
-            "type": "number",
-            "description": "Montant à payer (AmountToPay), arrondi à 2 décimales : base du reste."
-          },
-          "montantRegle": {
-            "type": "number",
-            "description": "Σ des lignes de règlement de la pièce, règlements annulés exclus."
-          },
-          "resteARegler": {
-            "type": "number",
-            "description": "Montant à payer − réglé ; négatif si la pièce est trop réglée."
-          },
-          "solde": {
-            "type": "boolean",
-            "description": "Vrai si |reste| ≤ 0,05."
-          },
-          "tropRegle": {
-            "type": "boolean",
-            "description": "Vrai si le réglé dépasse de plus de 0,05 un à-payer positif ; faux pour une pièce négative."
-          },
-          "aDeduire": {
-            "type": "boolean",
-            "description": "Vrai si le montant à payer est inférieur à −0,05 (récupération d'avance à déduire)."
-          },
-          "decompteId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Décompte lié (PrjWorkingOut.PKey, par PrjWorkingOut.BuyDocumentId) ; null sans décompte."
-          },
-          "decompteCode": {
-            "type": "string",
-            "description": "Code du décompte lié ; null sans décompte."
-          },
-          "decompteNumero": {
-            "type": "integer",
-            "format": "int32",
-            "description": "N° d'ordre du décompte dans son lot (Sorting) ; null sans décompte."
-          },
-          "societeNom": {
-            "type": "string",
-            "description": "Libellé de la société (CfgCompany.Description), colonne « Entité »."
-          },
-          "moduleCode": {
-            "type": "string",
-            "description": "Code du module de la pièce (AdmModule.Code) : BUY, PRJ, STL ; null sans module.",
-            "example": "BUY"
-          },
-          "moduleLibelle": {
-            "type": "string",
-            "description": "Libellé du module (AdmModule.Description) ; null sans module.",
-            "example": "Achat"
-          },
-          "typeLotId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Type de lot (PrjMarketType.id) ; null sans type."
-          },
-          "typeLotLibelle": {
-            "type": "string",
-            "description": "Libellé du type de lot (colonne « Type ») ; null sans type.",
-            "example": "TRAVAUX"
-          },
-          "archive": {
-            "type": "boolean",
-            "description": "Archivée (IsClosed) ; NULL en base = false."
-          },
-          "comptabilise": {
-            "type": "boolean",
-            "description": "Comptabilisée (IsAccounted) ; NULL en base = false."
-          },
-          "referenceBureauOrdre": {
-            "type": "string",
-            "description": "Référence bureau d'ordre (OfficeOrderRef) ; null si absente."
-          },
-          "personneAContacter": {
-            "type": "string",
-            "description": "Personne à contacter (PersonToContact) ; null si absente."
-          },
-          "dossierGroupement": {
-            "type": "string",
-            "description": "Dossier de groupement (BuyFolder.Description) ; null sans dossier."
-          },
-          "categories": {
-            "type": "string",
-            "description": "Catégories de ventilation (StlCategory.Description), séparées par « , » ; null sans ventilation."
-          },
-          "deviseCode": {
-            "type": "string",
-            "description": "Code de la devise (StlCurrency.Code) ; null sans devise.",
-            "example": "MAD"
-          },
-          "dateAlerte": {
-            "type": "string",
-            "format": "date",
-            "description": "Date d'alerte : toujours null, comme la vue OMRAN (null AS AlerteDate)."
-          },
-          "aCloturer": {
-            "type": "boolean",
-            "description": "Bon de commande à clôturer : HT ≤ Σ HT de ses factures, statut non terminé ; false sinon."
-          },
-          "statutCouleur": {
-            "type": "string",
-            "description": "Couleur du statut (BuyDocumentStatus.ColorName, nom .NET) ; null sans statut.",
-            "example": "Green"
-          },
-          "agregats": {
-            "$ref": "#/components/schemas/AgregatsBonCommandeDto",
-            "description": "Agrégats du bon de commande (factures, livraisons, avances, garanties) ; null hors bon de commande."
-          },
-          "notes": {
-            "type": "string",
-            "description": "Notes de la pièce."
-          },
-          "regularisation": {
-            "type": "number",
-            "description": "Régularisation (AmountRegul)."
-          },
-          "timbreFiscal": {
-            "type": "number",
-            "description": "Timbre fiscal (FiscalStamp)."
-          },
-          "valideComptabilite": {
-            "type": "boolean",
-            "description": "Drapeau « Validé comptabilité » du statut ; false sans statut."
-          },
-          "entiteCode": {
-            "type": "string",
-            "description": "Code de l'entité (StrEntity)."
-          },
-          "entiteDescription": {
-            "type": "string",
-            "description": "Libellé de l'entité (StrEntity)."
-          },
-          "dateCreation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de création (UserCreateDateTime)."
-          },
-          "creePar": {
-            "type": "string",
-            "description": "Auteur de la création (UserCreate, tel que stocké)."
-          },
-          "dateModification": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de dernière modification (UserUpdateDateTime)."
-          },
-          "modifiePar": {
-            "type": "string",
-            "description": "Auteur de la dernière modification (UserUpdate, tel que stocké)."
-          },
-          "lignes": {
-            "type": "array",
-            "description": "Lignes de la pièce, par ordre (Sorting).",
-            "items": {
-              "$ref": "#/components/schemas/LigneDocumentAchatDto"
-            }
-          },
-          "ventilation": {
-            "type": "array",
-            "description": "Ventilation par catégorie, par code de catégorie.",
-            "items": {
-              "$ref": "#/components/schemas/VentilationDocumentAchatDto"
-            }
-          },
-          "historique": {
-            "type": "array",
-            "description": "Historique des statuts, du plus ancien au plus récent.",
-            "items": {
-              "$ref": "#/components/schemas/HistoriqueDocumentAchatDto"
-            }
-          },
-          "reglements": {
-            "type": "array",
-            "description": "Règlements de la pièce, annulés compris, par date puis code.",
-            "items": {
-              "$ref": "#/components/schemas/ReglementDocumentAchatDto"
-            }
-          },
-          "declencheurId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Déclencheur (CfgTierTriggerId) ; null si absent."
-          },
-          "declencheurNom": {
-            "type": "string",
-            "description": "Nom du déclencheur (CfgTier.Description)."
-          },
-          "dateLivraisonSouhaitee": {
-            "type": "string",
-            "format": "date",
-            "description": "Date de livraison souhaitée (PrevisionDeliveryDate), toute nature."
-          },
-          "note2": {
-            "type": "string",
-            "description": "Seconde note (Notes2)."
-          },
-          "devisSelectionne": {
-            "type": "boolean",
-            "description": "Devis sélectionné (IsSelected) ; false si absent."
-          },
-          "avoirsMontant": {
-            "type": "number",
-            "description": "Σ TTC des avoirs visibles de la pièce (InvoiceSourceId) ; 0 sans avoir, jamais soustrait."
-          },
-          "retenuesAvances": {
-            "$ref": "#/components/schemas/RetenuesAvancesAchatDto",
-            "description": "Retenues et avances (colonne droite), lues telles quelles."
-          },
-          "devisOrigineId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Devis d'origine (BuyQuoteId) ; null si absent ou hors périmètre."
-          },
-          "devisOrigineCode": {
-            "type": "string",
-            "description": "Code du devis d'origine ; null si absent ou hors périmètre."
-          },
-          "bonCommandeId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Bon de commande rattaché (BuyOrderId) ; null si absent ou non visible."
-          },
-          "bonCommandeCode": {
-            "type": "string",
-            "description": "Code du bon de commande rattaché ; null si absent ou non visible."
-          },
-          "factureSourceId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Facture source d'un avoir (InvoiceSourceId) ; null si absente ou hors périmètre."
-          },
-          "factureSourceCode": {
-            "type": "string",
-            "description": "Code de la facture source ; null si absente ou hors périmètre."
-          },
-          "recapTva": {
-            "type": "array",
-            "description": "Lignes groupées par taux de TVA, taux croissant ; vide sans ligne.",
-            "items": {
-              "$ref": "#/components/schemas/RecapTvaAchatDto"
-            }
-          },
-          "ventilationProjets": {
-            "type": "array",
-            "description": "Ventilation par projet, par code de projet, non filtrée par périmètre.",
-            "items": {
-              "$ref": "#/components/schemas/VentilationProjetAchatDto"
-            }
-          },
-          "bonsLivraison": {
-            "type": "array",
-            "description": "Bons de livraison visibles d'un bon de commande (BuyOrderId) ; vide pour une autre nature.",
-            "items": {
-              "$ref": "#/components/schemas/PieceLieeAchatDto"
-            }
-          },
-          "factures": {
-            "type": "array",
-            "description": "Factures visibles d'un bon de commande (BuyOrderId ∪ BuyOrderInvoice) ; vide sinon.",
-            "items": {
-              "$ref": "#/components/schemas/PieceLieeAchatDto"
-            }
-          },
-          "avoirs": {
-            "type": "array",
-            "description": "Avoirs visibles d'une facture (InvoiceSourceId), avec leurs lignes ; vide pour une autre nature.",
-            "items": {
-              "$ref": "#/components/schemas/AvoirAchatDto"
-            }
-          }
-        }
-      },
-      "HistoriqueDocumentAchatDto": {
-        "type": "object",
-        "description": "Passage de la pièce dans un statut (BuyDocumentStatusHistory).",
-        "properties": {
-          "date": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date du passage."
-          },
-          "statutCode": {
-            "type": "string",
-            "description": "Code du statut atteint."
-          },
-          "statutDescription": {
-            "type": "string",
-            "description": "Libellé du statut atteint."
-          },
-          "utilisateur": {
-            "type": "string",
-            "description": "Utilisateur (AdmUser.Description, à défaut Code)."
-          },
-          "note": {
-            "type": "string",
-            "description": "Note saisie au passage."
-          },
-          "transition": {
-            "type": "string",
-            "description": "Transition empruntée (BuyDocumentWorkFlow.Description) ; null à la création."
-          }
-        }
-      },
-      "LigneDocumentAchatDto": {
-        "type": "object",
-        "description": "Ligne de la pièce (BuyDocumentLine) : colonnes stockées puis calculées (vue OMRAN BuyDocumentLineView).",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id de la ligne."
-          },
-          "ordre": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Ordre (Sorting)."
-          },
-          "designation": {
-            "type": "string",
-            "description": "Désignation (Description)."
-          },
-          "unite": {
-            "type": "string",
-            "description": "Unité (Unity)."
-          },
-          "quantite": {
-            "type": "number",
-            "description": "Quantité."
-          },
-          "prixUnitaireHT": {
-            "type": "number",
-            "description": "Prix unitaire HT."
-          },
-          "tauxTVA": {
-            "type": "number",
-            "description": "Taux de TVA en % (VatRatio × 100).",
-            "example": 20
-          },
-          "remisePourcent": {
-            "type": "number",
-            "description": "Remise en % (DiscountRatio × 100).",
-            "example": 0
-          },
-          "code": {
-            "type": "string",
-            "description": "Code de la ligne ; null possible."
-          },
-          "fodecPourcent": {
-            "type": "number",
-            "description": "FODEC en % (FODECRatio × 100) ; 0 si absent.",
-            "example": 0
-          },
-          "prixUnitaireTTC": {
-            "type": "number",
-            "description": "Prix unitaire TTC stocké (UnitPriceTTC)."
-          },
-          "prixUnitaireHTNet": {
-            "type": "number",
-            "description": "PU HT net : PU HT × (1 − remise) × (1 + FODEC), sans arrondi."
-          },
-          "totalHT": {
-            "type": "number",
-            "description": "Total HT : PU HT net × quantité, sans arrondi."
-          },
-          "totalTVA": {
-            "type": "number",
-            "description": "Total TVA : total HT × taux de TVA."
-          },
-          "totalTTC": {
-            "type": "number",
-            "description": "Total TTC : total HT + total TVA."
-          }
-        }
-      },
-      "PieceLieeAchatDto": {
-        "type": "object",
-        "description": "Pièce liée visible (bon de livraison ou facture d'un bon de commande), mêmes valeurs que la liste.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id de la pièce liée (BuyDocument.PKey)."
-          },
-          "code": {
-            "type": "string",
-            "description": "Code de la pièce."
-          },
-          "dateDocument": {
-            "type": "string",
-            "format": "date",
-            "description": "Date de la pièce (DocDate)."
-          },
-          "statutCode": {
-            "type": "string",
-            "description": "Code du statut."
-          },
-          "statutDescription": {
-            "type": "string",
-            "description": "Libellé du statut."
-          },
-          "statutCouleur": {
-            "type": "string",
-            "description": "Couleur du statut (BuyDocumentStatus.ColorName).",
-            "example": "Green"
-          },
-          "reference": {
-            "type": "string",
-            "description": "Référence interne (DocRef)."
-          },
-          "montantHT": {
-            "type": "number",
-            "description": "Total HT (AmountHT)."
-          },
-          "montantTVA": {
-            "type": "number",
-            "description": "Total TVA (AmountVat)."
-          },
-          "montantTTC": {
-            "type": "number",
-            "description": "Total TTC (AmountTTC)."
-          },
-          "projetCode": {
-            "type": "string",
-            "description": "Code du projet."
-          },
-          "lotCode": {
-            "type": "string",
-            "description": "Code du lot de marché."
-          }
-        }
-      },
-      "RecapTvaAchatDto": {
-        "type": "object",
-        "description": "Récapitulatif des lignes de la pièce pour un taux de TVA (sous-grille Base / TVA / Montant).",
-        "properties": {
-          "tauxTVA": {
-            "type": "number",
-            "description": "Taux de TVA en % (VatRatio × 100) ; taux absent compté à 0.",
-            "example": 20
-          },
-          "base": {
-            "type": "number",
-            "description": "Base : Σ totalHT des lignes de ce taux."
-          },
-          "montantTVA": {
-            "type": "number",
-            "description": "Montant de TVA : Σ totalTVA des lignes de ce taux."
-          }
-        }
-      },
-      "ReglementDocumentAchatDto": {
-        "type": "object",
-        "description": "Ligne de règlement de la pièce et son règlement (StlSettlement).",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id du règlement (StlSettlement.id)."
-          },
-          "code": {
-            "type": "string",
-            "description": "Code du règlement."
-          },
-          "dateDocument": {
-            "type": "string",
-            "format": "date",
-            "description": "Date du règlement (StlSettlement.DocDate)."
-          },
-          "typeCode": {
-            "type": "string",
-            "description": "Code du type de règlement."
-          },
-          "typeDescription": {
-            "type": "string",
-            "description": "Libellé du type de règlement."
-          },
-          "montant": {
-            "type": "number",
-            "description": "Montant de la ligne affecté à la pièce."
-          },
-          "annule": {
-            "type": "boolean",
-            "description": "Vrai si le règlement est annulé (CANCELED) : listé, exclu du réglé."
-          }
-        }
-      },
-      "RetenueAchatDto": {
-        "type": "object",
-        "description": "Retenue affichée en % et en montant.",
-        "properties": {
-          "ratio": {
-            "type": "number",
-            "description": "Taux, fraction (0,07 = 7 %).",
-            "example": 0.07
-          },
-          "montant": {
-            "type": "number",
-            "description": "Montant."
-          }
-        }
-      },
-      "RetenuesAvancesAchatDto": {
-        "type": "object",
-        "description": "Retenues et avances de la pièce (colonne droite OMRAN), lues telles quelles ; null si non renseignées.",
-        "properties": {
-          "amortissementAvance": {
-            "$ref": "#/components/schemas/RetenueAchatDto",
-            "description": "Amortissement d'avance (AdvanceRatio, AdvanceAmount)."
-          },
-          "resteAvance": {
-            "type": "number",
-            "description": "Reste de l'avance à amortir (AdvanceRest)."
-          },
-          "retenueGarantie": {
-            "$ref": "#/components/schemas/RetenueAchatDto",
-            "description": "Retenue de garantie (WarrantyRatio, WarrantyAmount)."
-          },
-          "assuranceTRC": {
-            "$ref": "#/components/schemas/RetenueAchatDto",
-            "description": "Retenue assurance TRC (InsuranceTRCRatio, InsuranceTRCAmount)."
-          },
-          "assuranceDecennale": {
-            "$ref": "#/components/schemas/RetenueAchatDto",
-            "description": "Retenue assurance décennale (InsuranceDECRatio, InsuranceDECAmount)."
-          },
-          "compteProrata": {
-            "$ref": "#/components/schemas/RetenueAchatDto",
-            "description": "Retenue compte prorata (ProportionRatio, ProportionAmount)."
-          },
-          "retenuesForfaitaires": {
-            "type": "number",
-            "description": "Retenues forfaitaires (RetainedAmount)."
-          },
-          "avanceSurDecompte": {
-            "type": "number",
-            "description": "Avance sur décompte (WorkingOutAdvanceAmount)."
-          },
-          "approvisionnement": {
-            "type": "number",
-            "description": "Approvisionnement (StockAmountToPay)."
-          },
-          "remboursementProrata": {
-            "type": "number",
-            "description": "Remboursement de compte prorata (ProrataRefundAmount)."
-          },
-          "remboursementFluctuations": {
-            "type": "number",
-            "description": "Remboursement de fluctuations (FluctuationsToPay)."
-          }
-        }
-      },
-      "VentilationDocumentAchatDto": {
-        "type": "object",
-        "description": "Ventilation de la pièce sur une catégorie (BuyVentilationCategory) : le seul taux est stocké.",
-        "properties": {
-          "categorieCode": {
-            "type": "string",
-            "description": "Code de la catégorie (StlCategory)."
-          },
-          "categorieDescription": {
-            "type": "string",
-            "description": "Libellé de la catégorie."
-          },
-          "taux": {
-            "type": "number",
-            "description": "Taux de ventilation, fraction (0,75 = 75 %).",
-            "example": 0.75
-          }
-        }
-      },
-      "VentilationProjetAchatDto": {
-        "type": "object",
-        "description": "Ventilation de la pièce sur un projet (BuyVentilationExpense) ; tous les projets, même non habilités.",
-        "properties": {
-          "projetId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id du projet (PrjProject)."
-          },
-          "projetCode": {
-            "type": "string",
-            "description": "Code du projet."
-          },
-          "projetDescription": {
-            "type": "string",
-            "description": "Libellé du projet."
-          },
-          "taux": {
-            "type": "number",
-            "description": "Taux de ventilation, fraction (0,6 = 60 %).",
-            "example": 0.6
           }
         }
       },

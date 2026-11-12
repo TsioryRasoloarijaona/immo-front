@@ -300,6 +300,13 @@ export interface ReglementDocumentAchatDto {
   montant: number | null;
   /** Listé mais exclu du réglé. */
   annule: boolean;
+  // Pointage : bon de commande seulement, null sinon (FEATURE-achat-fiche-ecritures.md E-B5).
+  etat: string | null;
+  datePointage: string | null;
+  datePointagePrevue: string | null;
+  pointageReporte: boolean | null;
+  datePointageReportee: string | null;
+  montantBrut: number | null;
 }
 
 // FEATURE-achat-impayes.md §4.
@@ -391,4 +398,28 @@ export interface DocumentAchatDetailDto extends DocumentAchatListItemDto {
   factures: PieceLieeAchatDto[];
   /** Vide hors facture. */
   avoirs: AvoirAchatDto[];
+  /** Actions d'écriture ouvertes au compte (FEATURE-achat-fiche-ecritures.md E-B6) : seule source des boutons. */
+  actions: ActionsPieceAchatDto;
+}
+
+export interface TransitionPermiseAchatDto {
+  statutId: UUID;
+  statutCode: string | null;
+  statutDescription: string | null;
+  noteObligatoire: boolean;
+}
+
+export interface ActionsPieceAchatDto {
+  peutSupprimer: boolean;
+  peutAffecter: boolean;
+  transitions: TransitionPermiseAchatDto[];
+}
+
+export interface TransitionPieceAchatRequest {
+  statutId: UUID;
+  note?: string | null;
+}
+
+export interface AffecterBonCommandeRequest {
+  bonCommandeId: UUID;
 }
