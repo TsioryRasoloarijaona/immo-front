@@ -16,6 +16,7 @@ import type {
   LotListItemDto,
   ModifierLotRequest,
   ReferentielsProjetDto,
+  SuiviLotDto,
   TotauxDecomptesDto,
   TotauxLotsDto,
   TransitionLotDto,
@@ -72,6 +73,11 @@ export function copierLot(id: UUID): Promise<LotDetailDto> {
 
 export function getDemandesAchatLot(id: UUID): Promise<DemandeAchatLotDto[]> {
   return request('GET', `${LOTS}/${id}/demandes-achat`);
+}
+
+/** Onglets Suivi et Retenues de la fiche lot (FEATURE-lot-fiche-suivi.md E3-E4) ; 404 si le lot est invisible. */
+export function getSuiviLot(id: UUID): Promise<SuiviLotDto> {
+  return request('GET', `${LOTS}/${id}/suivi`);
 }
 
 export function getBordereauLot(id: UUID): Promise<BordereauDto> {

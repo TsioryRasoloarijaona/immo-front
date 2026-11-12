@@ -195,6 +195,12 @@ export interface LotDetailDto extends LotListItemDto {
   descriptionDetaillee: string | null;
   montantAssuranceDEC: number | null;
   montantAssuranceTRC: number | null;
+  /** Onglet Général (FEATURE-lot-fiche-suivi.md E2). */
+  general: GeneralLotDto | null;
+  /** Fraction 0–1, = `avancement` de la liste. */
+  avancementFacture: number | null;
+  /** Fraction 0–1. */
+  avancementDecompte: number | null;
 }
 
 /** PATCH /api/projet/lots/{id} : champ absent = inchangé, null = vidé ; taux en pourcentage 0–100. */
@@ -244,6 +250,127 @@ export interface ModifierLotRequest {
   causeResiliation: string | null;
   descriptionDetaillee: string | null;
   notes: string | null;
+}
+
+// FEATURE-lot-fiche-suivi.md : onglets Général, Suivi, Retenues (montants à 2 décimales, taux en pourcentage 0–100).
+export interface TrioDto {
+  ht: number | null;
+  tva: number | null;
+  ttc: number | null;
+}
+
+export interface ColonneCoutDto {
+  bordereau: TrioDto;
+  approvisionnement: TrioDto;
+  depassements: TrioDto;
+  travauxSupplementaires: TrioDto;
+  fluctuations: TrioDto;
+  avenants: TrioDto;
+  total: TrioDto;
+  retenueNonRemboursable: number | null;
+  remboursement: number | null;
+  regulation: number | null;
+  netAPayer: number | null;
+  regle: number | null;
+  reste: number | null;
+}
+
+export interface GeneralLotDto {
+  marche: TrioDto;
+  estimationBase: TrioDto;
+  estimationConfidentielle: TrioDto;
+  modificationBdpf: TrioDto;
+  marcheAjuste: TrioDto;
+  coutPrevisionnel: ColonneCoutDto;
+  coutReel: ColonneCoutDto;
+}
+
+/** null = case absente de la colonne (avoirs : seuls montants et régulation ; décomptes : pas de régulation). */
+export interface ColonneSuiviDto {
+  montantHT: number | null;
+  tva: number | null;
+  montantTTC: number | null;
+  approTTC: number | null;
+  depassementsTTC: number | null;
+  travauxSuppTTC: number | null;
+  fluctuationsTTC: number | null;
+  totalTTC: number | null;
+  avenantsTTC: number | null;
+  coutTTC: number | null;
+  retenues: number | null;
+  remboursement: number | null;
+  regulation: number | null;
+}
+
+/** Avance sur décompte : taux, estBase, confidentielle et marche null. */
+export interface BlocAvanceDto {
+  taux: number | null;
+  estBase: number | null;
+  confidentielle: number | null;
+  marche: number | null;
+  validee: number | null;
+  reglee: number | null;
+  amortie: number | null;
+  /** Réglée − amortie, peut être négatif. */
+  resteAAmortir: number | null;
+}
+
+export interface RetenueGarantieDto {
+  taux: number | null;
+  estBase: number | null;
+  confidentielle: number | null;
+  marcheAjuste: number | null;
+  avenants: number | null;
+  factures: number | null;
+  retenue: number | null;
+  validee: number | null;
+  restituee: number | null;
+  resteARestituer: number | null;
+  gestionnaireCompteProrata: boolean;
+  aRembourser: number | null;
+  remboursement: number | null;
+}
+
+export interface PartRetenueDto {
+  avenant: number | null;
+  total: number | null;
+}
+
+export interface BlocRetenueDto {
+  taux: number | null;
+  /** null pour le compte prorata. */
+  quotePart: number | null;
+  estBase: number | null;
+  confidentielle: number | null;
+  marcheAjuste: number | null;
+  decompte: PartRetenueDto;
+  facture: PartRetenueDto;
+}
+
+export interface ColonneRetenueDto {
+  retenueForfaitaire: number | null;
+  /** null côté décomptes. */
+  penaliteCompteProrata: number | null;
+  penaliteRg: number | null;
+  blocageRg: number | null;
+  penaliteAvance: number | null;
+  retenues: number | null;
+}
+
+export interface RetenuesLotDto {
+  compteProrata: BlocRetenueDto;
+  assuranceDecennale: BlocRetenueDto;
+  assuranceTrc: BlocRetenueDto;
+  decompte: ColonneRetenueDto;
+  facture: ColonneRetenueDto;
+}
+
+export interface SuiviLotDto {
+  colonnes: { decomptes: ColonneSuiviDto; factures: ColonneSuiviDto; avoirs: ColonneSuiviDto };
+  avanceMarche: BlocAvanceDto;
+  avanceDecompte: BlocAvanceDto;
+  retenueGarantie: RetenueGarantieDto;
+  retenues: RetenuesLotDto;
 }
 
 export interface DemandeAchatLotDto {

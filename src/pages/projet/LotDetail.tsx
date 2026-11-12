@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import PageShell from '../../components/PageShell';
 import BarreFicheLot from '../../components/projet/BarreFicheLot';
 import ModaleTransitionLot from '../../components/projet/ModaleTransitionLot';
-import { EmptyState } from '../../components/ui';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ApiError } from '../../lib/api';
 import { copierLot, getLot, modifierLot } from '../../lib/apiProjet';
@@ -19,12 +18,14 @@ import OngletGeneral from './fiche-lot/OngletGeneral';
 import OngletOptions from './fiche-lot/OngletOptions';
 import OngletReclamations from './fiche-lot/OngletReclamations';
 import OngletResiliation from './fiche-lot/OngletResiliation';
+import OngletRetenues from './fiche-lot/OngletRetenues';
+import OngletSuivi from './fiche-lot/OngletSuivi';
+import { useSuiviLot } from './fiche-lot/useSuiviLot';
 import { useFiche, useReferentielsProjet } from './hooks';
 import { OngletBordereau, OngletDecomptes, OngletFactures, OngletReglements } from './OngletsLot';
 
 const MESSAGE_LECTURE_SEULE = 'Ce lot est en lecture seule dans son statut actuel.';
 const REPLI_ENREGISTREMENT = "L'enregistrement a échoué.";
-const A_VENIR = <EmptyState title="Onglet disponible avec le lot suivant" />;
 
 function messageErreur(err: unknown, repli: string): string {
   return err instanceof Error ? err.message : repli;
@@ -39,6 +40,8 @@ function FicheLot({ lotInitial }: Readonly<{ lotInitial: LotDetailDto }>) {
   const [lectureSeule, setLectureSeule] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [transition, setTransition] = useState(false);
+  const [suiviDemande, setSuiviDemande] = useState(false);
+  const suivi = useSuiviLot(lot.id, suiviDemande);
 
   function adopter(nouveau: LotDetailDto) {
     setLot(nouveau);
@@ -86,7 +89,7 @@ function FicheLot({ lotInitial }: Readonly<{ lotInitial: LotDetailDto }>) {
       {message && <p role="alert" className="px-4 pt-2 text-body text-destructive md:px-7">{message}</p>}
       <div className="flex flex-col gap-3 p-4 md:px-7">
         <EnteteLot lot={lot} referentiels={referentiels.data} {...onglet} />
-        <Tabs defaultValue="general">
+        <Tabs defaultValue="general" onValueChange={(v) => v === 'suivi' || v === 'retenues' ? setSuiviDemande(true) : undefined}>
           <TabsList>
             <TabsTrigger value="general">Général</TabsTrigger>
             <TabsTrigger value="demandes">Demande interne d'achat</TabsTrigger>
@@ -100,8 +103,8 @@ function FicheLot({ lotInitial }: Readonly<{ lotInitial: LotDetailDto }>) {
           </TabsList>
           <TabsContent value="general"><OngletGeneral lot={lot} {...onglet} /></TabsContent>
           <TabsContent value="demandes"><OngletDemandesAchat lotId={lot.id} /></TabsContent>
-          <TabsContent value="suivi">{A_VENIR}</TabsContent>
-          <TabsContent value="retenues">{A_VENIR}</TabsContent>
+          <TabsContent value="suivi"><EtatFiche etat={suivi}>{(s) => <OngletSuivi suivi={s} />}</EtatFiche></TabsContent>
+          <TabsContent value="retenues"><EtatFiche etat={suivi}>{(s) => <OngletRetenues suivi={s} />}</EtatFiche></TabsContent>
           <TabsContent value="dates"><OngletDates {...onglet} /></TabsContent>
           <TabsContent value="options"><OngletOptions lot={lot} {...onglet} /></TabsContent>
           <TabsContent value="resiliation"><OngletResiliation {...onglet} /></TabsContent>

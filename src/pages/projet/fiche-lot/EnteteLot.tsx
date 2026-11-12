@@ -32,7 +32,9 @@ function Choix({ label, valeur, liste, tous, disabled, onChange }: Readonly<{
   );
 }
 
-const jours = (n: number | null) => (n === null ? null : `${formatNumber(n)} j`);
+const enPourcent = (fraction: number | null) => (fraction === null ? null : fraction * 100);
+
+const jours =(n: number | null) => (n === null ? null : `${formatNumber(n)} j`);
 
 /** En-tête de la fiche : identité modifiable, statut, estimations (lecture seule) et avancement. */
 export default function EnteteLot({ lot, champs, maj, lectureSeule, referentiels }: Readonly<PropsOnglet & { lot: LotDetailDto; referentiels: ReferentielsProjetDto | null }>) {
@@ -70,7 +72,8 @@ export default function EnteteLot({ lot, champs, maj, lectureSeule, referentiels
       <Card title="Garantie et avancement">
         <FieldGrid>
           <ChampNombre label="Durée de garantie (mois)" valeur={champs.dureeGarantieMois} disabled={lectureSeule} onChange={(v) => maj('dureeGarantieMois', v)} />
-          <Field label="Avancement décompté" value={<BarreAvancement pct={lot.avancementPct} />} />
+          <Field label="Avancement décompté" value={<BarreAvancement pct={enPourcent(lot.avancementDecompte)} />} />
+          <Field label="Avancement facturé" value={<BarreAvancement pct={enPourcent(lot.avancementFacture)} />} />
         </FieldGrid>
       </Card>
     </div>
