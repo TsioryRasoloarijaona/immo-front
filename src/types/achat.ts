@@ -10,7 +10,7 @@ export interface FiltresDocumentsAchat {
   projetIds?: UUID[];
   lotId?: UUID;
   fournisseurId?: UUID;
-  /** `YYYY-MM-DD`, inclus, sur la date de la pièce. */
+  /** `YYYY-MM-DD`, inclus, sur la colonne de `champDate` (date de la pièce par défaut). */
   du?: string;
   au?: string;
   /** Reste à régler > 0,05 ; les pièces trop réglées n'y figurent pas. */
@@ -20,6 +20,43 @@ export interface FiltresDocumentsAchat {
   okPourPaiement?: boolean;
   /** Pièces du module Projet (PRJ) seulement, comme Projet › Dépenses ; absent = tous les modules. */
   moduleProjet?: boolean;
+  // FEATURE-achat-liste-parite.md E1.
+  /** Croisé avec les sociétés habilitées : une société non habilitée est ignorée (page vide s'il ne reste rien). */
+  societeIds?: UUID[];
+  /** Se combine par ET avec `moduleProjet` ; code inconnu = 400. */
+  modules?: ModuleAchat[];
+  typeLotIds?: UUID[];
+  /** true = IsClosed 1, false = 0 ou NULL, absent = toutes. */
+  archive?: boolean;
+  /** true = IsAccounted 1, false = 0 ou NULL, absent = toutes. */
+  comptabilise?: boolean;
+  /** Bornes incluses sur le montant à payer ; montantDe > montantA = page vide. */
+  montantDe?: number;
+  montantA?: number;
+  /** Colonne portée par `du` / `au` ; défaut DATE_PIECE. */
+  champDate?: ChampDateAchat;
+  /** true : la colonne de `champDate` est renseignée, `du` / `au` ignorés. */
+  dateRenseignee?: boolean;
+}
+
+export type ModuleAchat = 'BUY' | 'PRJ' | 'STL';
+export type ChampDateAchat = 'DATE_PIECE' | 'ECHEANCE';
+
+export interface SocieteAchatDto {
+  id: UUID;
+  code: string | null;
+  description: string | null;
+}
+
+export interface ModuleAchatDto {
+  code: ModuleAchat;
+  libelle: string;
+}
+
+export interface TypeLotAchatDto {
+  id: UUID;
+  code: string | null;
+  libelle: string | null;
 }
 
 export interface NatureAchatDto {
@@ -52,6 +89,10 @@ export interface ReferentielsAchatDto {
   statuts: StatutAchatDto[];
   projets: ProjetAchatDto[];
   fournisseurs: FournisseurAchatDto[];
+  /** Sociétés habilitées seulement ; vide sans habilitation. */
+  societes: SocieteAchatDto[];
+  modules: ModuleAchatDto[];
+  typesLot: TypeLotAchatDto[];
 }
 
 export interface DocumentAchatListItemDto {
@@ -93,6 +134,27 @@ export interface DocumentAchatListItemDto {
   decompteCode: string | null;
   /** N° d'ordre du décompte dans son lot. */
   decompteNumero: number | null;
+  // FEATURE-achat-liste-parite.md E2.
+  /** Colonne « Entité » (CfgCompany.Description). */
+  societeNom: string | null;
+  moduleCode: ModuleAchat | null;
+  moduleLibelle: string | null;
+  typeLotId: UUID | null;
+  typeLotLibelle: string | null;
+  archive: boolean;
+  comptabilise: boolean;
+  referenceBureauOrdre: string | null;
+  personneAContacter: string | null;
+  dossierGroupement: string | null;
+  /** Catégories de ventilation séparées par « , ». */
+  categories: string | null;
+  deviseCode: string | null;
+  /** Toujours null (vide dans OMRAN). */
+  dateAlerte: string | null;
+  /** BC : HT ≤ Σ HT de ses factures et statut non terminé. */
+  aCloturer: boolean;
+  /** Nom de couleur .NET du statut. */
+  statutCouleur: string | null;
 }
 
 export interface LigneDocumentAchatDto {
@@ -145,6 +207,8 @@ export interface TotauxDocumentsAchatDto {
   nombreARegler: number;
   /** Σ des restes > 0,05 seulement : ce qui est vraiment dû. */
   resteDu: number;
+  montantHT: number;
+  montantTVA: number;
 }
 
 export interface FiltresSoldesFournisseurs {

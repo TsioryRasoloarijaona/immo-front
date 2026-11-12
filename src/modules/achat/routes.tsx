@@ -1,6 +1,7 @@
 import { lazy } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import type { ModuleApp } from '../types';
+import { VUES_ACHAT } from '../../lib/vuesAchat';
 import { arbreAchat } from './arbre';
 
 const DocumentsAchatList = lazy(() => import('../../pages/achat/DocumentsAchatList'));
@@ -18,8 +19,10 @@ const achat: ModuleApp = {
   prefixes: ['/achat/'],
   arbre: arbreAchat,
   routes: [
-    { path: '/achat/documents', element: <DocumentsAchatList /> },
-    { path: '/achat/documents/:id', element: <DocumentsAchatList /> },
+    ...VUES_ACHAT.flatMap((v) => [
+      { path: v.chemin, element: <DocumentsAchatList key={v.cle} vue={v} /> },
+      { path: `${v.chemin}/:id`, element: <DocumentsAchatList key={v.cle} vue={v} /> },
+    ]),
     { path: '/achat/fournisseurs', element: <SoldesFournisseursList /> },
     { path: '/achat/config/statuts', element: <StatutsAchatList /> },
     { path: '/achat/config/transitions', element: <TransitionsAchatList /> },
