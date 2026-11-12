@@ -7,11 +7,9 @@ import type {
   DocumentAchatListItemDto,
   FiltresDocumentsAchat,
   FiltresPositionsFournisseurs,
-  FiltresSoldesFournisseurs,
   LignePositionDto,
   PositionsFournisseursDto,
   ReferentielsAchatDto,
-  SoldesFournisseursDto,
   TotauxDocumentsAchatDto,
   TransitionPieceAchatRequest,
 } from '../types/achat';
@@ -53,22 +51,10 @@ export function cheminExportDocumentsAchat(): string {
   return `${DOCUMENTS}/export`;
 }
 
-// FEATURE-achat-impayes.md §4 : totaux de la liste, solde par fournisseur et société.
-const SOLDES = `${RACINE}/fournisseurs/soldes`;
-
+// FEATURE-achat-impayes.md §4 : totaux de la liste.
 /** Mêmes filtres que la liste, toutes pages ; tout à zéro sans projet habilité. */
 export function getTotauxDocumentsAchat(filtres: FiltresDocumentsAchat = {}): Promise<TotauxDocumentsAchatDto> {
   return request('GET', `${DOCUMENTS}/totaux`, { query: { ...filtres } });
-}
-
-/** Non paginé ; lignes vides sans projet habilité. */
-export function getSoldesFournisseurs(filtres: FiltresSoldesFournisseurs = {}): Promise<SoldesFournisseursDto> {
-  return request('GET', SOLDES, { query: { ...filtres } });
-}
-
-/** Chemin de l'export `.xlsx` du solde fournisseurs (mêmes filtres). */
-export function cheminExportSoldesFournisseurs(): string {
-  return `${SOLDES}/export`;
 }
 
 // FEATURE-achat-impayes-soldes.md §5 : soldes fournisseurs comme OMRAN et fenêtre « Ligne de solde ».

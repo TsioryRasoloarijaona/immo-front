@@ -8,7 +8,7 @@ const LotDetail = lazy(() => import('../../pages/projet/LotDetail'));
 const DecomptesList = lazy(() => import('../../pages/projet/DecomptesList'));
 const DecompteDetail = lazy(() => import('../../pages/projet/DecompteDetail'));
 const DepensesProjet = lazy(() => import('../../pages/projet/DepensesProjet'));
-const FacturesProjetList = lazy(() => import('../../pages/projet/FacturesProjetList'));
+const DepensesProjetListe = lazy(() => import('../../pages/projet/DepensesProjetListe'));
 const ReglementsProjetList = lazy(() => import('../../pages/projet/ReglementsProjetList'));
 const ProjetsConfigList = lazy(() => import('../../pages/projet/config/ProjetsConfigList'));
 const ReferentielTypesLotPage = lazy(() => import('../../pages/projet/config/ReferentielTypesLotPage'));
@@ -28,7 +28,10 @@ const projet: ModuleApp = {
     { path: '/projet/decomptes', element: <DecomptesList /> },
     { path: '/projet/decomptes/:id', element: <DecompteDetail /> },
     { path: '/projet/depenses', element: <DepensesProjet /> },
-    { path: '/projet/depenses/factures/:id?', element: <FacturesProjetList /> },
+    { path: '/projet/depenses/factures/:id?', element: <DepensesProjetListe nature="factures" /> },
+    { path: '/projet/depenses/documents-a-regler/:id?', element: <DepensesProjetListe nature="documents-a-regler" /> },
+    { path: '/projet/depenses/avoirs/:id?', element: <DepensesProjetListe nature="avoirs" /> },
+    { path: '/projet/depenses/impayes/:id?', element: <DepensesProjetListe nature="impayes" /> },
     { path: '/projet/depenses/reglements', element: <ReglementsProjetList /> },
     { path: '/projet/config/projets', element: <ProjetsConfigList /> },
     { path: '/projet/config/types-lot', element: <ReferentielTypesLotPage /> },

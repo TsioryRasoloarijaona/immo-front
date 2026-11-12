@@ -1,4 +1,4 @@
-import { Banknote, FileText, HardHat, ListChecks, Receipt, Shapes, Tags, Wallet } from 'lucide-react';
+import { AlertCircle, Banknote, ClipboardList, FileText, HardHat, ListChecks, Receipt, Shapes, Tags, Undo2, Wallet } from 'lucide-react';
 import { estAdministrateur } from '../../lib/roles';
 import type { ArbreModule } from '../arbre';
 
@@ -19,6 +19,9 @@ export const arbreProjet: ArbreModule = ({ user }) => [
     entrees: [
       { to: '/projet/depenses', libelle: 'Synthèse', Icone: Wallet, couleur: COULEUR },
       { to: '/projet/depenses/factures', libelle: 'Factures', Icone: Receipt, couleur: COULEUR },
+      { to: '/projet/depenses/documents-a-regler', libelle: 'Documents à régler', Icone: ClipboardList, couleur: COULEUR },
+      { to: '/projet/depenses/avoirs', libelle: 'Avoirs', Icone: Undo2, couleur: COULEUR },
+      { to: '/projet/depenses/impayes', libelle: 'Impayés', Icone: AlertCircle, couleur: COULEUR },
       { to: '/projet/depenses/reglements', libelle: 'Décaissements', Icone: Banknote, couleur: COULEUR },
     ],
   },
