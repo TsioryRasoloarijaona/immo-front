@@ -6,7 +6,10 @@ import type {
   DocumentAchatDetailDto,
   DocumentAchatListItemDto,
   FiltresDocumentsAchat,
+  FiltresPositionsFournisseurs,
   FiltresSoldesFournisseurs,
+  LignePositionDto,
+  PositionsFournisseursDto,
   ReferentielsAchatDto,
   SoldesFournisseursDto,
   TotauxDocumentsAchatDto,
@@ -66,4 +69,23 @@ export function getSoldesFournisseurs(filtres: FiltresSoldesFournisseurs = {}): 
 /** Chemin de l'export `.xlsx` du solde fournisseurs (mêmes filtres). */
 export function cheminExportSoldesFournisseurs(): string {
   return `${SOLDES}/export`;
+}
+
+// FEATURE-achat-impayes-soldes.md §5 : soldes fournisseurs comme OMRAN et fenêtre « Ligne de solde ».
+const POSITIONS = `${RACINE}/fournisseurs/positions`;
+
+/** Non paginé ; lignes vides sans mouvement visible. */
+export function getPositionsFournisseurs(filtres: FiltresPositionsFournisseurs = {}): Promise<PositionsFournisseursDto> {
+  return request('GET', POSITIONS, { query: { ...filtres } });
+}
+
+/** Chemin de l'export `.xlsx` des soldes fournisseurs (mêmes filtres). */
+export function cheminExportPositionsFournisseurs(): string {
+  return `${POSITIONS}/export`;
+}
+
+/** Mouvements du fournisseur dans la société, de `du` à `au` ; `societeIds`, `search`, `masquerResteZero` ignorés. */
+export function getLignesPositionFournisseur(fournisseurId: UUID, societeId: UUID,
+  filtres: FiltresPositionsFournisseurs = {}): Promise<LignePositionDto[]> {
+  return request('GET', `${RACINE}/fournisseurs/${fournisseurId}/position`, { query: { ...filtres, societeId } });
 }

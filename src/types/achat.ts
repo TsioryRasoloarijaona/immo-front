@@ -423,3 +423,57 @@ export interface TransitionPieceAchatRequest {
 export interface AffecterBonCommandeRequest {
   bonCommandeId: UUID;
 }
+
+// FEATURE-achat-impayes-soldes.md §5 : soldes fournisseurs comme OMRAN (BuySupplierPositionView).
+export interface FiltresPositionsFournisseurs {
+  /** Exclut les mouvements sans projet ; un projet hors périmètre est ignoré. */
+  projetIds?: UUID[];
+  societeIds?: UUID[];
+  /** `YYYY-MM-DD` inclus ; absent : solde début à 0. */
+  du?: string;
+  /** `YYYY-MM-DD` inclus ; absent : solde fin sur tout l'historique. */
+  au?: string;
+  /** Nom du fournisseur, espaces et casse ignorés. */
+  search?: string;
+  /** Absent = vrai : masque les soldes fin entre −1 et 1. */
+  masquerResteZero?: boolean;
+}
+
+export interface PositionFournisseurDto {
+  /** null sur la ligne de total. */
+  fournisseurId: UUID | null;
+  fournisseurNom: string | null;
+  societeId: UUID | null;
+  societeCode: string | null;
+  soldeDebut: number;
+  netAPayer: number;
+  regle: number;
+  soldeFin: number;
+}
+
+export interface PositionsFournisseursDto {
+  lignes: PositionFournisseurDto[];
+  total: PositionFournisseurDto;
+}
+
+export type TypeLignePosition = 'INVOICE' | 'DOCUMENT_TO_PAY' | 'REFUND' | 'REGLEMENT' | 'REGLEMENT_NON_RATTACHE';
+
+/** Ligne de la fenêtre « Ligne de solde » ; montant = `aPayer` (pièce) ou `reglement` (règlement), sens par `credit`. */
+export interface LignePositionDto {
+  id: UUID;
+  type: TypeLignePosition;
+  code: string | null;
+  description: string | null;
+  dateDocument: string | null;
+  dateEcheance: string | null;
+  /** null pour une part non rattachée. */
+  projetId: UUID | null;
+  projetCode: string | null;
+  montantTTC: number | null;
+  retenues: number | null;
+  aPayer: number | null;
+  base: number | null;
+  ras: number | null;
+  reglement: number | null;
+  credit: boolean;
+}
