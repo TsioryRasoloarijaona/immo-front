@@ -1,9 +1,10 @@
 import { Card, Field, FieldGrid } from '../../../components/ui';
 import { formatCurrency, formatNumber } from '../../../lib/format';
 import type { CleNombre, PropsOnglet } from '../../../lib/saisieLot';
-import type { LotDetailDto } from '../../../types/projet';
+import type { ColonneCoutDto, GeneralLotDto, LotDetailDto, TrioDto } from '../../../types/projet';
 import { BarreAvancement } from '../commun';
 import { ChampDate, ChampNombre } from './champsLot';
+import TableauMontants from './TableauMontants';
 
 const TAUX: [CleNombre, string][] = [
   ['tauxRetenueGarantiePct', 'Retenue de garantie (%)'],
@@ -14,29 +15,64 @@ const TAUX: [CleNombre, string][] = [
   ['tvaDefautPct', 'TVA par défaut (%)'],
 ];
 
-/** Saisie : taux, assurances, délai, estimation manuelle ; les montants calculés restent en lecture (suite au lot suivant). */
+const TRIO_COLONNES = ['HT', 'TVA', 'TTC'];
+const trio = (t: TrioDto) => [t.ht, t.tva, t.ttc];
+
+const COUTS: [keyof ColonneCoutDto, string][] = [
+  ['bordereau', 'Bordereau'],
+  ['approvisionnement', 'Approvisionnement'],
+  ['depassements', 'Dépassements'],
+  ['travauxSupplementaires', 'Travaux supplémentaires'],
+  ['fluctuations', 'Fluctuations'],
+  ['avenants', 'Avenants'],
+  ['total', 'Coût total'],
+];
+
+const SOLDES: [keyof ColonneCoutDto, string][] = [
+  ['retenueNonRemboursable', 'Retenue non remboursable'],
+  ['remboursement', 'Remboursement'],
+  ['regulation', 'Régulation'],
+  ['netAPayer', 'Net à payer'],
+  ['regle', 'Réglé'],
+  ['reste', 'Reste'],
+];
+
+/** Montants calculés par le serveur, en lecture seule. */
+function MontantsGeneral({ general }: Readonly<{ general: GeneralLotDto }>) {
+  const { coutPrevisionnel: prev, coutReel: reel } = general;
+  const marche: [string, TrioDto][] = [
+    ['Marché', general.marche],
+    ['Estimation de base', general.estimationBase],
+    ['Estimation confidentielle', general.estimationConfidentielle],
+    ['Modification BDPF', general.modificationBdpf],
+    ['Marché ajusté', general.marcheAjuste],
+  ];
+  const couts = COUTS.map(([cle, label]) => ({ label, valeurs: [...trio(prev[cle] as TrioDto), ...trio(reel[cle] as TrioDto)] }));
+  const soldes = SOLDES.map(([cle, label]) => ({ label, valeurs: [prev[cle] as number | null, reel[cle] as number | null] }));
+  return (
+    <div className="grid gap-3 xl:grid-cols-2">
+      <Card title="Marché et estimations">
+        <TableauMontants colonnes={TRIO_COLONNES} lignes={marche.map(([label, t]) => ({ label, valeurs: trio(t) }))} />
+      </Card>
+      <Card title="Coût prévisionnel et coût réel">
+        <TableauMontants colonnes={['Prév. HT', 'Prév. TVA', 'Prév. TTC', 'Réel HT', 'Réel TVA', 'Réel TTC']} lignes={couts} />
+        <div className="mt-3">
+          <TableauMontants colonnes={['Prévisionnel', 'Réel']} lignes={soldes} />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/** Saisie : taux, assurances, délai, estimation manuelle ; montants calculés en lecture. */
 export default function OngletGeneral({ lot, champs, maj, lectureSeule }: Readonly<PropsOnglet & { lot: LotDetailDto }>) {
   const nombre = (cle: CleNombre, label: string) => (
     <ChampNombre key={cle} label={label} valeur={champs[cle]} disabled={lectureSeule} onChange={(v) => maj(cle, v)} />
   );
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Card title="Estimation">
-          <FieldGrid>
-            <Field label="HT" value={formatCurrency(lot.estimationHT)} />
-            <Field label="TVA" value={formatCurrency(lot.estimationTVA)} />
-            <Field label="TTC" value={formatCurrency(lot.estimationTTC)} />
-          </FieldGrid>
-        </Card>
-        <Card title="Marché">
-          <FieldGrid>
-            <Field label="HT" value={formatCurrency(lot.montantHT)} />
-            <Field label="TVA" value={formatCurrency(lot.montantTVA)} />
-            <Field label="TTC" value={formatCurrency(lot.montantTTC)} />
-          </FieldGrid>
-          <p className="mt-2 text-micro text-muted-foreground">{lot.montantsDepuisBordereau ? 'Montants depuis le bordereau' : 'Montant forfaitaire'}</p>
-        </Card>
+      {lot.general && <MontantsGeneral general={lot.general} />}
+      <div className="grid gap-3 md:grid-cols-2">
         <Card title="Décomptes">
           <FieldGrid>
             <Field label="Nombre" value={formatNumber(lot.nbDecomptes)} />
