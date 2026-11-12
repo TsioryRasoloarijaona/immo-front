@@ -99,6 +99,16 @@ export default function SoldesFournisseursList() {
         )}
         {!soldes.error && soldes.data && (
           <ResultsRegion loading={soldes.loading}>
+            {total && lignes.length > 0 && (
+              <div role="status" className="flex shrink-0 flex-wrap items-baseline gap-x-5 gap-y-1 rounded-xl border border-border bg-card px-3 py-1.5 text-label font-semibold tabular-nums">
+                <span>Total : {pluriel(total.nombrePieces, 'pièce')}</span>
+                <span>À payer {formatCurrency(total.montantAPayer)}</span>
+                <span>Réglé {formatCurrency(total.montantRegle)}</span>
+                <span className="text-destructive">Reste {formatCurrency(total.resteARegler)}</span>
+                <span>Reste validé {formatCurrency(total.resteValideARegler)}</span>
+                <span>À déduire {formatCurrency(total.montantADeduire)}</span>
+              </div>
+            )}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               {lignes.length === 0 ? (
                 <EmptyState title="Aucun fournisseur dans votre périmètre" />
@@ -113,16 +123,6 @@ export default function SoldesFournisseursList() {
                 />
               )}
             </div>
-            {total && lignes.length > 0 && (
-              <div role="status" className="flex shrink-0 flex-wrap items-baseline gap-x-5 gap-y-1 rounded-xl border border-border bg-card px-3 py-1.5 text-label font-semibold tabular-nums">
-                <span>Total : {pluriel(total.nombrePieces, 'pièce')}</span>
-                <span>À payer {formatCurrency(total.montantAPayer)}</span>
-                <span>Réglé {formatCurrency(total.montantRegle)}</span>
-                <span className="text-destructive">Reste {formatCurrency(total.resteARegler)}</span>
-                <span>Reste validé {formatCurrency(total.resteValideARegler)}</span>
-                <span>À déduire {formatCurrency(total.montantADeduire)}</span>
-              </div>
-            )}
           </ResultsRegion>
         )}
       </div>
