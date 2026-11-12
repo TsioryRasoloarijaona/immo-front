@@ -8501,7 +8501,7 @@
           "Projet"
         ],
         "summary": "Créer un lot (fiche minimale)",
-        "description": "Crée un lot d'un des cinq `genre` (`ENTREPRENEURS`, `FOURNISSEURS`, `ADMINISTRATION`, `MAITRES_OEUVRE`, `CONCESSIONNAIRES`).\nCode = séquence OMRAN « Market » (`yy/nnnnn`), incrémentée jusqu'à un code libre. Statut de départ = statut de type\n« Nouveau » du genre de plus petit ordre. Entrepreneurs : non multi-fournisseur ; autres genres : multi-fournisseur et hors\nprévisions de paiement. Écrit une ligne d'historique « Création ». Ordre des refus : 403, puis 400, puis 404.",
+        "description": "Crée un lot d'un des cinq `genre` (`ENTREPRENEURS`, `FOURNISSEURS`, `ADMINISTRATION`, `MAITRES_OEUVRE`, `CONCESSIONNAIRES`).\nCode = séquence OMRAN « Market » (`yy/nnnnn`), incrémentée jusqu'à un code libre. Statut de départ = statut de type\n« Nouveau » du genre de plus petit ordre. Entrepreneurs : non multi-fournisseur ; autres genres : multi-fournisseur et hors\nprévisions de paiement. Écrit une ligne d'historique « Création ». Ordre des refus : 403, puis 400, puis 404.\nUne `categorieId`, `typeId`, `fournisseurId` ou `deviseId` inconnue répond 400.",
         "operationId": "creer_6",
         "requestBody": {
           "content": {
@@ -40823,7 +40823,7 @@
           "Achat"
         ],
         "summary": "Liste paginée des pièces d'achat visibles (société et projet habilités)",
-        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `societeIds` est de même croisé avec les sociétés habilitées : une société non habilitée est ignorée, et si aucune ne reste la page est vide (jamais « aucun filtre »). Une liste vide ou un paramètre vide (`societeIds=`) = pas de filtre. `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `modules` se combine par ET avec `moduleProjet`. `montantDe` / `montantA` sont inclus et portent sur `AmountToPay` (`montantDe > montantA` = page vide). `du` / `au` (inclus) portent sur la colonne de `champDate` (`DATE_PIECE` = `DocDate`, `ECHEANCE` = `MaturityDate`) ; `dateRenseignee=true` garde les pièces dont cette colonne est renseignée et ignore `du` / `au`. `search` cherche, sans tenir compte de la casse, dans le code, la référence, la référence bureau d'ordre, la description, les notes, le fournisseur, le projet (code, description), le lot (code, description) et le dossier de groupement.\n\n**Bons de commande** (`natures=ORDER` seul, écran « Bons de commande ») : comme OMRAN (`OrderView.cs:803`), seuls les BC dont le déclencheur (`CfgTierTriggerId`) est le personnel du compte (`AdmUser.CfgEmployeeId`) sont rendus, sauf droit OMRAN `Yes.Buy.Front.Order.OrderList.WithNoRestriction` (l'Administrateur l'a) ; un compte sans personnel n'est pas restreint. Toute autre combinaison de natures n'est pas restreinte. Mêmes règles pour les totaux et l'export.\n\n**À clôturer** (`aCloturer`) : bon de commande dont le HT est inférieur ou égal à la Σ des HT de ses factures (`BuyOrderId`), et dont le statut n'est ni « Terminé avec succès » ni « Terminé avec échec » (une annulation alerte) ; faux sans statut et pour toute autre nature.\n\nTri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode`, `typeLotLibelle`, `moduleLibelle`, `societeNom`, `archive`, `comptabilise`, `referenceBureauOrdre`, `personneAContacter`, `dossierGroupement`, `aCloturer`, `deviseCode`, `categories`, `dateAlerte` ; une autre propriété répond 400.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
+        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `societeIds` est de même croisé avec les sociétés habilitées : une société non habilitée est ignorée, et si aucune ne reste la page est vide (jamais « aucun filtre »). Une liste vide ou un paramètre vide (`societeIds=`) = pas de filtre. `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `modules` se combine par ET avec `moduleProjet`. `montantDe` / `montantA` sont inclus et portent sur `AmountToPay` (`montantDe > montantA` = page vide). `du` / `au` (inclus) portent sur la colonne de `champDate` (`DATE_PIECE` = `DocDate`, `ECHEANCE` = `MaturityDate`) ; `dateRenseignee=true` garde les pièces dont cette colonne est renseignée et ignore `du` / `au`. `search` cherche, sans tenir compte de la casse, dans le code, la référence, la référence bureau d'ordre, la description, les notes, le fournisseur, le projet (code, description), le lot (code, description) et le dossier de groupement.\n\n**Bons de commande** (`natures=ORDER` seul, écran « Bons de commande ») : comme OMRAN (`OrderView.cs:803`), seuls les BC dont le déclencheur (`CfgTierTriggerId`) est le personnel du compte (`AdmUser.CfgEmployeeId`) sont rendus, sauf droit OMRAN `Yes.Buy.Front.Order.OrderList.WithNoRestriction` (l'Administrateur l'a) ; un compte sans personnel n'est pas restreint. Toute autre combinaison de natures n'est pas restreinte. Mêmes règles pour les totaux et l'export.\n\n**À clôturer** (`aCloturer`) : bon de commande dont le HT est inférieur ou égal à la Σ des HT de ses factures (`BuyOrderId`), et dont le statut n'est ni « Terminé avec succès » ni « Terminé avec échec » (une annulation alerte) ; faux sans statut et pour toute autre nature.\n\nTri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode`, `typeLotLibelle`, `moduleLibelle`, `societeNom`, `archive`, `comptabilise`, `referenceBureauOrdre`, `personneAContacter`, `dossierGroupement`, `aCloturer`, `deviseCode`, `categories`, `dateAlerte` ; une autre propriété répond 400.\n\n**Agrégats des bons de commande** (`agregats`, objet `AgregatsBonCommandeDto`, `null` hors bon de commande) : calculés sur les pièces liées par `BuyOrderId` (voir le schéma). Clés de tri en plus, lues dans `agregats` : `factureHT`, `factureTTC`, `factureNetAPayer`, `livreHT`, `livreTTC`, `livreNetAPayer`, `resteALivrerHT`, `resteALivrerTTC`, `resteALivrerNetAPayer`, `avance`, `avanceTauxPrevu`, `avanceTauxEffectif`, `avanceAmortie`, `avanceRegle`, `avanceReste`, `avanceResteAAmortir`, `garantieRetenue`, `garantieRestituee`, `garantieReste`, `regle`, `resteAPayerSurFacture`, `resteAPayerTotal`, `bonsLivraisonCodes`, `facturesCodes`, `devisCode` ; les pièces qui ne sont pas des bons de commande restent en fin de liste dans les deux sens.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
         "operationId": "liste",
         "parameters": [
           {
@@ -41087,7 +41087,7 @@
           "Achat"
         ],
         "summary": "Fiche d'une pièce d'achat : lignes, ventilation, historique, règlements",
-        "description": "Fiche d'une pièce visible : les champs de la ligne de liste (mêmes calculs), l'en-tête (notes, régularisation, timbre, entité, audit), les lignes (`Sorting`), la ventilation (taux par catégorie), l'historique des statuts (date croissante) et les règlements, annulés compris avec `annule = true` (exclus du réglé).",
+        "description": "Fiche d'une pièce visible : les champs de la ligne de liste (mêmes calculs, `agregats` compris pour un bon de commande), l'en-tête (notes, régularisation, timbre, entité, audit), les lignes (`Sorting`), la ventilation (taux par catégorie), l'historique des statuts (date croissante) et les règlements, annulés compris avec `annule = true` (exclus du réglé).",
         "operationId": "fiche_2",
         "parameters": [
           {
@@ -41124,7 +41124,7 @@
           "Achat"
         ],
         "summary": "Totaux de la liste des pièces d'achat : mêmes filtres, toutes pages",
-        "description": "Totaux de la liste pour les mêmes filtres (même requête, toutes pages ; `sort`, `page` et `size` ignorés) : `nombre` = `totalElements` de la liste, `resteARegler` = Σ à payer − Σ réglé (signé), `resteDu` = Σ des seuls restes supérieurs à 0,05 et `nombreARegler` leur nombre, `montantHT` / `montantTVA` = Σ HT / TVA des lignes. Aucune pièce visible : tout à zéro.",
+        "description": "Totaux de la liste pour les mêmes filtres (même requête, toutes pages ; `sort`, `page` et `size` ignorés) : `nombre` = `totalElements` de la liste, `resteARegler` = Σ à payer − Σ réglé (signé), `resteDu` = Σ des seuls restes supérieurs à 0,05 et `nombreARegler` leur nombre, `montantHT` / `montantTVA` = Σ HT / TVA des lignes. `agregats` = Σ champ à champ des agrégats des bons de commande du même jeu (ratios et codes `null`), `null` si le jeu ne contient aucun bon de commande. Aucune pièce visible : tout à zéro.",
         "operationId": "totaux_4",
         "parameters": [
           {
@@ -71680,6 +71680,116 @@
           }
         }
       },
+      "AgregatsBonCommandeDto": {
+        "type": "object",
+        "description": "Agrégats d'un bon de commande, **calculés côté serveur** comme la grille « Bons de Commande » d'OMRAN (vue\n`BuyDocumentOrderView`), sur ses pièces liées : toutes les pièces `BuyDocument` dont `BuyOrderId` désigne le bon de\ncommande, qu'elles soient visibles ou non de l'appelant (comme OMRAN). Factures = nature `INVOICE`, bons de livraison =\n`DELIVRY`, avances = `ReferenceType` `ORDER_ADVANCE` (toute nature), restitutions de garantie = `ORDER_WARRANTY`.\nLe réglé d'une pièce exclut les règlements annulés (`CANCELED`) ; une facture annulée compte. Aucun plafonnement : un\ndépassement donne un reste négatif, affiché signé. Montants arrondis à 2 décimales (HALF_UP) sur chaque agrégat final.\n\nPrésent seulement sur un bon de commande (`nature` = `ORDER`), `null` pour toute autre nature. Un bon de commande sans\npièce liée a tous ses montants à 0, `resteALivrer*` = ses montants et `resteAPayerTotal` = son à payer.\nDans les totaux de la liste : Σ champ à champ des lignes, ratios et codes `null`. Voir FEATURE-achat-bc-agregats.md.",
+        "properties": {
+          "factureHT": {
+            "type": "number",
+            "description": "Montant facturé HT : Σ HT des factures liées (BuyOrderId)."
+          },
+          "factureTVA": {
+            "type": "number",
+            "description": "Montant facturé TVA : facturé TTC − facturé HT."
+          },
+          "factureTTC": {
+            "type": "number",
+            "description": "Montant facturé TTC : Σ TTC des factures liées."
+          },
+          "factureNetAPayer": {
+            "type": "number",
+            "description": "Montant facturé net à payer : Σ AmountToPay des factures liées."
+          },
+          "livreHT": {
+            "type": "number",
+            "description": "Montant livré HT : Σ HT des bons de livraison liés."
+          },
+          "livreTTC": {
+            "type": "number",
+            "description": "Montant livré TTC : Σ TTC des bons de livraison liés."
+          },
+          "livreNetAPayer": {
+            "type": "number",
+            "description": "Montant livré net à payer : Σ AmountToPay des bons de livraison liés."
+          },
+          "resteALivrerHT": {
+            "type": "number",
+            "description": "Reste à livrer HT : HT du bon de commande − livré HT."
+          },
+          "resteALivrerTTC": {
+            "type": "number",
+            "description": "Reste à livrer TTC : TTC du bon de commande − livré TTC."
+          },
+          "resteALivrerNetAPayer": {
+            "type": "number",
+            "description": "Reste à livrer net à payer : à payer du bon de commande − livré net à payer."
+          },
+          "avance": {
+            "type": "number",
+            "description": "Avance : Σ AmountToPay des pièces liées de référence ORDER_ADVANCE."
+          },
+          "avanceTauxPrevu": {
+            "type": "number",
+            "description": "Avance prévue (OrderAdvanceRatio), fraction 0–1 (0,2 = 20 %) ; null dans les totaux."
+          },
+          "avanceTauxEffectif": {
+            "type": "number",
+            "description": "Pourcentage effectif d'avance : avance / à payer du BC, fraction ; 0 si à payer nul ; null dans les totaux."
+          },
+          "avanceAmortie": {
+            "type": "number",
+            "description": "Avance amortie : Σ AdvanceAmount des factures liées."
+          },
+          "avanceRegle": {
+            "type": "number",
+            "description": "Avance réglée : Σ des règlements non annulés des pièces d'avance."
+          },
+          "avanceReste": {
+            "type": "number",
+            "description": "Avance reste : avance − avance réglée."
+          },
+          "avanceResteAAmortir": {
+            "type": "number",
+            "description": "Avance reste à amortir : avance − avance amortie."
+          },
+          "garantieRetenue": {
+            "type": "number",
+            "description": "Retenue de garantie retenue : Σ WarrantyAmount des factures liées."
+          },
+          "garantieRestituee": {
+            "type": "number",
+            "description": "Retenue de garantie restituée : Σ HT des pièces liées de référence ORDER_WARRANTY."
+          },
+          "garantieReste": {
+            "type": "number",
+            "description": "Retenue de garantie reste : retenue − restituée."
+          },
+          "regle": {
+            "type": "number",
+            "description": "Montant réglé : réglé des factures liées + avance réglée (règlements annulés exclus)."
+          },
+          "resteAPayerSurFacture": {
+            "type": "number",
+            "description": "Reste à payer sur facturé : facturé net à payer − réglé ; signé."
+          },
+          "resteAPayerTotal": {
+            "type": "number",
+            "description": "Reste à payer total : à payer du bon de commande − réglé ; signé."
+          },
+          "bonsLivraisonCodes": {
+            "type": "string",
+            "description": "Codes des bons de livraison liés, triés, séparés par « , » ; null sans BL ou dans les totaux."
+          },
+          "facturesCodes": {
+            "type": "string",
+            "description": "Codes des factures liées et de celles des BL liés, séparés par « , » ; null sans facture."
+          },
+          "devisCode": {
+            "type": "string",
+            "description": "Devis d'origine (BuyQuoteId) : sa référence, sinon son code ; null sans devis."
+          }
+        }
+      },
       "DocumentAchatListItemDto": {
         "type": "object",
         "description": "Pièce d'achat (BuyDocument) dans la liste ; mêmes valeurs en tête de la fiche.",
@@ -71885,6 +71995,10 @@
             "type": "string",
             "description": "Couleur du statut (BuyDocumentStatus.ColorName, nom .NET) ; null sans statut.",
             "example": "Green"
+          },
+          "agregats": {
+            "$ref": "#/components/schemas/AgregatsBonCommandeDto",
+            "description": "Agrégats du bon de commande (factures, livraisons, avances, garanties) ; null hors bon de commande."
           }
         }
       },
@@ -72120,6 +72234,10 @@
             "type": "string",
             "description": "Couleur du statut (BuyDocumentStatus.ColorName, nom .NET) ; null sans statut.",
             "example": "Green"
+          },
+          "agregats": {
+            "$ref": "#/components/schemas/AgregatsBonCommandeDto",
+            "description": "Agrégats du bon de commande (factures, livraisons, avances, garanties) ; null hors bon de commande."
           },
           "notes": {
             "type": "string",
@@ -72358,6 +72476,10 @@
           "montantTVA": {
             "type": "number",
             "description": "Σ des montants de TVA."
+          },
+          "agregats": {
+            "$ref": "#/components/schemas/AgregatsBonCommandeDto",
+            "description": "Σ champ à champ des agrégats des bons de commande retenus ; ratios et codes null ; null sans BC."
           }
         }
       },
