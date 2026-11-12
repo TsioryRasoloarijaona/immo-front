@@ -4,7 +4,7 @@ import { Badge } from '../ui';
 import { libelleStatutAchat, tonStatutAchat } from '../../lib/documentsAchat';
 import { toneStatut } from '../../lib/faisabilite';
 import { formatCurrency } from '../../lib/format';
-import type { CleColonneAchat } from '../../lib/vuesAchat';
+import type { CleAgregatAchat, CleColonneAchat } from '../../lib/vuesAchat';
 import type { DocumentAchatListItemDto } from '../../types/achat';
 
 type Colonne = ColonneGrille<DocumentAchatListItemDto>;
@@ -25,6 +25,15 @@ function rendreMontant(d: DocumentAchatListItemDto, valeur: number, reste = fals
 
 const montant = (nom: keyof DocumentAchatListItemDto, libelle: string): Colonne => ({ nom, libelle, type: 'MONTANT', largeur: 8 });
 const texte = (nom: keyof DocumentAchatListItemDto, libelle: string, largeur = 9): Colonne => ({ nom, libelle, largeur });
+const lireAgregat = (d: DocumentAchatListItemDto, cle: CleAgregatAchat) => d.agregats?.[cle] ?? null;
+const agregat = (cle: CleAgregatAchat, libelle: string, type: 'MONTANT' | 'POURCENTAGE' | 'TEXTE' = 'MONTANT'): Colonne => ({
+  nom: cle,
+  libelle,
+  type,
+  largeur: type === 'TEXTE' ? 10 : 8,
+  valeur: (d) => lireAgregat(d, cle),
+  sansSomme: type === 'POURCENTAGE',
+});
 
 export const COLONNES_ACHAT: Record<CleColonneAchat, Colonne> = {
   aCloturer: {
@@ -63,6 +72,32 @@ export const COLONNES_ACHAT: Record<CleColonneAchat, Colonne> = {
   projetCode: texte('projetCode', 'Projet', 7),
   lotCode: texte('lotCode', 'Lot', 6),
   dossierGroupement: texte('dossierGroupement', 'Dossier de groupement'),
+  description: texte('description', 'Description', 14),
+  factureTTC: agregat('factureTTC', 'Montant facturé TTC'),
+  livreTTC: agregat('livreTTC', 'Montant livré TTC'),
+  resteALivrerTTC: agregat('resteALivrerTTC', 'Reste à livrer TTC'),
+  avanceTauxPrevu: agregat('avanceTauxPrevu', 'Avance ratio', 'POURCENTAGE'),
+  avanceTauxEffectif: agregat('avanceTauxEffectif', "Pourcentage effectif d'avance", 'POURCENTAGE'),
+  avance: agregat('avance', 'Avance'),
+  avanceAmortie: agregat('avanceAmortie', 'Avance amortie'),
+  avanceResteAAmortir: agregat('avanceResteAAmortir', 'Avance reste à amortir'),
+  avanceRegle: agregat('avanceRegle', 'Avance réglé'),
+  avanceReste: agregat('avanceReste', 'Avance reste'),
+  garantieRetenue: agregat('garantieRetenue', 'Retenue de garantie retenue'),
+  garantieRestituee: agregat('garantieRestituee', 'Retenue de garantie restituée'),
+  garantieReste: agregat('garantieReste', 'Retenue de garantie reste'),
+  factureHT: agregat('factureHT', 'Montant Facturé HT'),
+  factureNetAPayer: agregat('factureNetAPayer', 'Montant facturé Net à payer'),
+  livreHT: agregat('livreHT', 'Montant livré HT'),
+  livreNetAPayer: agregat('livreNetAPayer', 'Montant livré Net à payer'),
+  resteALivrerHT: agregat('resteALivrerHT', 'Reste à livrer HT'),
+  resteALivrerNetAPayer: agregat('resteALivrerNetAPayer', 'Reste à livrer Net à payer'),
+  regle: agregat('regle', 'Montant réglé'),
+  resteAPayerSurFacture: agregat('resteAPayerSurFacture', 'Reste à payer sur facturé'),
+  resteAPayerTotal: agregat('resteAPayerTotal', 'Reste à payer total'),
+  bonsLivraisonCodes: agregat('bonsLivraisonCodes', 'Bons de livraison', 'TEXTE'),
+  facturesCodes: agregat('facturesCodes', 'Factures', 'TEXTE'),
+  devisCode: agregat('devisCode', 'Devis', 'TEXTE'),
   archive: {
     nom: 'archive',
     libelle: 'Archivé',

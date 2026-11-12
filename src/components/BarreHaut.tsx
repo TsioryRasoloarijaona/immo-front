@@ -32,7 +32,7 @@ export default function BarreHaut() {
   const [palette, setPalette] = useState(false);
   const [modules, setModules] = useState(false);
   const entrees = entreesDesModules(user);
-  const titres = new Map(entrees.map((e) => [e.to, e.libelle]));
+  const titres = new Map(entrees.map((e) => [e.to.split('?')[0], e.libelle]).reverse() as [string, string][]);
 
   useEffect(() => {
     const surTouche = (ev: KeyboardEvent) => {
