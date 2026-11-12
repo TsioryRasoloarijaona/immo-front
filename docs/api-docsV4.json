@@ -12,10 +12,6 @@
   ],
   "tags": [
     {
-      "name": "Achat — configuration",
-      "description": "Configuration des pièces d'achat en **lecture seule** : statuts (`BuyDocumentStatus`) et transitions (`BuyDocumentWorkFlow`). OMRAN reste maître du paramétrage ; aucune écriture. Tout compte connecté lit. Voir `instructions/FEATURE-achat-regle-commune.md` §4."
-    },
-    {
       "name": "Lotissements",
       "description": "Écran OMRAN « LOTISSEMENTS » : lots de terrain, c'est-à-dire terrains (nature TER) rattachés à une tranche, d'entité\n« article » (StrEntity StkItem) et de vocation autre que PROJET. Fiche, écritures (Administrateur) et fiche PDF ;\nimport de lots par `/api/import-patrimoine/lotissements?trancheId=`. Notes, actions, audit et pièces jointes d'un lot\npassent par les routes article."
     },
@@ -250,6 +246,10 @@
     {
       "name": "Prospections — export",
       "description": "Exports Excel des listes de prospections et de pré-prospections. Chaque export relit la liste avec ses propres filtres et le périmètre commercial de l'appelant : il ne rend jamais une ligne que la liste ne montrerait pas."
+    },
+    {
+      "name": "Achat — configuration",
+      "description": "Configuration des pièces d'achat : statuts (`BuyDocumentStatus`) et transitions (`BuyDocumentWorkFlow`). Toute lecture est ouverte à tout compte connecté ; l'écriture (`POST`/`PUT`/`DELETE` des mêmes chemins) exige le droit OMRAN `Yes.Buy.Front.Config.BuyDocumentStatus`. Voir `instructions/FEATURE-achat-regle-commune.md` §4 et `instructions/FEATURE-statuts-achat-parite.md`."
     },
     {
       "name": "EMail Historique (administration)",
@@ -4158,6 +4158,188 @@
           },
           "409": {
             "description": "Rôle Administrateur : non modifiable, avant tout contrôle du corps."
+          }
+        }
+      }
+    },
+    "/api/achat/config/transitions/{id}": {
+      "put": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Remplace une transition de statut d'achat, rôles compris",
+        "description": "La transition est remplacée, ses rôles réécrits en bloc. Mêmes contrôles que la création, précédés du 404.",
+        "operationId": "modifierTransition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BuyDocumentWorkFlow.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionAchatEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "La transition à jour, telle que la liste la rend.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionAchatDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ absent, trop long, inconnu ou en double ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Buy.Front.Config.BuyDocumentStatus (Administrateur exempté) ; vérifié avant le corps."
+          },
+          "404": {
+            "description": "Transition inconnue."
+          },
+          "409": {
+            "description": "Même départ et même arrivée déjà dans cette gestion."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Supprime une transition et ses liens de rôles ; l'historique des pièces est gardé",
+        "operationId": "supprimerTransition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BuyDocumentWorkFlow.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Transition supprimée."
+          },
+          "400": {
+            "description": "Champ absent, trop long, inconnu ou en double ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Buy.Front.Config.BuyDocumentStatus (Administrateur exempté) ; vérifié avant le corps."
+          },
+          "404": {
+            "description": "Transition inconnue."
+          }
+        }
+      }
+    },
+    "/api/achat/config/statuts/{id}": {
+      "put": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Remplace la fiche entière d'un statut d'achat, listes et documents compris",
+        "description": "La fiche est **remplacée** : un champ absent prend sa valeur par défaut (`dureeVieJours` 0, booléens false, `imageId` et `notes` vides, listes vides) et les documents à joindre sont réécrits. Mêmes contrôles que la création, précédés du 404 ; le code du statut lui-même (autre casse comprise) n'est pas un doublon.",
+        "operationId": "modifierStatut",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BuyDocumentStatus.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatutAchatEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Le statut à jour, tel que la liste le rend.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutAchatConfigDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ absent, trop long, inconnu ou en double ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Buy.Front.Config.BuyDocumentStatus (Administrateur exempté) ; vérifié avant le corps."
+          },
+          "404": {
+            "description": "Statut inconnu."
+          },
+          "409": {
+            "description": "Code déjà pris par un autre statut."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Supprime un statut d'achat inutilisé, avec ses documents à joindre",
+        "description": "Refusé (409) tant qu'une pièce, une transition (départ ou arrivée) ou une ligne d'historique cite le statut ; le message donne les trois nombres. Les documents à joindre du statut sont supprimés avec lui.",
+        "operationId": "supprimerStatut",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BuyDocumentStatus.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Statut supprimé."
+          },
+          "400": {
+            "description": "Champ absent, trop long, inconnu ou en double ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Buy.Front.Config.BuyDocumentStatus (Administrateur exempté) ; vérifié avant le corps."
+          },
+          "404": {
+            "description": "Statut inconnu."
+          },
+          "409": {
+            "description": "Statut cité par des pièces, transitions ou historiques ; le message donne les trois nombres."
           }
         }
       }
@@ -16736,6 +16918,146 @@
         }
       }
     },
+    "/api/achat/config/transitions": {
+      "get": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Transitions des pièces d'achat par gestion, avec rôles et usage réel (lecture seule)",
+        "description": "Les transitions sont **propres à une gestion** (`StrEntityId`). Tri : libellé de gestion (la ligne sans gestion, « Sans gestion », en dernier), puis `ordre`, puis `description`. `roles` est vide pour une transition sans rôle. `nombrePassages` compte les lignes d'historique (`BuyDocumentStatusHistory.buyDocumentWorkFlowId`) portant **l'identifiant** de la transition, quelle que soit la gestion actuelle de la pièce ; la ligne de création d'une pièce n'en porte aucune.",
+        "operationId": "transitions_2",
+        "parameters": [
+          {
+            "name": "utilisees",
+            "in": "query",
+            "description": "true = seulement les transitions déjà empruntées (nombrePassages > 0).",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionAchatDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Crée une transition de statut d'achat dans une gestion, avec ses rôles",
+        "description": "Ordre des contrôles : droit (403), saisie (400 : statut de départ ou d'arrivée absent ou inconnu, départ = arrivée, gestion ou rôle inconnu), puis unicité (409) du triplet gestion / départ / arrivée — l'absence de gestion compte comme une gestion. `roleIds` vide ou absent = aucun rôle.",
+        "operationId": "creerTransition_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionAchatEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "La transition créée, telle que la liste la rend.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionAchatDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ absent, trop long, inconnu ou en double ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Buy.Front.Config.BuyDocumentStatus (Administrateur exempté) ; vérifié avant le corps."
+          },
+          "409": {
+            "description": "Même départ et même arrivée déjà dans cette gestion."
+          }
+        }
+      }
+    },
+    "/api/achat/config/statuts": {
+      "get": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Statuts des pièces d'achat, par ordre puis code (lecture seule, tout compte connecté)",
+        "description": "Une ligne par statut, triée par `ordre` puis `code`. `champsObligatoires` / `champsObligatoiresFournisseur` sont des noms du catalogue `/statuts/champs-obligatoires`, stockés sans effet sur la saisie des pièces. `nombreTransitions` compte les transitions qui citent le statut en départ **ou** en arrivée (une transition comptée une fois) ; `nombreHistoriques` les lignes de `BuyDocumentStatusHistory`. Ces trois nombres sont ceux qui bloquent la suppression.",
+        "operationId": "statuts_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StatutAchatConfigDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Crée un statut de pièce d'achat (fiche OMRAN « Statuts Documents Achats »)",
+        "description": "Ordre des contrôles : droit (403), puis toute la saisie (400), puis l'unicité du code (409) ; rien n'est écrit avant. Obligatoires : `ordre`, `code`, `description`, `typeId` — le message du 400 nomme le champ. `code` et `description` sont écrits sans espaces de bord, 255 caractères au plus ; `notes` 1000 au plus. `couleur` est un nom de couleur .NET (`Pink`, `DarkGreen`…, sans casse) ou vide ; `imageId` doit exister dans la bibliothèque (`/images`) ; chaque nom des listes de champs doit venir du catalogue ; un type de document au plus une fois. L'`ordre` n'est pas unique. Trace d'audit OMRAN `Yes.Buy.Config.BuyDocumentStatus`.",
+        "operationId": "creerStatut_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatutAchatEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Le statut créé, tel que la liste le rend.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutAchatConfigDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ absent, trop long, inconnu ou en double ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Buy.Front.Config.BuyDocumentStatus (Administrateur exempté) ; vérifié avant le corps."
+          },
+          "409": {
+            "description": "Code déjà pris (sans casse ni espaces de bord)."
+          }
+        }
+      }
+    },
     "/api/utilisateurs/{id}": {
       "get": {
         "tags": [
@@ -19893,7 +20215,7 @@
         ],
         "summary": "Supprime une transition, ses rôles et ses documents",
         "description": "Retire d'abord les rôles (comme OMRAN), puis les documents, puis la transition.",
-        "operationId": "supprimerTransition",
+        "operationId": "supprimerTransition_1",
         "parameters": [
           {
             "name": "id",
@@ -19924,7 +20246,7 @@
         ],
         "summary": "Modifie une transition d'étude ; champ absent = inchangé, liste reçue = remplace",
         "description": "Un champ absent ou null reste inchangé ; `roles`, `documents` ou `champsObligatoires` reçus remplacent l'existant\n(rôles en double dédoublonnés). Une transition à 0 rôle est permise : personne ne peut alors l'emprunter. Seuls les\nrôles lecteurs de l'étude (Administrateur, Direction Générale) comptent : un autre rôle listé est stocké sans effet.",
-        "operationId": "modifierTransition",
+        "operationId": "modifierTransition_1",
         "parameters": [
           {
             "name": "id",
@@ -20059,7 +20381,7 @@
         ],
         "summary": "Supprime un statut inutilisé, avec ses documents",
         "description": "409 si une étude est à ce statut, si une transition part de lui ou y arrive, ou si l'historique d'une étude le cite.\nSes documents partent avec lui.",
-        "operationId": "supprimerStatut",
+        "operationId": "supprimerStatut_1",
         "parameters": [
           {
             "name": "id",
@@ -20092,7 +20414,7 @@
           "Études de faisabilité — configuration des statuts et transitions"
         ],
         "summary": "Modifie un statut d'étude ; champ absent = inchangé",
-        "operationId": "modifierStatut",
+        "operationId": "modifierStatut_1",
         "parameters": [
           {
             "name": "id",
@@ -23164,7 +23486,7 @@
           "Suivi des affectations"
         ],
         "summary": "Statuts de dossier de vente du filtre, tous, dans l'ordre du workflow",
-        "operationId": "statuts_1",
+        "operationId": "statuts_2",
         "responses": {
           "200": {
             "description": "OK",
@@ -27594,7 +27916,7 @@
         ],
         "summary": "Transitions sortantes du statut courant",
         "description": "Toutes les transitions sortantes du statut courant (`StrWorkFlow.StatusFromId`), sans filtre de rôle.",
-        "operationId": "transitions_2",
+        "operationId": "transitions_3",
         "parameters": [
           {
             "name": "id",
@@ -28823,7 +29145,7 @@
           "Projet — configuration, onglets"
         ],
         "summary": "Transitions partant du statut courant du projet",
-        "operationId": "transitions_3",
+        "operationId": "transitions_4",
         "parameters": [
           {
             "name": "id",
@@ -35694,7 +36016,7 @@
         ],
         "summary": "Statuts de dossier proposés au filtre de la liste",
         "description": "Statuts des dossiers de vente (`StrStatus` du workflow des dossiers) que l'appelant peut voir, triés comme dans OMRAN. `sortie = true` pour les annulations et résiliations, exclues de la liste sans `inclureSortis`. L'option « Libre » du filtre n'est pas un statut : elle se traduit par `lignes`.",
-        "operationId": "statuts_2",
+        "operationId": "statuts_3",
         "responses": {
           "200": {
             "description": "OK",
@@ -38489,7 +38811,7 @@
           "Tâches (administration)"
         ],
         "summary": "Statuts de tâche, triés, avec leurs transitions",
-        "operationId": "statuts_3",
+        "operationId": "statuts_4",
         "responses": {
           "403": {
             "description": "L'appelant n'a pas le rôle Administrateur."
@@ -40948,26 +41270,13 @@
         }
       }
     },
-    "/api/achat/config/transitions": {
+    "/api/achat/config/statuts/types": {
       "get": {
         "tags": [
           "Achat — configuration"
         ],
-        "summary": "Transitions des pièces d'achat par gestion, avec rôles et usage réel (lecture seule)",
-        "description": "Les transitions sont **propres à une gestion** (`StrEntityId`). Tri : libellé de gestion (la ligne sans gestion, « Sans gestion », en dernier), puis `ordre`, puis `description`. `roles` est vide pour une transition sans rôle. `nombrePassages` compte les lignes d'historique (`BuyDocumentStatusHistory.buyDocumentWorkFlowId`) portant **l'identifiant** de la transition, quelle que soit la gestion actuelle de la pièce ; la ligne de création d'une pièce n'en porte aucune.",
-        "operationId": "transitions_4",
-        "parameters": [
-          {
-            "name": "utilisees",
-            "in": "query",
-            "description": "true = seulement les transitions déjà empruntées (nombrePassages > 0).",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          }
-        ],
+        "summary": "Types d'état (AdmWorkFlowStateType) proposés par la fiche statut, par ordre",
+        "operationId": "typesStatut",
         "responses": {
           "200": {
             "description": "OK",
@@ -40976,7 +41285,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/TransitionAchatDto"
+                    "$ref": "#/components/schemas/TypeAchatDto"
                   }
                 }
               }
@@ -40985,13 +41294,13 @@
         }
       }
     },
-    "/api/achat/config/statuts": {
+    "/api/achat/config/statuts/types-documents": {
       "get": {
         "tags": [
           "Achat — configuration"
         ],
-        "summary": "Statuts des pièces d'achat, par ordre puis code (lecture seule, tout compte connecté)",
-        "operationId": "statuts_4",
+        "summary": "Types de document (AdmAttachedFileType) proposés pour les documents à joindre, par libellé",
+        "operationId": "typesDocuments",
         "responses": {
           "200": {
             "description": "OK",
@@ -41000,11 +41309,93 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/StatutAchatConfigDto"
+                    "$ref": "#/components/schemas/TypeAchatDto"
                   }
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/achat/config/statuts/champs-obligatoires": {
+      "get": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Catalogue des champs cochables comme obligatoires (pièce et fournisseur), dans l'ordre OMRAN",
+        "operationId": "champsObligatoires_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueChampsStatutDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/achat/config/images": {
+      "get": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Bibliothèque d'images OMRAN (CfgImage), par code, sans les octets",
+        "operationId": "images",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ImageStatutDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/achat/config/images/{id}/contenu": {
+      "get": {
+        "tags": [
+          "Achat — configuration"
+        ],
+        "summary": "Octets d'une image de la bibliothèque, type déduit de leur signature",
+        "operationId": "contenuImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "CfgImage.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les octets de l'image (PNG, JPEG, GIF, BMP ou binaire).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Image inconnue ou sans octets."
           }
         }
       }
@@ -46381,6 +46772,362 @@
           "verrouille": {
             "type": "boolean",
             "description": "Vrai pour le rôle Administrateur : toute écriture répond 409."
+          }
+        }
+      },
+      "TransitionAchatEcritureDto": {
+        "type": "object",
+        "description": "Transition de statut d'achat (POST et PUT) ; un PUT remplace la transition entière, rôles compris.",
+        "properties": {
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre dans la gestion (Sorting).",
+            "example": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé, ≤ 255.",
+            "example": "Validation pour paiement"
+          },
+          "statutDepartId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de départ (BuyDocumentStatus.PKey), obligatoire."
+          },
+          "statutArriveeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut d'arrivée (BuyDocumentStatus.PKey), obligatoire, différent du départ."
+          },
+          "gestionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Gestion (StrEntity.PKey) ; absent = « Sans gestion »."
+          },
+          "noteObligatoire": {
+            "type": "boolean",
+            "description": "Commentaire obligatoire (NotesMandatory) ; absent = false."
+          },
+          "valideeParDeclencheur": {
+            "type": "boolean",
+            "description": "Validée par le déclencheur (IsValidatedByCfgTierTrigger) ; absent = false."
+          },
+          "roleIds": {
+            "type": "array",
+            "description": "Rôles autorisés (AdmRole.PKey), remplacés en bloc ; vide ou absent = aucun rôle.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "RoleTransitionDto": {
+        "type": "object",
+        "description": "Rôle autorisé à emprunter une transition (BuyDocumentWorkFlowAdmRole → AdmRole).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmRole.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du rôle (AdmRole.Code).",
+            "example": "Comptabilité"
+          }
+        }
+      },
+      "TransitionAchatDto": {
+        "type": "object",
+        "description": "Transition de statut d'une pièce d'achat (BuyDocumentWorkFlow), propre à une gestion, en lecture seule.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyDocumentWorkFlow.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre dans la gestion (Sorting), null si absent.",
+            "example": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de la transition.",
+            "example": "Validation pour paiement"
+          },
+          "gestionCode": {
+            "type": "string",
+            "description": "Code de la gestion (StrEntity.Code), null sans gestion.",
+            "example": "PrjInvoiceDebit"
+          },
+          "gestionLibelle": {
+            "type": "string",
+            "description": "Libellé de la gestion (StrEntity.Description), « Sans gestion » si aucune."
+          },
+          "statutDepartId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de départ (BuyDocumentStatus.PKey)."
+          },
+          "statutDepartCode": {
+            "type": "string",
+            "description": "Code du statut de départ.",
+            "example": "EN COURS"
+          },
+          "statutArriveeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut d'arrivée (BuyDocumentStatus.PKey)."
+          },
+          "statutArriveeCode": {
+            "type": "string",
+            "description": "Code du statut d'arrivée.",
+            "example": "VALIDE POUR PAIEMENT"
+          },
+          "noteObligatoire": {
+            "type": "boolean",
+            "description": "Commentaire obligatoire (NotesMandatory = 1)."
+          },
+          "valideeParDeclencheur": {
+            "type": "boolean",
+            "description": "Validée par le déclencheur de la pièce (IsValidatedByCfgTierTrigger = 1)."
+          },
+          "roles": {
+            "type": "array",
+            "description": "Rôles autorisés, triés par code ; vide si aucun rôle.",
+            "items": {
+              "$ref": "#/components/schemas/RoleTransitionDto"
+            }
+          },
+          "nombrePassages": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Lignes d'historique (BuyDocumentStatusHistory) portant cette transition.",
+            "example": 1655
+          },
+          "dernierPassage": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du dernier passage, null si jamais empruntée."
+          },
+          "gestionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Gestion (StrEntity.PKey), null sans gestion ; à renvoyer tel quel dans un PUT."
+          }
+        }
+      },
+      "DocumentAJoindreAchatDto": {
+        "type": "object",
+        "description": "Document à joindre d'un statut d'achat (BuyDocumentStatusDocumentToAttach), en lecture comme en écriture.",
+        "properties": {
+          "typeDocumentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de document (AdmAttachedFileType.PKey) ; obligatoire en écriture."
+          },
+          "typeDocumentLibelle": {
+            "type": "string",
+            "description": "Libellé du type de document ; ignoré en écriture.",
+            "readOnly": true
+          },
+          "obligatoire": {
+            "type": "boolean",
+            "description": "Document obligatoire (IsMandatory) ; absent = false."
+          },
+          "avecTitre": {
+            "type": "boolean",
+            "description": "Titre à saisir (WithTitle) ; absent = false."
+          }
+        }
+      },
+      "StatutAchatEcritureDto": {
+        "type": "object",
+        "description": "Fiche complète d'un statut d'achat (POST et PUT) ; un PUT remplace la fiche entière, listes comprises.",
+        "properties": {
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (O.D.T.), obligatoire, non unique.",
+            "example": 12
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, obligatoire, ≤ 255, unique sans casse ni espaces de bord.",
+            "example": "TEST K2"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé, obligatoire, ≤ 255."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type d'état (AdmWorkFlowStateType.PKey, liste /statuts/types), obligatoire."
+          },
+          "dureeVieJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de vie en jours, ≥ 0 ; absent = 0 (durée infinie).",
+            "example": 0
+          },
+          "couleur": {
+            "type": "string",
+            "description": "Nom de couleur .NET (Color.FromName) ; vide = blanc ; un autre texte répond 400.",
+            "example": "Pink"
+          },
+          "okPourPaiement": {
+            "type": "boolean",
+            "description": "Validé(e) pour paiement ; absent = false."
+          },
+          "valideComptabilite": {
+            "type": "boolean",
+            "description": "Valider en comptabilité ; absent = false."
+          },
+          "lectureSeule": {
+            "type": "boolean",
+            "description": "En lecture seule ; absent = false."
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Image de la bibliothèque (CfgImage.PKey, liste /images) ; absent = aucune."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes, ≤ 1000."
+          },
+          "champsObligatoires": {
+            "type": "array",
+            "description": "Noms du catalogue piece (/statuts/champs-obligatoires) ; absent = aucun.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "champsObligatoiresFournisseur": {
+            "type": "array",
+            "description": "Noms du catalogue fournisseur (/statuts/champs-obligatoires) ; absent = aucun.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "documentsAJoindre": {
+            "type": "array",
+            "description": "Documents à joindre, un type au plus une fois ; absent = aucun.",
+            "items": {
+              "$ref": "#/components/schemas/DocumentAJoindreAchatDto"
+            }
+          }
+        }
+      },
+      "StatutAchatConfigDto": {
+        "type": "object",
+        "description": "Statut de pièce d'achat (BuyDocumentStatus), tel que la fiche OMRAN « Statuts Documents Achats » l'affiche.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyDocumentStatus.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du statut.",
+            "example": "EN COURS"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting, O.D.T. dans OMRAN), null si absent.",
+            "example": 10
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Type d'état (AdmWorkFlowStateType.Description), null si absent.",
+            "example": "Nouveau"
+          },
+          "couleur": {
+            "type": "string",
+            "description": "Nom de couleur .NET (ColorName), null si vide (OMRAN l'affiche « White »).",
+            "example": "Pink"
+          },
+          "okPourPaiement": {
+            "type": "boolean",
+            "description": "OK pour paiement (IsOkForPayement) ; NULL lu false."
+          },
+          "valideComptabilite": {
+            "type": "boolean",
+            "description": "Validé en comptabilité (IsValidatedOnAccounting) ; NULL lu false."
+          },
+          "lectureSeule": {
+            "type": "boolean",
+            "description": "Pièce en lecture seule dans ce statut (IsReadOnly) ; NULL lu false."
+          },
+          "dureeVieJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de vie en jours (Delay), 0 = durée infinie, null si absente.",
+            "example": 0
+          },
+          "nombrePieces": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de pièces (BuyDocument) portant ce statut aujourd'hui.",
+            "example": 473
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type d'état (AdmWorkFlowStateType.PKey), null si absent."
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Image de la bibliothèque (CfgImage.PKey), null si aucune ; octets via /images/{id}/contenu."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes du statut, null si vides."
+          },
+          "champsObligatoires": {
+            "type": "array",
+            "description": "Champs obligatoires de la pièce (noms OMRAN du catalogue piece), stockés sans effet.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "champsObligatoiresFournisseur": {
+            "type": "array",
+            "description": "Champs obligatoires du fournisseur (noms OMRAN du catalogue fournisseur), stockés sans effet.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "documentsAJoindre": {
+            "type": "array",
+            "description": "Documents à joindre (BuyDocumentStatusDocumentToAttach) ; vide si aucun.",
+            "items": {
+              "$ref": "#/components/schemas/DocumentAJoindreAchatDto"
+            }
+          },
+          "nombreTransitions": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Transitions citant ce statut en départ ou en arrivée.",
+            "example": 12
+          },
+          "nombreHistoriques": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Lignes d'historique (BuyDocumentStatusHistory) portant ce statut.",
+            "example": 1655
           }
         }
       },
@@ -70969,156 +71716,82 @@
           }
         }
       },
-      "RoleTransitionDto": {
+      "TypeAchatDto": {
         "type": "object",
-        "description": "Rôle autorisé à emprunter une transition (BuyDocumentWorkFlowAdmRole → AdmRole).",
+        "description": "Élément d'une liste de choix de la fiche statut : type d'état (AdmWorkFlowStateType) ou type de document à joindre (AdmAttachedFileType).",
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "AdmRole.PKey."
+            "description": "PKey de la ligne."
           },
           "code": {
             "type": "string",
-            "description": "Code du rôle (AdmRole.Code).",
-            "example": "Comptabilité"
-          }
-        }
-      },
-      "TransitionAchatDto": {
-        "type": "object",
-        "description": "Transition de statut d'une pièce d'achat (BuyDocumentWorkFlow), propre à une gestion, en lecture seule.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "BuyDocumentWorkFlow.PKey."
-          },
-          "ordre": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Ordre dans la gestion (Sorting), null si absent.",
-            "example": 1
+            "description": "Code.",
+            "example": "Intermédiaire"
           },
           "description": {
             "type": "string",
-            "description": "Libellé de la transition.",
-            "example": "Validation pour paiement"
-          },
-          "gestionCode": {
-            "type": "string",
-            "description": "Code de la gestion (StrEntity.Code), null sans gestion.",
-            "example": "PrjInvoiceDebit"
-          },
-          "gestionLibelle": {
-            "type": "string",
-            "description": "Libellé de la gestion (StrEntity.Description), « Sans gestion » si aucune."
-          },
-          "statutDepartId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Statut de départ (BuyDocumentStatus.PKey)."
-          },
-          "statutDepartCode": {
-            "type": "string",
-            "description": "Code du statut de départ.",
-            "example": "EN COURS"
-          },
-          "statutArriveeId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Statut d'arrivée (BuyDocumentStatus.PKey)."
-          },
-          "statutArriveeCode": {
-            "type": "string",
-            "description": "Code du statut d'arrivée.",
-            "example": "VALIDE POUR PAIEMENT"
-          },
-          "noteObligatoire": {
-            "type": "boolean",
-            "description": "Commentaire obligatoire (NotesMandatory = 1)."
-          },
-          "valideeParDeclencheur": {
-            "type": "boolean",
-            "description": "Validée par le déclencheur de la pièce (IsValidatedByCfgTierTrigger = 1)."
-          },
-          "roles": {
+            "description": "Libellé affiché.",
+            "example": "Intermédiaire"
+          }
+        }
+      },
+      "CatalogueChampsStatutDto": {
+        "type": "object",
+        "description": "Champs cochables comme obligatoires d'un statut d'achat : propriétés [IsWorkFlow] d'OMRAN.",
+        "properties": {
+          "piece": {
             "type": "array",
-            "description": "Rôles autorisés, triés par code ; vide si aucun rôle.",
+            "description": "Champs de la pièce (onglet « Champs obligatoires »).",
             "items": {
-              "$ref": "#/components/schemas/RoleTransitionDto"
+              "$ref": "#/components/schemas/ChampStatutAchatDto"
             }
           },
-          "nombrePassages": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Lignes d'historique (BuyDocumentStatusHistory) portant cette transition.",
-            "example": 1655
-          },
-          "dernierPassage": {
-            "type": "string",
-            "format": "date",
-            "description": "Date du dernier passage, null si jamais empruntée."
+          "fournisseur": {
+            "type": "array",
+            "description": "Champs du fournisseur (onglet « Champs obligatoires Fournisseur »).",
+            "items": {
+              "$ref": "#/components/schemas/ChampStatutAchatDto"
+            }
           }
         }
       },
-      "StatutAchatConfigDto": {
+      "ChampStatutAchatDto": {
         "type": "object",
-        "description": "Statut de pièce d'achat (BuyDocumentStatus), en lecture seule.",
+        "description": "Champ cochable d'un statut d'achat.",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Nom OMRAN stocké dans MandatoryFields / SupplierMandatoryFields.",
+            "example": "DocRef"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé OMRAN (DisplayName).",
+            "example": "Réf. Interne"
+          }
+        }
+      },
+      "ImageStatutDto": {
+        "type": "object",
+        "description": "Image de la bibliothèque OMRAN (CfgImage), sans ses octets.",
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "BuyDocumentStatus.PKey."
+            "description": "CfgImage.PKey."
           },
           "code": {
             "type": "string",
-            "description": "Code du statut.",
-            "example": "EN COURS"
+            "description": "Code de l'image.",
+            "example": "ENCOURS"
           },
-          "description": {
-            "type": "string",
-            "description": "Libellé du statut."
-          },
-          "ordre": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Ordre (Sorting), null si absent.",
-            "example": 10
-          },
-          "categorie": {
-            "type": "string",
-            "description": "Type d'état (AdmWorkFlowStateType.Description), null si absent.",
-            "example": "Nouveau"
-          },
-          "couleur": {
-            "type": "string",
-            "description": "Nom de couleur .NET (ColorName) tel quel, null si absent.",
-            "example": "Pink"
-          },
-          "okPourPaiement": {
-            "type": "boolean",
-            "description": "OK pour paiement (IsOkForPayement) ; NULL lu false."
-          },
-          "valideComptabilite": {
-            "type": "boolean",
-            "description": "Validé en comptabilité (IsValidatedOnAccounting) ; NULL lu false."
-          },
-          "lectureSeule": {
-            "type": "boolean",
-            "description": "Pièce en lecture seule dans ce statut (IsReadOnly) ; NULL lu false."
-          },
-          "dureeVieJours": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Durée de vie en jours (Delay), null si absente.",
-            "example": 0
-          },
-          "nombrePieces": {
+          "taille": {
             "type": "integer",
             "format": "int64",
-            "description": "Nombre de pièces (BuyDocument) portant ce statut aujourd'hui.",
-            "example": 473
+            "description": "Taille des octets (ImageData), 0 si vide.",
+            "example": 4512
           }
         }
       }
