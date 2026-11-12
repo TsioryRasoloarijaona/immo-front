@@ -17,6 +17,7 @@ export default function BarreActionsLots({
   refus,
   ligneSelectionnee,
   exportEnCours,
+  exportRefuse,
   onRafraichir,
   onVider,
   onExporter,
@@ -28,6 +29,7 @@ export default function BarreActionsLots({
   refus: ReadonlySet<DroitLot>;
   ligneSelectionnee: boolean;
   exportEnCours: boolean;
+  exportRefuse: boolean;
   onRafraichir: () => void;
   onVider: () => void;
   onExporter: () => void;
@@ -44,7 +46,7 @@ export default function BarreActionsLots({
       <Button type="button" variant="ghost" size="sm" onClick={onVider}>
         <Eraser /> Vider les filtres
       </Button>
-      <Button type="button" variant="ghost" size="sm" disabled={exportEnCours} onClick={onExporter}>
+      <Button type="button" variant="ghost" size="sm" disabled={exportEnCours || exportRefuse} onClick={onExporter}>
         <Download /> Exporter
       </Button>
       {GENRES_LOT.map(({ genre, creation }) => {

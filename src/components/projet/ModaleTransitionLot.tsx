@@ -15,7 +15,8 @@ export default function ModaleTransitionLot({
   onAnnuler,
   onFait,
   onSansDroit,
-}: Readonly<{ lot: LotListItemDto; onAnnuler: () => void; onFait: () => void; onSansDroit: () => void }>) {
+  onIntrouvable,
+}: Readonly<{ lot: LotListItemDto; onAnnuler: () => void; onFait: () => void; onSansDroit: () => void; onIntrouvable: () => void }>) {
   const transitions = useApi(() => getTransitionsLot(lot.id), [lot.id]);
   const [choisie, setChoisie] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
@@ -31,6 +32,7 @@ export default function ModaleTransitionLot({
       .catch((err: unknown) => {
         setEnCours(false);
         if (err instanceof ApiError && err.status === 403) onSansDroit();
+        else if (err instanceof ApiError && err.status === 404) onIntrouvable();
         else setErreur(err instanceof Error ? err.message : 'Le changement de statut a échoué.');
       });
   }

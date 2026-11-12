@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { exporterListe } from './export';
-import type { QueryValue } from './api';
+import { ApiError, type QueryValue } from './api';
 import type { FormatExport } from '../types';
 
 /** Export de la liste courante (filtres, colonnes visibles et tri compris) ; `erreur` jusqu'au prochain essai. */
 export function useExportListe(chemin: string, params: Record<string, QueryValue>, nomListe: string) {
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [refuse, setRefuse] = useState(false);
 
   async function exporter(format: FormatExport = 'xlsx') {
     setEnCours(true);
@@ -14,11 +15,12 @@ export function useExportListe(chemin: string, params: Record<string, QueryValue
     try {
       await exporterListe(chemin, params, nomListe, format);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 403) setRefuse(true);
       setErreur(err instanceof Error ? err.message : "L'export a échoué.");
     } finally {
       setEnCours(false);
     }
   }
 
-  return { exporter, enCours, erreur };
+  return { exporter, enCours, erreur, refuse };
 }

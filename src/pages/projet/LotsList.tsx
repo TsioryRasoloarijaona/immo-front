@@ -153,6 +153,7 @@ export default function LotsList() {
           refus={refus}
           ligneSelectionnee={!!ligne}
           exportEnCours={exportListe.enCours}
+          exportRefuse={exportListe.refuse}
           onRafraichir={refetchAllApis}
           onVider={reinitialiser}
           onExporter={() => void exportListe.exporter('xlsx')}
@@ -201,6 +202,12 @@ export default function LotsList() {
             refetchAllApis();
           }}
           onSansDroit={() => sansDroit('transition')}
+          onIntrouvable={() => {
+            setTransition(false);
+            setSelectionne(null);
+            setMessage('Ce lot n\'existe plus.');
+            refetchAllApis();
+          }}
         />
       )}
     </PageListe>
