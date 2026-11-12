@@ -8,6 +8,7 @@ import FenetreFiche from '../fiche/FenetreFiche';
 import PiedAudit from '../fiche/PiedAudit';
 import { Badge, EmptyState, ErrorState, LoadingState } from '../ui';
 import { Button } from '../ui/button';
+import BarreActionsPieceAchat from './BarreActionsPieceAchat';
 import BlocRetenuesAvances from './BlocRetenuesAvances';
 import {
   HistoriqueDocumentAchat,
@@ -82,12 +83,18 @@ function ongletBas(id: OngletPieceAchat, d: DocumentAchatDetailDto, onOuvrir: Ou
   }
 }
 
-function CorpsDocument({ d, onOuvrir }: Readonly<{ d: DocumentAchatDetailDto; onOuvrir: Ouvrir }>) {
+function CorpsDocument({ d, onOuvrir, onChange, onFermer }: Readonly<{
+  d: DocumentAchatDetailDto;
+  onOuvrir: Ouvrir;
+  onChange: (piece: DocumentAchatDetailDto) => void;
+  onFermer: () => void;
+}>) {
   const [onglet, setOnglet] = useState('lignes');
   const onglets = ongletsPieceAchat(d.nature).map((id) => ({ id, ...ongletBas(id, d, onOuvrir) }));
   return (
     <>
       <BarreIcones className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
+        <BarreActionsPieceAchat piece={d} onChange={onChange} onFermer={onFermer} />
         <Button type="button" variant="ghost" size="sm" disabled>
           <Printer /> Imprimer
         </Button>
@@ -132,12 +139,14 @@ export default function FicheDocumentAchatFenetre({
   onFermer,
 }: Readonly<{ id: string; voisins?: VoisinsFiche; onFermer: () => void }>) {
   const [courant, setCourant] = useState(id);
-  const { data: d, loading, error } = useApi(() => chargerPiece(courant), [courant]);
+  const { data: lue, loading, error } = useApi(() => chargerPiece(courant), [courant]);
+  const [remplacee, setRemplacee] = useState<DocumentAchatDetailDto | null>(null);
+  const d = remplacee?.id === courant ? remplacee : lue;
 
   let corps: ReactNode;
   if (error) corps = <ErrorState message={error} />;
   else if (loading && d?.id !== courant) corps = <LoadingState />;
-  else if (d) corps = <CorpsDocument key={d.id} d={d} onOuvrir={setCourant} />;
+  else if (d) corps = <CorpsDocument key={d.id} d={d} onOuvrir={setCourant} onChange={setRemplacee} onFermer={onFermer} />;
   else corps = <EmptyState title="Pièce introuvable" message="Cette pièce n'existe pas ou n'est pas accessible avec votre périmètre." />;
 
   return (
