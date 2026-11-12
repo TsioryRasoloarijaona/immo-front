@@ -118,4 +118,6 @@ export interface TransitionAchatDto {
   nombrePassages: number;
   /** ISO yyyy-MM-dd, null si jamais empruntée. */
   dernierPassage: string | null;
+  /** StrEntity.PKey, null sans gestion ; à renvoyer tel quel dans un PUT (remplacement entier). */
+  gestionId: UUID | null;
 }
