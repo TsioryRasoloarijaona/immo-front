@@ -3,11 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import PageShell from '../../components/PageShell';
 import BarreFicheLot from '../../components/projet/BarreFicheLot';
 import ModaleTransitionLot from '../../components/projet/ModaleTransitionLot';
+import BarreSousFenetresLot from '../../components/projet/sousfenetres/BarreSousFenetresLot';
+import ModaleSousFenetreLot from '../../components/projet/sousfenetres/ModaleSousFenetreLot';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { ApiError } from '../../lib/api';
 import { copierLot, getLot, modifierLot } from '../../lib/apiProjet';
 import { MESSAGE_SANS_DROIT } from '../../lib/genresLot';
 import { useChampsLot } from '../../lib/saisieLot';
+import type { SousFenetre } from '../../lib/sousFenetresLot';
 import type { LotDetailDto } from '../../types/projet';
 import { EtatFiche } from './commun';
 import EnteteLot from './fiche-lot/EnteteLot';
@@ -40,6 +43,7 @@ function FicheLot({ lotInitial }: Readonly<{ lotInitial: LotDetailDto }>) {
   const [lectureSeule, setLectureSeule] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [transition, setTransition] = useState(false);
+  const [sousFenetre, setSousFenetre] = useState<SousFenetre | null>(null);
   const [suiviDemande, setSuiviDemande] = useState(false);
   const suivi = useSuiviLot(lot.id, suiviDemande);
 
@@ -88,6 +92,7 @@ function FicheLot({ lotInitial }: Readonly<{ lotInitial: LotDetailDto }>) {
       />
       {message && <p role="alert" className="px-4 pt-2 text-body text-destructive md:px-7">{message}</p>}
       <div className="flex flex-col gap-3 p-4 md:px-7">
+        <BarreSousFenetresLot onOuvrir={setSousFenetre} />
         <EnteteLot lot={lot} referentiels={referentiels.data} {...onglet} />
         <Tabs defaultValue="general" onValueChange={(v) => v === 'suivi' || v === 'retenues' ? setSuiviDemande(true) : undefined}>
           <TabsList>
@@ -124,6 +129,7 @@ function FicheLot({ lotInitial }: Readonly<{ lotInitial: LotDetailDto }>) {
           <TabsContent value="bordereau"><OngletBordereau lotId={lot.id} /></TabsContent>
         </Tabs>
       </div>
+      {sousFenetre && <ModaleSousFenetreLot sousFenetre={sousFenetre} lotId={lot.id} description={lot.description} onFermer={() => setSousFenetre(null)} />}
       {transition && (
         <ModaleTransitionLot
           lot={lot}
