@@ -10,12 +10,13 @@ function Chiffre({ libelle, valeur, alerte }: Readonly<{ libelle: string; valeur
   );
 }
 
-export type ModeTotauxAchat = 'devis' | 'depenses' | 'simple';
+export type ModeTotauxAchat = 'devis' | 'depenses' | 'simple' | 'commande';
 
 /** Totaux serveur de tout le filtre (toutes pages) ; le reste dû ne compte que les restes positifs. */
 export default function BandeTotauxAchat({ totaux, mode }: Readonly<{ totaux: TotauxDocumentsAchatDto; mode: ModeTotauxAchat }>) {
   const devis = mode === 'devis';
   const depenses = mode === 'depenses';
+  const agregats = mode === 'commande' ? totaux.agregats : null;
   return (
     <div role="status" className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-border bg-card px-3 py-1.5">
       {devis && <Chiffre libelle="HT" valeur={formatCurrency(totaux.montantHT)} />}
@@ -25,6 +26,11 @@ export default function BandeTotauxAchat({ totaux, mode }: Readonly<{ totaux: To
       <Chiffre libelle="Net à payer" valeur={formatCurrency(totaux.montantAPayer)} />
       {depenses && <Chiffre libelle="Réglé" valeur={formatCurrency(totaux.montantRegle)} />}
       {depenses && <Chiffre libelle="Reste dû" valeur={formatCurrency(totaux.resteDu)} alerte />}
+      {agregats && <Chiffre libelle="Facturé TTC" valeur={formatCurrency(agregats.factureTTC)} />}
+      {agregats && <Chiffre libelle="Livré TTC" valeur={formatCurrency(agregats.livreTTC)} />}
+      {agregats && <Chiffre libelle="Reste à livrer TTC" valeur={formatCurrency(agregats.resteALivrerTTC)} />}
+      {agregats && <Chiffre libelle="Réglé" valeur={formatCurrency(agregats.regle)} />}
+      {agregats && <Chiffre libelle="Reste à payer total" valeur={formatCurrency(agregats.resteAPayerTotal)} alerte />}
     </div>
   );
 }

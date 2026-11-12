@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { RotateCcw } from 'lucide-react';
+import ColumnSelector from '../../components/ColumnSelector';
 import DataGrid from '../../components/DataGrid';
 import Pagination from '../../components/Pagination';
 import FiltresDocumentsAchat from '../../components/achat/FiltresDocumentsAchat';
@@ -17,6 +18,7 @@ import { cheminExportDocumentsAchat, getDocumentsAchat, getReferentielsAchat, ge
 import { DEFAULT_PAGE_SIZE } from '../../lib/api';
 import { appliquerFiltres, etatDepuisUrl, filtresServeur, type EtatFiltresAchat } from '../../lib/documentsAchat';
 import { voisinsDe } from '../../lib/fenetreFiche';
+import { colonneLocale, useColonnesVisibles } from '../../lib/colonnes';
 import { pluriel } from '../../lib/format';
 import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
@@ -52,7 +54,15 @@ export default function DocumentsAchatList({ vue }: Readonly<{ vue: VueAchat }>)
 
   const filtres = filtresServeur(etat, recherche);
   const cle = JSON.stringify(filtres);
-  const colonnes = vue.colonnes.map((c) => COLONNES_ACHAT[c]);
+  const toutes = vue.colonnes.map((c) => COLONNES_ACHAT[c]);
+  const catalogue = toutes.map((c) => colonneLocale(c.nom, c.libelle, 'GENERAL', c.type ?? 'TEXTE'));
+  const masquees = new Set((vue.masquees ?? []).map((c) => COLONNES_ACHAT[c].nom));
+  const choix = useColonnesVisibles(`achat-${vue.cle}`, catalogue, {
+    ordre: catalogue.map((c) => c.nom),
+    poids: {},
+    ouverture: catalogue.filter((c) => !masquees.has(c.nom)).map((c) => c.nom),
+  });
+  const colonnes = toutes.filter((c) => choix.visibles.includes(c.nom));
 
   const referentiels = useApi(() => getReferentielsAchat(), [], 'achat-referentiels');
   const liste = useApi(() => getDocumentsAchat(filtres, { page, size: DEFAULT_PAGE_SIZE }), [cle, page], `achat-${vue.cle}`);
@@ -66,7 +76,9 @@ export default function DocumentsAchatList({ vue }: Readonly<{ vue: VueAchat }>)
 
   return (
     <PageListe titre={vue.titre}>
-      <EnteteListe titre={vue.titre} lignes={decompte} />
+      <EnteteListe titre={vue.titre} lignes={decompte}>
+        <ColumnSelector compact catalogue={choix.catalogueServi} visibles={choix.visibles} onBasculer={choix.basculer} onReinitialiser={choix.reinitialiser} estDefaut={choix.estDefaut} />
+      </EnteteListe>
       <FiltresDocumentsAchat
         vue={vue}
         etat={etat}
