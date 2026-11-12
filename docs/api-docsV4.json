@@ -28710,6 +28710,42 @@
         }
       }
     },
+    "/api/projet/lots/{id}/suivi": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Onglets Suivi et Retenues de la fiche d'un lot",
+        "operationId": "suivi",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Colonnes, avances, retenue de garantie et retenues du lot.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuiviLotDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}/demandes-achat": {
       "get": {
         "tags": [
@@ -53328,6 +53364,98 @@
           "typeId"
         ]
       },
+      "ColonneCoutDto": {
+        "type": "object",
+        "description": "Colonne « Coût prévisionnel » ou « Coût réel » de l'onglet Général (calculée côté serveur).",
+        "properties": {
+          "bordereau": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Bordereau (lignes du marché, ou facturées pour un lot terminé / le coût réel)."
+          },
+          "approvisionnement": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Approvisionnements (StockAmountToPay)."
+          },
+          "depassements": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Dépassements de quantité."
+          },
+          "travauxSupplementaires": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Travaux supplémentaires."
+          },
+          "fluctuations": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Fluctuations (révision des prix)."
+          },
+          "avenants": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Avenants (PrjClause), facturés pour un lot terminé / le coût réel."
+          },
+          "total": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Coût total, avenants compris (= coutPrevisionnelHT/TTC de la liste pour le prévisionnel)."
+          },
+          "retenueNonRemboursable": {
+            "type": "number",
+            "description": "Retenues non remboursables (compte prorata, assurances, retenues forfaitaires, pénalités)."
+          },
+          "remboursement": {
+            "type": "number",
+            "description": "Remboursement du compte prorata."
+          },
+          "regulation": {
+            "type": "number",
+            "description": "Régularisations et droits de timbre des pièces."
+          },
+          "netAPayer": {
+            "type": "number",
+            "description": "Net à payer = total TTC + remboursement + régulation − retenues non remboursables."
+          },
+          "regle": {
+            "type": "number",
+            "description": "Réglé : Σ des lignes de règlement des pièces du lot (règlements annulés compris)."
+          },
+          "reste": {
+            "type": "number",
+            "description": "Reste = net à payer − réglé."
+          }
+        }
+      },
+      "GeneralLotDto": {
+        "type": "object",
+        "description": "Onglet Général de la fiche lot : montants du marché, estimations et coûts (lecture seule).",
+        "properties": {
+          "marche": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Marché : devis retenu le plus récent (bons de commande validés si multi-fournisseur)."
+          },
+          "estimationBase": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Est. de base : forfait saisi (EstimatedPrice*Manual)."
+          },
+          "estimationConfidentielle": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Est. confidentielle : estimation calculée (= estimationHT/TVA/TTC de la fiche)."
+          },
+          "modificationBdpf": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Modification BDPF : marché ajusté − marché."
+          },
+          "marcheAjuste": {
+            "$ref": "#/components/schemas/TrioDto",
+            "description": "Marché ajusté : Σ des lignes du bordereau (bons de commande validés si multi-fournisseur)."
+          },
+          "coutPrevisionnel": {
+            "$ref": "#/components/schemas/ColonneCoutDto",
+            "description": "Coût prévisionnel (net, réglé, reste et total = ceux de la liste des lots)."
+          },
+          "coutReel": {
+            "$ref": "#/components/schemas/ColonneCoutDto",
+            "description": "Coût réel : factures − avoirs."
+          }
+        }
+      },
       "LotDetailDto": {
         "type": "object",
         "description": "Fiche d'un lot : les champs de la ligne de liste, plus estimation, taux, options, dates et onglets de la fiche.",
@@ -53685,6 +53813,10 @@
             "type": "string",
             "description": "Auteur de la dernière modification (UserUpdate)."
           },
+          "general": {
+            "$ref": "#/components/schemas/GeneralLotDto",
+            "description": "Onglet Général : marché, estimations, coûts prévisionnel et réel."
+          },
           "typeId": {
             "type": "string",
             "format": "uuid",
@@ -53798,6 +53930,14 @@
           "montantAssuranceTRC": {
             "type": "number",
             "description": "Montant d'assurance tous risques chantier (InsuranceTRCAmount), null si non saisi."
+          },
+          "avancementFacture": {
+            "type": "number",
+            "description": "Avancement facturé, fraction 0–1 (= avancement de la liste des lots)."
+          },
+          "avancementDecompte": {
+            "type": "number",
+            "description": "Avancement décompté, fraction 0–1 : (décomptes HT − dépassements) / bordereau HT."
           }
         }
       },
@@ -53988,6 +54128,24 @@
           "notes": {
             "type": "string",
             "description": "Autres notes du lot (PrjMarket.Notes)."
+          }
+        }
+      },
+      "TrioDto": {
+        "type": "object",
+        "description": "Montant HT, TVA et TTC, arrondis à 2 décimales.",
+        "properties": {
+          "ht": {
+            "type": "number",
+            "description": "Montant hors taxes."
+          },
+          "tva": {
+            "type": "number",
+            "description": "TVA (TTC − HT)."
+          },
+          "ttc": {
+            "type": "number",
+            "description": "Montant toutes taxes comprises."
           }
         }
       },
@@ -65893,6 +66051,308 @@
             "type": "string",
             "description": "Nom de couleur .NET du statut d'arrivée, null si absent.",
             "example": "LimeGreen"
+          }
+        }
+      },
+      "BlocAvanceDto": {
+        "type": "object",
+        "description": "Bloc d'avance de l'onglet Suivi ; pour l'avance sur décompte, taux, estimations et marché sont null.",
+        "properties": {
+          "taux": {
+            "type": "number",
+            "description": "Taux d'avance en pourcentage 0–100."
+          },
+          "estBase": {
+            "type": "number",
+            "description": "Avance sur l'Est. de base (taux × forfait TTC)."
+          },
+          "confidentielle": {
+            "type": "number",
+            "description": "Avance sur l'Est. confidentielle (taux × estimation TTC)."
+          },
+          "marche": {
+            "type": "number",
+            "description": "Avance du marché (taux × marché TTC ; avances des bons de commande si multi-fournisseur)."
+          },
+          "validee": {
+            "type": "number",
+            "description": "Validée : Σ TTC des pièces d'avance du lot."
+          },
+          "reglee": {
+            "type": "number",
+            "description": "Réglée : Σ des règlements de ces pièces."
+          },
+          "amortie": {
+            "type": "number",
+            "description": "Amortie dans les factures."
+          },
+          "resteAAmortir": {
+            "type": "number",
+            "description": "Reste à amortir = réglée − amortie, négatif conservé."
+          }
+        }
+      },
+      "BlocRetenueDto": {
+        "type": "object",
+        "description": "Bloc compte prorata, assurance décennale ou assurance TRC de l'onglet Retenues.",
+        "properties": {
+          "taux": {
+            "type": "number",
+            "description": "Taux en pourcentage 0–100."
+          },
+          "quotePart": {
+            "type": "number",
+            "description": "Quote-part saisie (montant d'assurance) ; null pour le compte prorata."
+          },
+          "estBase": {
+            "type": "number",
+            "description": "Retenue sur l'Est. de base (quote-part si saisie, sinon taux × forfait TTC)."
+          },
+          "confidentielle": {
+            "type": "number",
+            "description": "Retenue sur l'Est. confidentielle."
+          },
+          "marcheAjuste": {
+            "type": "number",
+            "description": "Retenue sur le marché ajusté."
+          },
+          "decompte": {
+            "$ref": "#/components/schemas/PartRetenueDto",
+            "description": "Côté décomptes."
+          },
+          "facture": {
+            "$ref": "#/components/schemas/PartRetenueDto",
+            "description": "Côté factures."
+          }
+        }
+      },
+      "ColonneRetenueDto": {
+        "type": "object",
+        "description": "Colonne droite de l'onglet Retenues, côté décomptes ou côté factures.",
+        "properties": {
+          "retenueForfaitaire": {
+            "type": "number",
+            "description": "Retenues forfaitaires."
+          },
+          "penaliteCompteProrata": {
+            "type": "number",
+            "description": "Pénalité compte prorata ; null côté décomptes."
+          },
+          "penaliteRg": {
+            "type": "number",
+            "description": "Pénalité sur retenue de garantie."
+          },
+          "blocageRg": {
+            "type": "number",
+            "description": "Blocage de la retenue de garantie (restitution bloquée)."
+          },
+          "penaliteAvance": {
+            "type": "number",
+            "description": "Pénalité d'avance (lot terminé seulement, sinon 0)."
+          },
+          "retenues": {
+            "type": "number",
+            "description": "Total des retenues non remboursables (= retenues de la colonne de l'onglet Suivi)."
+          }
+        }
+      },
+      "ColonneSuiviDto": {
+        "type": "object",
+        "description": "Colonne Décomptes, Factures ou Avoirs de l'onglet Suivi ; null = case absente de la colonne.",
+        "properties": {
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT."
+          },
+          "tva": {
+            "type": "number",
+            "description": "TVA."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC."
+          },
+          "approTTC": {
+            "type": "number",
+            "description": "Approvisionnements TTC ; null pour les avoirs."
+          },
+          "depassementsTTC": {
+            "type": "number",
+            "description": "Dépassements TTC ; null pour les avoirs."
+          },
+          "travauxSuppTTC": {
+            "type": "number",
+            "description": "Travaux supplémentaires TTC ; null pour les avoirs."
+          },
+          "fluctuationsTTC": {
+            "type": "number",
+            "description": "Fluctuations TTC ; null pour les avoirs."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Total TTC = montant + appro + travaux supp. + fluctuations ; null pour les avoirs."
+          },
+          "avenantsTTC": {
+            "type": "number",
+            "description": "Avenants TTC ; null pour les avoirs."
+          },
+          "coutTTC": {
+            "type": "number",
+            "description": "Coût TTC = total + avenants ; null pour les avoirs."
+          },
+          "retenues": {
+            "type": "number",
+            "description": "Retenues non remboursables ; null pour les avoirs."
+          },
+          "remboursement": {
+            "type": "number",
+            "description": "Remboursement du compte prorata ; null pour les avoirs."
+          },
+          "regulation": {
+            "type": "number",
+            "description": "Régularisations et timbres ; null pour les décomptes."
+          }
+        }
+      },
+      "ColonnesSuiviDto": {
+        "type": "object",
+        "description": "Les trois colonnes de l'onglet Suivi.",
+        "properties": {
+          "decomptes": {
+            "$ref": "#/components/schemas/ColonneSuiviDto",
+            "description": "Décomptes du lot."
+          },
+          "factures": {
+            "$ref": "#/components/schemas/ColonneSuiviDto",
+            "description": "Factures du lot (hors factures d'avenant)."
+          },
+          "avoirs": {
+            "$ref": "#/components/schemas/ColonneSuiviDto",
+            "description": "Avoirs du lot : seuls montantHT, tva, montantTTC et regulation sont renseignés."
+          }
+        }
+      },
+      "PartRetenueDto": {
+        "type": "object",
+        "description": "Retenue des avenants et retenue totale d'une colonne du bloc.",
+        "properties": {
+          "avenant": {
+            "type": "number",
+            "description": "Retenue des avenants."
+          },
+          "total": {
+            "type": "number",
+            "description": "Retenue des décomptes ou des factures."
+          }
+        }
+      },
+      "RetenueGarantieDto": {
+        "type": "object",
+        "description": "Bloc « Retenue de garantie » de l'onglet Suivi.",
+        "properties": {
+          "taux": {
+            "type": "number",
+            "description": "Taux de retenue de garantie en pourcentage 0–100."
+          },
+          "estBase": {
+            "type": "number",
+            "description": "Retenue sur l'Est. de base."
+          },
+          "confidentielle": {
+            "type": "number",
+            "description": "Retenue sur l'Est. confidentielle."
+          },
+          "marcheAjuste": {
+            "type": "number",
+            "description": "Retenue sur le marché ajusté."
+          },
+          "avenants": {
+            "type": "number",
+            "description": "Retenue des avenants."
+          },
+          "factures": {
+            "type": "number",
+            "description": "Retenue prévue : avenants + marché + dépassements et travaux supp. facturés."
+          },
+          "retenue": {
+            "type": "number",
+            "description": "Retenue effective sur les factures et avenants facturés."
+          },
+          "validee": {
+            "type": "number",
+            "description": "Validée : Σ TTC des pièces de restitution de garantie."
+          },
+          "restituee": {
+            "type": "number",
+            "description": "Restituée : Σ des règlements de ces pièces."
+          },
+          "resteARestituer": {
+            "type": "number",
+            "description": "Reste à restituer ; 0 si la restitution est bloquée."
+          },
+          "gestionnaireCompteProrata": {
+            "type": "boolean",
+            "description": "Vrai si ce lot gère le compte prorata du projet (PrjProject.ManageProrataPrjMarketId)."
+          },
+          "aRembourser": {
+            "type": "number",
+            "description": "Compte prorata à rembourser."
+          },
+          "remboursement": {
+            "type": "number",
+            "description": "Compte prorata remboursé (factures du projet)."
+          }
+        }
+      },
+      "RetenuesLotDto": {
+        "type": "object",
+        "description": "Onglet Retenues de la fiche lot.",
+        "properties": {
+          "compteProrata": {
+            "$ref": "#/components/schemas/BlocRetenueDto",
+            "description": "Compte prorata."
+          },
+          "assuranceDecennale": {
+            "$ref": "#/components/schemas/BlocRetenueDto",
+            "description": "Assurance décennale."
+          },
+          "assuranceTrc": {
+            "$ref": "#/components/schemas/BlocRetenueDto",
+            "description": "Assurance tous risques chantier."
+          },
+          "decompte": {
+            "$ref": "#/components/schemas/ColonneRetenueDto",
+            "description": "Colonne droite, côté décomptes."
+          },
+          "facture": {
+            "$ref": "#/components/schemas/ColonneRetenueDto",
+            "description": "Colonne droite, côté factures."
+          }
+        }
+      },
+      "SuiviLotDto": {
+        "type": "object",
+        "description": "Onglets Suivi et Retenues de la fiche lot (montants arrondis à 2 décimales, calculés côté serveur).",
+        "properties": {
+          "colonnes": {
+            "$ref": "#/components/schemas/ColonnesSuiviDto",
+            "description": "Colonnes Décomptes, Factures et Avoirs."
+          },
+          "avanceMarche": {
+            "$ref": "#/components/schemas/BlocAvanceDto",
+            "description": "Avance sur marché."
+          },
+          "avanceDecompte": {
+            "$ref": "#/components/schemas/BlocAvanceDto",
+            "description": "Avance sur décompte (taux, estimations et marché null)."
+          },
+          "retenueGarantie": {
+            "$ref": "#/components/schemas/RetenueGarantieDto",
+            "description": "Retenue de garantie."
+          },
+          "retenues": {
+            "$ref": "#/components/schemas/RetenuesLotDto",
+            "description": "Onglet Retenues."
           }
         }
       },
