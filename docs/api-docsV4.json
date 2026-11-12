@@ -41176,6 +41176,122 @@
         }
       }
     },
+    "/api/achat/fournisseurs/{fournisseurId}/position": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Lignes de solde d'un fournisseur dans une société (fenêtre « Ligne de solde » d'OMRAN)",
+        "description": "Mouvements visibles du fournisseur dans la société `societeId`, datés de `du` à `au` inclus (bornes absentes = ouvertes), triés par date puis code ; mêmes règles de mouvement et de visibilité que `GET /api/achat/fournisseurs/positions`. `societeIds`, `search` et `masquerResteZero` sont ignorés. Sans `du`, Σ des lignes au crédit − Σ des lignes au débit (`aPayer` pour une pièce, `reglement` pour un règlement) = `soldeFin` de la ligne de solde. Fournisseur inconnu, d'un autre type ou société non habilitée : liste vide.",
+        "operationId": "lignesPosition",
+        "parameters": [
+          {
+            "name": "fournisseurId",
+            "in": "path",
+            "description": "Fournisseur (CfgTier.id).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.id) de la ligne de solde.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; exclut les mouvements sans projet ; hors périmètre ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "societeIds",
+            "in": "query",
+            "description": "Sociétés (CfgCompany.id), paramètre répété ; une société non habilitée est ignorée.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Début de période (DocDate) inclus ; absent : solde début à 0.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Fin de période (DocDate) incluse ; absent : solde fin sur tout l'historique.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Nom du fournisseur, espaces et casse ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "masquerResteZero",
+            "in": "query",
+            "description": "Masque les fournisseurs dont le solde fin est entre −1 et 1 ; absent : vrai.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes ; vide si fournisseur inconnu ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LignePositionDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "societeId absent ou filtre mal formé (UUID, date)."
+          }
+        }
+      }
+    },
     "/api/achat/fournisseurs/soldes": {
       "get": {
         "tags": [
@@ -41327,13 +41443,210 @@
         }
       }
     },
+    "/api/achat/fournisseurs/positions": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Soldes fournisseurs comme OMRAN : solde début, net à payer, réglé, solde fin (non paginé)",
+        "description": "Écran OMRAN « Soldes fournisseurs » (`BuySupplierPositionView`, FEATURE-achat-impayes-soldes.md §3). Une ligne par (fournisseur, société) ayant au moins un mouvement visible ; seuls les tiers de type **Fournisseur** (FOU) sont comptés. Mouvements : factures et documents à régler payables (`CanBePayed`) au **crédit** pour leur net à payer, avoirs non financiers de la facture réajoutés ; avoirs payables au **débit** ; règlements du tiers (avec entité OMRAN et montant de base non nul, **annulés compris**), une part par ligne de règlement et une part **non rattachée** (base − Σ lignes, sans projet), au débit (`IsCredit = 0`) ou au crédit. Pièces et parts de règlement sont multipliées par le taux de ventilation projet de la pièce (`BuyVentilationExpense`, 1 sans ventilation).\n\n**Visibilité** : société habilitée **et** (projet habilité **ou** mouvement sans projet), aucune exemption de rôle ; une part non rattachée est visible dès que sa société l'est. `projetIds` exclut les mouvements sans projet ; un projet ou une société hors périmètre est ignoré (jamais 403).\n\n**Période** : `soldeDebut` = mouvements avant `du` (0 sans `du`) ; `netAPayer` / `regle` = crédits / débits de `du` à `au` inclus ; `soldeFin` = mouvements jusqu'à `au` (tout l'historique sans `au`). Sommes arrondies à 3 décimales. `masquerResteZero` (vrai par défaut) retire les lignes dont le solde fin est entre −1 et 1 inclus. Tri par nom de fournisseur puis code société ; `total` somme les lignes rendues.",
+        "operationId": "positions",
+        "parameters": [
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; exclut les mouvements sans projet ; hors périmètre ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "societeIds",
+            "in": "query",
+            "description": "Sociétés (CfgCompany.id), paramètre répété ; une société non habilitée est ignorée.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Début de période (DocDate) inclus ; absent : solde début à 0.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Fin de période (DocDate) incluse ; absent : solde fin sur tout l'historique.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Nom du fournisseur, espaces et casse ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "masquerResteZero",
+            "in": "query",
+            "description": "Masque les fournisseurs dont le solde fin est entre −1 et 1 ; absent : vrai.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes et total ; vides si aucun mouvement visible (société, projet).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PositionsFournisseursDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre mal formé (UUID, date)."
+          }
+        }
+      }
+    },
+    "/api/achat/fournisseurs/positions/export": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Export Excel des soldes fournisseurs, mêmes filtres et mêmes lignes",
+        "description": "Mêmes filtres et mêmes lignes que `GET /api/achat/fournisseurs/positions`, sans la ligne de total.",
+        "operationId": "exporterPositions",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; exclut les mouvements sans projet ; hors périmètre ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "societeIds",
+            "in": "query",
+            "description": "Sociétés (CfgCompany.id), paramètre répété ; une société non habilitée est ignorée.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Début de période (DocDate) inclus ; absent : solde début à 0.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Fin de période (DocDate) incluse ; absent : solde fin sur tout l'historique.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Nom du fournisseur, espaces et casse ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "masquerResteZero",
+            "in": "query",
+            "description": "Masque les fournisseurs dont le solde fin est entre −1 et 1 ; absent : vrai.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille DONNEES.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre mal formé ou format autre que xlsx."
+          }
+        }
+      }
+    },
     "/api/achat/documents": {
       "get": {
         "tags": [
           "Achat"
         ],
         "summary": "Liste paginée des pièces d'achat visibles (société et projet habilités)",
-        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `societeIds` est de même croisé avec les sociétés habilitées : une société non habilitée est ignorée, et si aucune ne reste la page est vide (jamais « aucun filtre »). Une liste vide ou un paramètre vide (`societeIds=`) = pas de filtre. `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `modules` se combine par ET avec `moduleProjet`. `montantDe` / `montantA` sont inclus et portent sur `AmountToPay` (`montantDe > montantA` = page vide). `du` / `au` (inclus) portent sur la colonne de `champDate` (`DATE_PIECE` = `DocDate`, `ECHEANCE` = `MaturityDate`) ; `dateRenseignee=true` garde les pièces dont cette colonne est renseignée et ignore `du` / `au`. `search` cherche, sans tenir compte de la casse, dans le code, la référence, la référence bureau d'ordre, la description, les notes, le fournisseur, le projet (code, description), le lot (code, description) et le dossier de groupement.\n\n**Bons de commande** (quelles que soient les natures demandées, Documents Achats compris) : comme OMRAN (`OrderView.cs:803`), seuls les BC dont le déclencheur (`CfgTierTriggerId`) est le personnel du compte (`AdmUser.CfgEmployeeId`) sont rendus, sauf droit OMRAN `Yes.Buy.Front.Order.OrderList.WithNoRestriction` (l'Administrateur l'a) ; un compte sans personnel n'est pas restreint. Les autres natures ne sont jamais restreintes. Même règle pour les totaux, l'export et la fiche.\n\n**À clôturer** (`aCloturer`) : bon de commande dont le HT est inférieur ou égal à la Σ des HT de ses factures (`BuyOrderId`), et dont le statut n'est ni « Terminé avec succès » ni « Terminé avec échec » (une annulation alerte) ; faux sans statut et pour toute autre nature.\n\nTri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode`, `typeLotLibelle`, `moduleLibelle`, `societeNom`, `archive`, `comptabilise`, `referenceBureauOrdre`, `personneAContacter`, `dossierGroupement`, `aCloturer`, `deviseCode`, `categories`, `dateAlerte` ; une autre propriété répond 400.\n\n**Agrégats des bons de commande** (`agregats`, objet `AgregatsBonCommandeDto`, `null` hors bon de commande) : calculés sur les pièces liées par `BuyOrderId` (voir le schéma). Clés de tri en plus, lues dans `agregats` : `factureHT`, `factureTTC`, `factureNetAPayer`, `livreHT`, `livreTTC`, `livreNetAPayer`, `resteALivrerHT`, `resteALivrerTTC`, `resteALivrerNetAPayer`, `avance`, `avanceTauxPrevu`, `avanceTauxEffectif`, `avanceAmortie`, `avanceRegle`, `avanceReste`, `avanceResteAAmortir`, `garantieRetenue`, `garantieRestituee`, `garantieReste`, `regle`, `resteAPayerSurFacture`, `resteAPayerTotal`, `bonsLivraisonCodes`, `facturesCodes`, `devisCode` ; les pièces qui ne sont pas des bons de commande restent en fin de liste dans les deux sens.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
+        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `societeIds` est de même croisé avec les sociétés habilitées : une société non habilitée est ignorée, et si aucune ne reste la page est vide (jamais « aucun filtre »). Une liste vide ou un paramètre vide (`societeIds=`) = pas de filtre. `nonSoldes=true` garde les pièces dont le reste arrondi à 2 décimales est strictement positif (`ROUND(reste, 2) > 0`, comme les impayés OMRAN) ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `modules` se combine par ET avec `moduleProjet`. `montantDe` / `montantA` sont inclus et portent sur `AmountToPay` (`montantDe > montantA` = page vide). `du` / `au` (inclus) portent sur la colonne de `champDate` (`DATE_PIECE` = `DocDate`, `ECHEANCE` = `MaturityDate`) ; `dateRenseignee=true` garde les pièces dont cette colonne est renseignée et ignore `du` / `au`. `search` cherche, sans tenir compte de la casse, dans le code, la référence, la référence bureau d'ordre, la description, les notes, le fournisseur, le projet (code, description), le lot (code, description) et le dossier de groupement.\n\n**Bons de commande** (quelles que soient les natures demandées, Documents Achats compris) : comme OMRAN (`OrderView.cs:803`), seuls les BC dont le déclencheur (`CfgTierTriggerId`) est le personnel du compte (`AdmUser.CfgEmployeeId`) sont rendus, sauf droit OMRAN `Yes.Buy.Front.Order.OrderList.WithNoRestriction` (l'Administrateur l'a) ; un compte sans personnel n'est pas restreint. Les autres natures ne sont jamais restreintes. Même règle pour les totaux, l'export et la fiche.\n\n**À clôturer** (`aCloturer`) : bon de commande dont le HT est inférieur ou égal à la Σ des HT de ses factures (`BuyOrderId`), et dont le statut n'est ni « Terminé avec succès » ni « Terminé avec échec » (une annulation alerte) ; faux sans statut et pour toute autre nature.\n\nTri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode`, `typeLotLibelle`, `moduleLibelle`, `societeNom`, `archive`, `comptabilise`, `referenceBureauOrdre`, `personneAContacter`, `dossierGroupement`, `aCloturer`, `deviseCode`, `categories`, `dateAlerte` ; une autre propriété répond 400.\n\n**Agrégats des bons de commande** (`agregats`, objet `AgregatsBonCommandeDto`, `null` hors bon de commande) : calculés sur les pièces liées par `BuyOrderId` (voir le schéma). Clés de tri en plus, lues dans `agregats` : `factureHT`, `factureTTC`, `factureNetAPayer`, `livreHT`, `livreTTC`, `livreNetAPayer`, `resteALivrerHT`, `resteALivrerTTC`, `resteALivrerNetAPayer`, `avance`, `avanceTauxPrevu`, `avanceTauxEffectif`, `avanceAmortie`, `avanceRegle`, `avanceReste`, `avanceResteAAmortir`, `garantieRetenue`, `garantieRestituee`, `garantieReste`, `regle`, `resteAPayerSurFacture`, `resteAPayerTotal`, `bonsLivraisonCodes`, `facturesCodes`, `devisCode` ; les pièces qui ne sont pas des bons de commande restent en fin de liste dans les deux sens.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
         "operationId": "liste",
         "parameters": [
           {
@@ -41428,7 +41741,7 @@
           {
             "name": "nonSoldes",
             "in": "query",
-            "description": "true : pièces dont le reste à régler dépasse 0,05 (trop réglées exclues).",
+            "description": "true : pièces dont le reste arrondi à 2 décimales est strictement positif (trop réglées exclues).",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -41763,7 +42076,7 @@
           {
             "name": "nonSoldes",
             "in": "query",
-            "description": "true : pièces dont le reste à régler dépasse 0,05 (trop réglées exclues).",
+            "description": "true : pièces dont le reste arrondi à 2 décimales est strictement positif (trop réglées exclues).",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -42028,7 +42341,7 @@
           {
             "name": "nonSoldes",
             "in": "query",
-            "description": "true : pièces dont le reste à régler dépasse 0,05 (trop réglées exclues).",
+            "description": "true : pièces dont le reste arrondi à 2 décimales est strictement positif (trop réglées exclues).",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -74523,6 +74836,76 @@
           }
         }
       },
+      "LignePositionDto": {
+        "type": "object",
+        "description": "Ligne de la fenêtre « Ligne de solde » d'OMRAN : une pièce ou une part de règlement du fournisseur.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pièce (BuyDocument.id) ou règlement (StlSettlement.id)."
+          },
+          "type": {
+            "type": "string",
+            "description": "`INVOICE`, `DOCUMENT_TO_PAY` (crédit), `REFUND` (avoir, débit), `REGLEMENT` (ligne de règlement sur une pièce) ou\n`REGLEMENT_NON_RATTACHE` (part d'un règlement non affectée à une pièce : `AmountBase` − Σ lignes, sans projet)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pièce ou du règlement."
+          },
+          "description": {
+            "type": "string",
+            "description": "Référence, description et notes, séparées par un espace."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce ou du règlement (DocDate)."
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Pièce : `MaturityDate`. Règlement : date de pointage (`SettlementDate`), sinon échéance (`EcheanceDate`)."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet de la pièce (ou de la pièce réglée) ; null pour une part non rattachée."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet (PrjProject.Code)."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Pièce : (TTC + stock + fluctuations + prorata) × taux de projet ; null pour un règlement."
+          },
+          "retenues": {
+            "type": "number",
+            "description": "Pièce : aPayer − montantTTC ; null pour un règlement."
+          },
+          "aPayer": {
+            "type": "number",
+            "description": "Pièce : montant compté dans la position (net à payer × taux de projet, avoirs non financiers réajoutés pour une facture) ;\nnull pour un règlement. Σ (crédits − débits) des lignes sans `du` = `soldeFin` du fournisseur."
+          },
+          "base": {
+            "type": "number",
+            "description": "Règlement : montant de base (AmountBase) de la part ; null pour une pièce."
+          },
+          "ras": {
+            "type": "number",
+            "description": "Règlement : retenue à la source (AmountRS) de la part ; null pour une pièce."
+          },
+          "reglement": {
+            "type": "number",
+            "description": "Règlement : montant de la part, au débit ou au crédit ; null pour une pièce."
+          },
+          "credit": {
+            "type": "boolean",
+            "description": "Vrai : au crédit du fournisseur (augmente le solde) ; faux : au débit."
+          }
+        }
+      },
       "SoldeFournisseurDto": {
         "type": "object",
         "description": "Solde d'un fournisseur dans une société : factures et documents à régler visibles, avoirs exclus.",
@@ -74595,6 +74978,63 @@
           "total": {
             "$ref": "#/components/schemas/SoldeFournisseurDto",
             "description": "Total des lignes ; fournisseurId, fournisseurNom et societeCode nuls."
+          }
+        }
+      },
+      "PositionFournisseurDto": {
+        "type": "object",
+        "description": "Position d'un fournisseur dans une société sur les mouvements visibles ; calcul PositionFournisseur.",
+        "properties": {
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.id, type FOU) ; null sur le total."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur (CfgTier.Description) ; null sur le total."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompany.id) ; null sur le total."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société (CfgCompany.Code) ; null sur le total."
+          },
+          "soldeDebut": {
+            "type": "number",
+            "description": "Σ crédits − Σ débits des mouvements datés **avant** `du`, chaque somme arrondie à 3 décimales. Vaut 0 quand `du` est\nabsent (comme OMRAN : sans début de période, aucun solde de début)."
+          },
+          "netAPayer": {
+            "type": "number",
+            "description": "Σ des crédits datés de `du` à `au` inclus (borne absente = ouverte) : factures et documents à régler au net à payer (avoirs\nnon financiers réajoutés), règlements au crédit. Les avoirs ne sont pas soustraits ici (ils sont au débit)."
+          },
+          "regle": {
+            "type": "number",
+            "description": "Σ des débits de la même fenêtre : règlements au débit (rattachés ou non à une pièce, annulés compris) et avoirs."
+          },
+          "soldeFin": {
+            "type": "number",
+            "description": "Σ crédits − Σ débits des mouvements datés jusqu'à `au` inclus, ou de **tout l'historique** si `au` est absent. N'est pas\n`soldeDebut + netAPayer − regle` quand `du` est absent."
+          }
+        }
+      },
+      "PositionsFournisseursDto": {
+        "type": "object",
+        "description": "Soldes fournisseurs comme OMRAN (BuySupplierPositionView) : une ligne par (fournisseur, société) et le total.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes triées par nom de fournisseur puis code société.",
+            "items": {
+              "$ref": "#/components/schemas/PositionFournisseurDto"
+            }
+          },
+          "total": {
+            "$ref": "#/components/schemas/PositionFournisseurDto",
+            "description": "Somme des lignes rendues ; fournisseurId, societeId et societeCode nuls."
           }
         }
       },

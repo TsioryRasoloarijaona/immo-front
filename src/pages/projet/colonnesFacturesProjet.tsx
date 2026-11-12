@@ -9,7 +9,11 @@ export const COLONNES_FACTURES: ColonneGrille<DocumentAchatListItemDto>[] = [
   { nom: 'code', libelle: 'Code', largeur: 8, classe: 'font-medium text-foreground' },
   { nom: 'dateDocument', libelle: 'Date', type: 'DATE', largeur: 7 },
   { nom: 'dateEcheance', libelle: 'Échéance', type: 'DATE', largeur: 7 },
+  { nom: 'dateAlerte', libelle: 'Alerte', type: 'DATE', largeur: 7 },
   { nom: 'fournisseurNom', libelle: 'Fournisseur', largeur: 12 },
+  { nom: 'typeLotLibelle', libelle: 'Type', largeur: 8 },
+  { nom: 'categories', libelle: 'Catégorie', largeur: 8 },
+  { nom: 'deviseCode', libelle: 'Devise', largeur: 5 },
   { nom: 'projetCode', libelle: 'Projet', largeur: 7 },
   { nom: 'lotCode', libelle: 'Lot', largeur: 6 },
   {
@@ -38,4 +42,4 @@ export const COLONNES_FACTURES: ColonneGrille<DocumentAchatListItemDto>[] = [
 ];
 
 /** Onglet « Factures » d'un lot : le projet, le lot et le fournisseur sont déjà dans l'en-tête de la fiche. */
-export const COLONNES_FACTURES_LOT = COLONNES_FACTURES.filter((c) => !['projetCode', 'lotCode', 'fournisseurNom', 'dateEcheance'].includes(c.nom));
+export const COLONNES_FACTURES_LOT = COLONNES_FACTURES.filter((c) => !['projetCode', 'lotCode', 'fournisseurNom', 'dateEcheance', 'dateAlerte', 'typeLotLibelle', 'categories', 'deviseCode'].includes(c.nom));

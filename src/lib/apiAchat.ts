@@ -6,9 +6,10 @@ import type {
   DocumentAchatDetailDto,
   DocumentAchatListItemDto,
   FiltresDocumentsAchat,
-  FiltresSoldesFournisseurs,
+  FiltresPositionsFournisseurs,
+  LignePositionDto,
+  PositionsFournisseursDto,
   ReferentielsAchatDto,
-  SoldesFournisseursDto,
   TotauxDocumentsAchatDto,
   TransitionPieceAchatRequest,
 } from '../types/achat';
@@ -50,20 +51,27 @@ export function cheminExportDocumentsAchat(): string {
   return `${DOCUMENTS}/export`;
 }
 
-// FEATURE-achat-impayes.md §4 : totaux de la liste, solde par fournisseur et société.
-const SOLDES = `${RACINE}/fournisseurs/soldes`;
-
+// FEATURE-achat-impayes.md §4 : totaux de la liste.
 /** Mêmes filtres que la liste, toutes pages ; tout à zéro sans projet habilité. */
 export function getTotauxDocumentsAchat(filtres: FiltresDocumentsAchat = {}): Promise<TotauxDocumentsAchatDto> {
   return request('GET', `${DOCUMENTS}/totaux`, { query: { ...filtres } });
 }
 
-/** Non paginé ; lignes vides sans projet habilité. */
-export function getSoldesFournisseurs(filtres: FiltresSoldesFournisseurs = {}): Promise<SoldesFournisseursDto> {
-  return request('GET', SOLDES, { query: { ...filtres } });
+// FEATURE-achat-impayes-soldes.md §5 : soldes fournisseurs comme OMRAN et fenêtre « Ligne de solde ».
+const POSITIONS = `${RACINE}/fournisseurs/positions`;
+
+/** Non paginé ; lignes vides sans mouvement visible. */
+export function getPositionsFournisseurs(filtres: FiltresPositionsFournisseurs = {}): Promise<PositionsFournisseursDto> {
+  return request('GET', POSITIONS, { query: { ...filtres } });
 }
 
-/** Chemin de l'export `.xlsx` du solde fournisseurs (mêmes filtres). */
-export function cheminExportSoldesFournisseurs(): string {
-  return `${SOLDES}/export`;
+/** Chemin de l'export `.xlsx` des soldes fournisseurs (mêmes filtres). */
+export function cheminExportPositionsFournisseurs(): string {
+  return `${POSITIONS}/export`;
+}
+
+/** Mouvements du fournisseur dans la société, de `du` à `au` ; `societeIds`, `search`, `masquerResteZero` ignorés. */
+export function getLignesPositionFournisseur(fournisseurId: UUID, societeId: UUID,
+  filtres: FiltresPositionsFournisseurs = {}): Promise<LignePositionDto[]> {
+  return request('GET', `${RACINE}/fournisseurs/${fournisseurId}/position`, { query: { ...filtres, societeId } });
 }
