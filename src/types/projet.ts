@@ -15,13 +15,27 @@ export interface StatutLotProjetDto {
   ordre: number | null;
   typeCode: string | null;
   entiteCode: string | null;
+  /** Nom .NET brut de `StrStatus.ColorName` (ex. `LimeGreen`). */
+  couleur: string | null;
+  genre: GenreLot | null;
 }
+
+/** Genre d'un lot (`StrEntityId`), FEATURE-lots-liste-parite.md. */
+export type GenreLot = 'ENTREPRENEURS' | 'FOURNISSEURS' | 'ADMINISTRATION' | 'MAITRES_OEUVRE' | 'CONCESSIONNAIRES';
 
 export interface ProjetFiltreDto {
   id: UUID;
   code: string | null;
   description: string | null;
   nbLots: number;
+  /** Entité juridique (`CfgCompany`) du projet. */
+  entiteId: UUID | null;
+}
+
+export interface EntiteFiltreDto {
+  id: UUID;
+  code: string | null;
+  libelle: string | null;
 }
 
 export interface ReferentielsProjetDto {
@@ -31,6 +45,41 @@ export interface ReferentielsProjetDto {
   statutsFacture: ElementReferentielProjetDto[];
   categories: ElementReferentielProjetDto[];
   fournisseurs: ElementReferentielProjetDto[];
+  entites: EntiteFiltreDto[];
+}
+
+/** `GET /api/projet/lots/totaux` : Σ des lignes de la liste, toutes pages. */
+export interface TotauxLotsDto {
+  nombreLots: number;
+  coutPrevisionnelHT: number;
+  coutPrevisionnelTTC: number;
+  coutPrevisionnelNetAPayer: number;
+  coutPrevisionnelRegle: number;
+  coutPrevisionnelReste: number;
+}
+
+/** Corps de `POST /api/projet/lots`. */
+export interface CreerLotRequest {
+  genre: GenreLot;
+  description: string;
+  projetId: UUID;
+  categorieId: UUID;
+  typeId: UUID;
+  fournisseurId?: UUID | null;
+  deviseId?: UUID | null;
+}
+
+export interface TransitionLotDto {
+  id: UUID;
+  libelle: string | null;
+  statutArriveeId: UUID | null;
+  statutArriveeLibelle: string | null;
+  statutArriveeCouleur: string | null;
+}
+
+export interface ExecutionTransitionLotDto {
+  transitionId: UUID;
+  notes?: string | null;
 }
 
 export interface LotListItemDto {
@@ -68,6 +117,17 @@ export interface LotListItemDto {
   totalFacture: number | null;
   totalRegle: number | null;
   resteARegler: number | null;
+  /** Fraction 0–1 réalisée du marché HT (vue OMRAN `Achievement`). */
+  avancement: number;
+  coutPrevisionnelHT: number;
+  coutPrevisionnelTTC: number;
+  coutPrevisionnelNetAPayer: number;
+  /** Règlements annulés compris, comme la vue OMRAN. */
+  coutPrevisionnelRegle: number;
+  coutPrevisionnelReste: number;
+  statutCouleur: string | null;
+  genre: GenreLot | null;
+  notes: string | null;
 }
 
 export interface LotDetailDto extends LotListItemDto {
@@ -374,7 +434,9 @@ export interface EnregistrerDecompteRequest {
 /** Filtres de `GET /api/projet/lots` ; `projetIds` vide = tous les projets visibles. */
 export interface FiltresLots {
   projetIds?: UUID[];
-  statutId?: UUID;
+  /** Aucun = tous les statuts. */
+  statutIds?: UUID[];
+  entiteId?: UUID;
   typeId?: UUID;
   fournisseurId?: UUID;
   search?: string;

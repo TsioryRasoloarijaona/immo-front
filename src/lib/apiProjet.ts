@@ -3,7 +3,9 @@ import { request, withPageable } from './api';
 import type { PageDto, Pageable, UUID } from '../types';
 import type {
   BordereauDto,
+  CreerLotRequest,
   DecompteDetailDto,
+  ExecutionTransitionLotDto,
   DecompteListItemDto,
   EnregistrerDecompteRequest,
   FiltresDecomptes,
@@ -13,6 +15,8 @@ import type {
   LotListItemDto,
   ReferentielsProjetDto,
   TotauxDecomptesDto,
+  TotauxLotsDto,
+  TransitionLotDto,
 } from '../types/projet';
 
 const RACINE = '/api/projet';
@@ -25,6 +29,30 @@ export function getReferentielsProjet(): Promise<ReferentielsProjetDto> {
 
 export function listLots(filtres: FiltresLots = {}, pageable?: Pageable): Promise<PageDto<LotListItemDto>> {
   return request('GET', LOTS, { query: withPageable({ ...filtres }, pageable) });
+}
+
+// FEATURE-lots-liste-parite.md : totaux, export, création, suppression, transitions (403 droit OMRAN, 409 lot cité).
+export function getTotauxLots(filtres: FiltresLots = {}): Promise<TotauxLotsDto> {
+  return request('GET', `${LOTS}/totaux`, { query: { ...filtres } });
+}
+
+/** Chemin de l'export xlsx, pour `useExportListe` (mêmes filtres + `sort`). */
+export const EXPORT_LOTS = `${LOTS}/export`;
+
+export function creerLot(corps: CreerLotRequest): Promise<LotDetailDto> {
+  return request('POST', LOTS, { body: corps });
+}
+
+export function supprimerLot(id: UUID): Promise<void> {
+  return request('DELETE', `${LOTS}/${id}`);
+}
+
+export function getTransitionsLot(id: UUID): Promise<TransitionLotDto[]> {
+  return request('GET', `${LOTS}/${id}/transitions`);
+}
+
+export function executerTransitionLot(id: UUID, corps: ExecutionTransitionLotDto): Promise<LotListItemDto> {
+  return request('POST', `${LOTS}/${id}/transition`, { body: corps });
 }
 
 export function getLot(id: UUID): Promise<LotDetailDto> {
