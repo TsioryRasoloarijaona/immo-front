@@ -71,9 +71,9 @@ export function champsDepuis(lot: LotDetailDto): ChampsLot {
     tauxRetenueGarantiePct: lot.tauxRetenueGarantie,
     tauxCompteProrataPct: lot.tauxCompteProrata,
     tauxAssuranceDECPct: lot.tauxAssuranceDEC,
-    montantAssuranceDEC: null, // absent du détail : saisie seulement
+    montantAssuranceDEC: lot.montantAssuranceDEC,
     tauxAssuranceTRCPct: lot.tauxAssuranceTRC,
-    montantAssuranceTRC: null,
+    montantAssuranceTRC: lot.montantAssuranceTRC,
     tvaDefautPct: lot.tvaDefaut,
     delaiPaiementJours: lot.delaiPaiementJours,
     montantForfaitaireHT: lot.montantForfaitaireHT,
