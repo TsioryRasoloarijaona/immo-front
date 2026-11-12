@@ -42,7 +42,8 @@ export default function DialogueLignesPosition({ position, filtres, onClose }: R
             {lignes.data.length === 0 ? (
               <EmptyState title="Aucun mouvement sur la période" />
             ) : (
-              <DataGrid cleOrdre="achat-position-lignes" rows={lignes.data} colonnes={COLONNES_LIGNES_POSITION} bandeauRegroupement={false} />
+              // un règlement ventilé renvoie plusieurs lignes au même id : clé de ligne rendue unique
+              <DataGrid cleOrdre="achat-position-lignes" rows={lignes.data.map((l, i) => ({ ...l, id: `${l.id}-${i}` }))} colonnes={COLONNES_LIGNES_POSITION} bandeauRegroupement={false} />
             )}
           </div>
         )}
