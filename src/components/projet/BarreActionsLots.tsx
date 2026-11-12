@@ -1,4 +1,4 @@
-import { ArrowRightLeft, Download, Eraser, HardHat, Landmark, Pencil, Plug, RefreshCw, Ruler, Trash2, Truck, type LucideIcon } from 'lucide-react';
+import { ArrowRightLeft, Copy, Download, Eraser, HardHat, Landmark, Pencil, Plug, RefreshCw, Ruler, Trash2, Truck, type LucideIcon } from 'lucide-react';
 import BarreIcones from '../BarreIcones';
 import { Button } from '../ui/button';
 import { droitCreation, GENRES_LOT, type DroitLot } from '../../lib/genresLot';
@@ -24,6 +24,7 @@ export default function BarreActionsLots({
   onCreer,
   onEditer,
   onTransition,
+  onCopier,
   onSupprimer,
 }: Readonly<{
   refus: ReadonlySet<DroitLot>;
@@ -36,6 +37,7 @@ export default function BarreActionsLots({
   onCreer: (genre: GenreLot) => void;
   onEditer: () => void;
   onTransition: () => void;
+  onCopier: () => void;
   onSupprimer: () => void;
 }>) {
   return (
@@ -62,6 +64,9 @@ export default function BarreActionsLots({
       </Button>
       <Button type="button" variant="ghost" size="sm" disabled={!ligneSelectionnee || refus.has('transition')} onClick={onTransition}>
         <ArrowRightLeft /> Changer de statut
+      </Button>
+      <Button type="button" variant="ghost" size="sm" disabled={!ligneSelectionnee} onClick={onCopier}>
+        <Copy /> Copier
       </Button>
       <Button type="button" variant="ghost" size="sm" disabled={!ligneSelectionnee || refus.has('supprimer')} onClick={onSupprimer}>
         <Trash2 /> Supprimer

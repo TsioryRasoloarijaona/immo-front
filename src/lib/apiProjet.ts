@@ -5,6 +5,7 @@ import type {
   BordereauDto,
   CreerLotRequest,
   DecompteDetailDto,
+  DemandeAchatLotDto,
   ExecutionTransitionLotDto,
   DecompteListItemDto,
   EnregistrerDecompteRequest,
@@ -13,6 +14,7 @@ import type {
   LigneDecompteRechargee,
   LotDetailDto,
   LotListItemDto,
+  ModifierLotRequest,
   ReferentielsProjetDto,
   TotauxDecomptesDto,
   TotauxLotsDto,
@@ -57,6 +59,19 @@ export function executerTransitionLot(id: UUID, corps: ExecutionTransitionLotDto
 
 export function getLot(id: UUID): Promise<LotDetailDto> {
   return request('GET', `${LOTS}/${id}`);
+}
+
+// FEATURE-lot-fiche-parite.md : enregistrer la fiche (404 → 403 → 409 → 400), copier, demandes d'achat.
+export function modifierLot(id: UUID, corps: Partial<ModifierLotRequest>): Promise<LotDetailDto> {
+  return request('PATCH', `${LOTS}/${id}`, { body: corps });
+}
+
+export function copierLot(id: UUID): Promise<LotDetailDto> {
+  return request('POST', `${LOTS}/${id}/copie`);
+}
+
+export function getDemandesAchatLot(id: UUID): Promise<DemandeAchatLotDto[]> {
+  return request('GET', `${LOTS}/${id}/demandes-achat`);
 }
 
 export function getBordereauLot(id: UUID): Promise<BordereauDto> {

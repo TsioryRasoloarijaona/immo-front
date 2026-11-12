@@ -11,7 +11,7 @@ import BoiteStatutsLots from '../../components/projet/BoiteStatutsLots';
 import ModaleCreationLot from '../../components/projet/ModaleCreationLot';
 import ModaleTransitionLot from '../../components/projet/ModaleTransitionLot';
 import { ApiError, DEFAULT_PAGE_SIZE } from '../../lib/api';
-import { EXPORT_LOTS, getTotauxLots, listLots, supprimerLot } from '../../lib/apiProjet';
+import { copierLot, EXPORT_LOTS, getTotauxLots, listLots, supprimerLot } from '../../lib/apiProjet';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { useConfirm } from '../../lib/confirmContext';
 import { formatNumber, pluriel } from '../../lib/format';
@@ -127,6 +127,17 @@ export default function LotsList() {
     }
   }
 
+  async function copier() {
+    if (!ligne) return;
+    setMessage(null);
+    try {
+      lotCree((await copierLot(ligne.id)).id);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 403) setMessage(MESSAGE_SANS_DROIT);
+      else setMessage(err instanceof Error ? err.message : 'La copie a échoué.');
+    }
+  }
+
   function lotCree(id: string) {
     setCreation(null);
     void navigate(`/projet/lots/${id}`);
@@ -160,6 +171,7 @@ export default function LotsList() {
           onCreer={(genre) => (refus.has(droitCreation(genre)) ? undefined : setCreation(genre))}
           onEditer={() => ligne && void navigate(`/projet/lots/${ligne.id}`)}
           onTransition={() => setTransition(true)}
+          onCopier={() => void copier()}
           onSupprimer={() => void supprimer()}
         />
         <div className="ml-auto pt-2 pr-3">

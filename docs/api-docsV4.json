@@ -8643,6 +8643,46 @@
         }
       }
     },
+    "/api/projet/lots/{id}/copie": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Copier un lot : en-tête, lignes de bordereau et leurs groupes",
+        "description": "Copie un lot visible : nouveau code de la séquence « Market » (incrémentée jusqu'à un code libre), description suivie de\n« (Copie) », lot ouvert, statut de départ du genre (statut « Nouveau » de plus petit ordre), ligne d'historique\n« Création ». Comme OMRAN, le bordereau de la source (lignes et groupes) devient le bordereau **estimatif** de la copie :\nl'estimatif pour un lot multi-fournisseur ; sinon le définitif, ou l'estimatif s'il n'a aucune ligne. Le définitif de la\ncopie est vide. Hors multi-fournisseur, fournisseur, dates d'appel d'offres et de marché et résiliation sont vidés, et\nl'estimation manuelle reçoit l'estimation de la source (Σ estimatif, sinon forfait). Prévisions, retenues et lignes de\nstock ne sont pas copiées. Droit `toolNew` (Entrepreneurs) ou `toolNewMultiSupplier` (autres genres) ;\nordre des refus : 403 si l'appelant n'a aucun des deux, 404, puis 403 si le droit du genre du lot manque.",
+        "operationId": "copier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Copie créée ; en-tête Location = sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit de création du genre du lot absent (aucun des deux : avant le 404)."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
     "/api/projet/decomptes/{id}/recalcul": {
       "post": {
         "tags": [
@@ -18799,6 +18839,131 @@
         }
       }
     },
+    "/api/projet/lots/{id}": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Fiche d'un lot",
+        "description": "Fiche d'un lot : les champs de la liste, plus le montant forfaitaire saisi, l'estimation (même calcul que la liste :\nΣ `Quantity × UnitPriceHT × (1 + FODECRatio)` du bordereau estimatif, TTC = HT × (1 + `VatRatio`) par ligne, TVA = TTC − HT ;\nsinon le forfaitaire HT / TTC), la retenue de garantie et l'avance théoriques (marché TTC × taux), les taux en pourcentage (0–100), les\noptions et les dates d'appel d'offres et de chantier (`null` si non saisies). Champs des onglets de la fiche OMRAN\n(`FEATURE-lot-fiche-parite.md` E1) : devise, catégorie, « Est. de base » (`dateDebutBase`, `delaiBaseJours`,\n`dateFinBase`), les 12 dates, les options (ratios en pourcentage 0–100), la résiliation et la description détaillée.\nL'avancement décompté de l'en-tête est `avancement` (fraction 0–1) de la ligne de liste.",
+        "operationId": "lot",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche du lot.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Supprimer un lot",
+        "description": "Supprime un lot visible qui n'est cité nulle part : son bordereau et ses autres enfants partent avec lui. Un lot cité par un\ndécompte, une pièce d'achat ou toute autre référence répond **409** et reste en place. Ordre des refus : 403, 404, 409.",
+        "operationId": "supprimer_10",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Lot et enfants en cascade supprimés."
+          },
+          "403": {
+            "description": "Droit OMRAN MarketMonitoringList.toolDelete absent, même sur un id inconnu."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          },
+          "409": {
+            "description": "Lot utilisé ailleurs (décomptes, achats…)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Enregistrer la fiche d'un lot (champ absent = inchangé, null = vidé)",
+        "description": "Enregistre la fiche (`FEATURE-lot-fiche-parite.md` E6). Le corps ne contient que les champs à changer : **absent =\ninchangé**, `null` explicite = vidé (400 pour `description`, `categorieId`, `typeId`). Taux et ratios en pourcentage 0–100\n(10 → 0,1 en base). Tout autre champ (code, genre, statut, projet, multi-fournisseur, dates prévisionnelles, montants\ncalculés) répond **400** et rien n'est écrit. Ordre des refus : **404** (lot invisible) → **403** (estimation manuelle\nchangée sans le droit `Yes.Prj.Front.Market.MarketMonitoring.ManualEstimationAdministrator` : `montantForfaitaireHT/TTC`,\n`dateDebutBase`, `delaiBaseJours`, `dateFinBase` ; renvoyer la valeur stockée n'est pas un changement) → **409** (statut\ndu lot à `StrStatus.IsReadOnly = 1`) → **400** (contrôles). Chaîne des 12 dates, dans l'ordre lancement AO, retrait du\ndossier, échéance de remise des offres, report AO, ouverture des plis, rapport de dépouillement, adjudication, signature du\nmarché, ordre de service, lancement des travaux, achèvement des travaux, recollement : chaque date renseignée (après\napplication du corps) doit être ≥ chaque date renseignée qui la précède, sinon 400 nommant les deux. Estimation\nconfidentielle comme OMRAN : `montantForfaitaireHT` recalcule TVA et TTC au taux `DefaultVat`, `montantForfaitaireTTC`\nrecalcule HT et TVA, `tvaDefautPct` changé recalcule TVA et TTC depuis le HT stocké ; une valeur renvoyée identique ne\nrecalcule rien. Écrit `UserUpdate` / `UserUpdateDateTime` et une ligne d'audit ; renvoie la fiche.",
+        "operationId": "modifier_11",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierLotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Fiche du lot enregistrée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LotDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ non modifiable, valeur invalide, référence inconnue ou dates hors ordre."
+          },
+          "403": {
+            "description": "Estimation manuelle changée sans le droit ManualEstimationAdministrator."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          },
+          "409": {
+            "description": "Statut du lot en lecture seule (StrStatus.IsReadOnly)."
+          }
+        }
+      }
+    },
     "/api/mon-compte/profil": {
       "patch": {
         "tags": [
@@ -18883,7 +19048,7 @@
         ],
         "summary": "Supprime un lot avec ses contenances, tracés, notes et pièces jointes",
         "description": "Supprime le lot, ses contenances, tracés de plan, notes, pièces jointes et frais non validés. 409 si le lot est occupé,\nporte un frais validé ou est encore référencé (prospection, offre…), avec la cause dans le message.",
-        "operationId": "supprimer_10",
+        "operationId": "supprimer_11",
         "parameters": [
           {
             "name": "id",
@@ -18917,7 +19082,7 @@
         ],
         "summary": "Modifie un lot de terrain (champ absent ou null = inchangé)",
         "description": "Lot occupé : code, surfaces, prix, TVA, remises, classification, titre foncier et tranche → 409. Changer de tranche\nvide la présentation ; refusé (409) si le lot a des prospections. Une présentation d'une autre tranche → 400.",
-        "operationId": "modifier_11",
+        "operationId": "modifier_12",
         "parameters": [
           {
             "name": "id",
@@ -19199,7 +19364,7 @@
         ],
         "summary": "Supprime une étude sans prévision ni financement, avec ses grilles et son historique",
         "description": "409 si l'étude est bloquée, ou porte des prévisions (`FSPrevision`) ou des financements (`FSFunding`). Sinon ventilations,\ntranches, unités et historique sont supprimés avec elle, dans la transaction.",
-        "operationId": "supprimer_11",
+        "operationId": "supprimer_12",
         "parameters": [
           {
             "name": "id",
@@ -19233,7 +19398,7 @@
         ],
         "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
         "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel.\n`pourcentageConcretisation` et `tauxIs` : fractions entre 0 et 1 (400) ; écarts-types ≥ 0,5 (400, message OMRAN « la\nvaleur de l'écart type doit être supérieur ou égal à 0.5 ») ; `nombreArticlesAVendre` reçu est ignoré.",
-        "operationId": "modifier_12",
+        "operationId": "modifier_13",
         "parameters": [
           {
             "name": "id",
@@ -19347,7 +19512,7 @@
           "Entités juridiques"
         ],
         "summary": "Supprime une entité sans programme ni autre référence",
-        "operationId": "supprimer_12",
+        "operationId": "supprimer_13",
         "parameters": [
           {
             "name": "id",
@@ -19380,7 +19545,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_13",
+        "operationId": "modifier_14",
         "parameters": [
           {
             "name": "id",
@@ -19506,7 +19671,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_14",
+        "operationId": "modifier_15",
         "parameters": [
           {
             "name": "id",
@@ -19831,7 +19996,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_13",
+        "operationId": "supprimer_14",
         "parameters": [
           {
             "name": "id",
@@ -20035,7 +20200,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_15",
+        "operationId": "modifier_16",
         "parameters": [
           {
             "name": "id",
@@ -20144,7 +20309,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_14",
+        "operationId": "supprimer_15",
         "parameters": [
           {
             "name": "id",
@@ -20175,7 +20340,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_16",
+        "operationId": "modifier_17",
         "parameters": [
           {
             "name": "id",
@@ -20262,7 +20427,7 @@
           "Désistements"
         ],
         "summary": "Supprime un désistement non validé",
-        "operationId": "supprimer_15",
+        "operationId": "supprimer_16",
         "parameters": [
           {
             "name": "id",
@@ -20296,7 +20461,7 @@
         ],
         "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
         "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` (≥ 0) la conserve au centime et recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` (fraction entre 0 et 1) recalcule la pénalité ; les montants du dossier sont relus, et une pénalité saisie est gardée tant que la base (prix, réglé, taux) ne change pas. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
-        "operationId": "modifier_17",
+        "operationId": "modifier_18",
         "parameters": [
           {
             "name": "id",
@@ -20808,7 +20973,7 @@
         ],
         "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
         "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article ; s'il lui est affecté par défaut → 409 « Vous ne pouvez pas supprimer un sous article affecté par\ndéfaut à l'article en cours ! ».",
-        "operationId": "supprimer_16",
+        "operationId": "supprimer_17",
         "parameters": [
           {
             "name": "id",
@@ -20842,7 +21007,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_18",
+        "operationId": "modifier_19",
         "parameters": [
           {
             "name": "id",
@@ -20962,7 +21127,7 @@
           "Tâches (administration)"
         ],
         "summary": "Supprime une tâche (son historique de statuts est conservé)",
-        "operationId": "supprimer_17",
+        "operationId": "supprimer_18",
         "parameters": [
           {
             "name": "id",
@@ -20992,7 +21157,7 @@
           "Tâches (administration)"
         ],
         "summary": "Modifie une tâche (champ absent ou null = inchangé)",
-        "operationId": "modifier_19",
+        "operationId": "modifier_20",
         "parameters": [
           {
             "name": "id",
@@ -21082,7 +21247,7 @@
         ],
         "summary": "Supprime un rôle libre et ses droits",
         "description": "Refusée en 409 si le rôle est lié à un utilisateur (`AdmUserRole` ou rôle web), un intervenant, un rapport, un workflow ou un droit web : en base, ces liens partiraient en cascade sans prévenir.",
-        "operationId": "supprimer_18",
+        "operationId": "supprimer_19",
         "parameters": [
           {
             "name": "id",
@@ -21115,7 +21280,7 @@
           "Rôles (administration)"
         ],
         "summary": "Modifie description et restrictions (champ absent ou null = inchangé, code ignoré)",
-        "operationId": "modifier_20",
+        "operationId": "modifier_21",
         "parameters": [
           {
             "name": "id",
@@ -21207,7 +21372,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Supprime un rendez-vous",
-        "operationId": "supprimer_19",
+        "operationId": "supprimer_20",
         "parameters": [
           {
             "name": "id",
@@ -21238,7 +21403,7 @@
         ],
         "summary": "Modifie un rendez-vous (champ absent ou null = inchangé)",
         "description": "Les dates comparées sont les valeurs fusionnées : un champ absent vaut la date déjà en base. La source (`sourceId`, `sourceLibelle`, `sourceEntite`) ne bouge jamais.",
-        "operationId": "modifier_21",
+        "operationId": "modifier_22",
         "parameters": [
           {
             "name": "id",
@@ -28505,77 +28670,6 @@
         }
       }
     },
-    "/api/projet/lots/{id}": {
-      "get": {
-        "tags": [
-          "Projet"
-        ],
-        "summary": "Fiche d'un lot",
-        "description": "Fiche d'un lot : les champs de la liste, plus le montant forfaitaire saisi, l'estimation (Σ bordereau estimatif, sinon le\nforfaitaire), la retenue de garantie et l'avance théoriques (marché TTC × taux), les taux en pourcentage (0–100), les\noptions et les dates d'appel d'offres et de chantier (`null` si non saisies).",
-        "operationId": "lot",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Identifiant du lot (PrjMarket.PKey).",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Fiche du lot.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/LotDetailDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "Projet"
-        ],
-        "summary": "Supprimer un lot",
-        "description": "Supprime un lot visible qui n'est cité nulle part : son bordereau et ses autres enfants partent avec lui. Un lot cité par un\ndécompte, une pièce d'achat ou toute autre référence répond **409** et reste en place. Ordre des refus : 403, 404, 409.",
-        "operationId": "supprimer_20",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Identifiant du lot (PrjMarket.PKey).",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Lot et enfants en cascade supprimés."
-          },
-          "403": {
-            "description": "Droit OMRAN MarketMonitoringList.toolDelete absent, même sur un id inconnu."
-          },
-          "404": {
-            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
-          },
-          "409": {
-            "description": "Lot utilisé ailleurs (décomptes, achats…)."
-          }
-        }
-      }
-    },
     "/api/projet/lots/{id}/transitions": {
       "get": {
         "tags": [
@@ -28605,6 +28699,46 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/TransitionLotDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/demandes-achat": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Demandes internes d'achat du lot, par date décroissante",
+        "description": "Demandes internes d'achat (`BuySelection`) rattachées au lot, en lecture seule, par date décroissante puis code. Onglet\nRéclamations : module SAV non porté, aucune route.",
+        "operationId": "demandesAchat",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demandes du lot (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DemandeAchatLotDto"
                   }
                 }
               }
@@ -53196,7 +53330,7 @@
       },
       "LotDetailDto": {
         "type": "object",
-        "description": "Fiche d'un lot : les champs de la ligne de liste, plus estimation, taux, options et dates.",
+        "description": "Fiche d'un lot : les champs de la ligne de liste, plus estimation, taux, options, dates et onglets de la fiche.",
         "properties": {
           "id": {
             "type": "string",
@@ -53410,19 +53544,19 @@
           },
           "estimationHT": {
             "type": "number",
-            "description": "Estimation HT : Σ bordereau estimatif, sinon montant forfaitaire HT."
+            "description": "Estimation HT : Σ quantité × PU HT × (1 + FODEC) de l'estimatif, sinon forfait HT."
           },
           "estimationTVA": {
             "type": "number",
-            "description": "Estimation TVA : Σ bordereau estimatif, sinon TVA forfaitaire."
+            "description": "Estimation TVA : estimation TTC − estimation HT."
           },
           "estimationTTC": {
             "type": "number",
-            "description": "Estimation TTC : Σ bordereau estimatif, sinon montant forfaitaire TTC."
+            "description": "Estimation TTC : Σ HT ligne × (1 + TVA) de l'estimatif, sinon forfait TTC."
           },
           "estimationDepuisBordereau": {
             "type": "boolean",
-            "description": "Vrai si l'estimation vient du bordereau estimatif."
+            "description": "Vrai si l'estimation vient du bordereau estimatif (Σ HT non nulle)."
           },
           "retenueGarantieTheorique": {
             "type": "number",
@@ -53550,6 +53684,120 @@
           "modifiePar": {
             "type": "string",
             "description": "Auteur de la dernière modification (UserUpdate)."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de lot (PrjMarketType.PKey), null si absent."
+          },
+          "deviseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Devise (StlCurrency.PKey), null si absente."
+          },
+          "deviseCode": {
+            "type": "string",
+            "description": "Code de la devise.",
+            "example": "MAD"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (StlCategory.PKey), null si absente."
+          },
+          "dateDebutBase": {
+            "type": "string",
+            "format": "date",
+            "description": "Est. de base : date de début (StartDateManual)."
+          },
+          "delaiBaseJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Est. de base : durée en jours (DelayManual)."
+          },
+          "dateFinBase": {
+            "type": "string",
+            "format": "date",
+            "description": "Est. de base : date de fin (EndDateManual)."
+          },
+          "dateReportAppelOffres": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de report de l'appel d'offres (TendersResortDate)."
+          },
+          "dateRapportDepouillement": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du rapport de dépouillement (TendersReportDate)."
+          },
+          "dateAchevementTravaux": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'achèvement des travaux (WorkCompletionDate)."
+          },
+          "dateRecollement": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de recollement (ReattachmentDate)."
+          },
+          "variationMassePct": {
+            "type": "number",
+            "description": "Variation dans la masse des travaux en pourcentage 0–100 (MassChangeRatio)."
+          },
+          "tauxRemboursementApproPct": {
+            "type": "number",
+            "description": "Taux de remboursement de l'approvisionnement en pourcentage 0–100 (StockPileRatio)."
+          },
+          "totalPoints": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total des points (TotalPoints)."
+          },
+          "typePaiementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de paiement (StlSettlementType.PKey), null si absent."
+          },
+          "typePaiementLibelle": {
+            "type": "string",
+            "description": "Libellé du type de paiement, null si absent."
+          },
+          "remiseSurTravauxSupp": {
+            "type": "boolean",
+            "description": "Remise appliquée aux travaux supplémentaires (ApplyDiscountOnAdditionalWork)."
+          },
+          "retenueSurTravauxSupp": {
+            "type": "boolean",
+            "description": "Retenue à la source sur travaux supplémentaires (ApplyWithholdingTaxOnAdditionalWork)."
+          },
+          "saisieSurQuantites": {
+            "type": "boolean",
+            "description": "Décomptes saisis sur les quantités exécutées (ExecutedQuantityBasedInsert)."
+          },
+          "avancementParLigne": {
+            "type": "boolean",
+            "description": "Avancement modifiable par ligne de décompte (CanEditWorkingOutLineByAchivement)."
+          },
+          "dateResiliation": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de résiliation (CancellationDate)."
+          },
+          "causeResiliation": {
+            "type": "string",
+            "description": "Cause de la résiliation (CancellationCause), chaîne vide possible."
+          },
+          "descriptionDetaillee": {
+            "type": "string",
+            "description": "Description détaillée (DescriptionLong)."
+          },
+          "montantAssuranceDEC": {
+            "type": "number",
+            "description": "Montant d'assurance décennale (InsuranceDECAmount), null si non saisi."
+          },
+          "montantAssuranceTRC": {
+            "type": "number",
+            "description": "Montant d'assurance tous risques chantier (InsuranceTRCAmount), null si non saisi."
           }
         }
       },
@@ -59258,6 +59506,217 @@
           },
           "raisonTexte": {
             "type": "string"
+          }
+        }
+      },
+      "ModifierLotRequest": {
+        "type": "object",
+        "description": "Enregistrer la fiche d'un lot : champ absent = inchangé, null explicite = vidé ; taux en pourcentage 0–100.",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Désignation, non vide, 255 caractères au plus."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.PKey) ; null = aucun ; inconnu → 400."
+          },
+          "deviseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Devise (StlCurrency.PKey) ; null = aucune ; inconnue → 400."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (StlCategory.PKey) ; obligatoire si présent ; inconnue → 400."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de lot (PrjMarketType.PKey) ; obligatoire si présent ; inconnu → 400."
+          },
+          "dureeGarantieMois": {
+            "type": "number",
+            "description": "Durée de garantie en mois (WarrantyInMonths)."
+          },
+          "tauxAvancePct": {
+            "type": "number",
+            "description": "Taux d'avance en pourcentage (AdvanceRatio).",
+            "example": 10
+          },
+          "tauxRetenueGarantiePct": {
+            "type": "number",
+            "description": "Taux de retenue de garantie en pourcentage (WarrantyRatio)."
+          },
+          "tauxCompteProrataPct": {
+            "type": "number",
+            "description": "Taux de compte prorata en pourcentage (ProportionRatio)."
+          },
+          "tauxAssuranceDECPct": {
+            "type": "number",
+            "description": "Taux d'assurance décennale en pourcentage (InsuranceDECRatio)."
+          },
+          "montantAssuranceDEC": {
+            "type": "number",
+            "description": "Montant d'assurance décennale (InsuranceDECAmount)."
+          },
+          "tauxAssuranceTRCPct": {
+            "type": "number",
+            "description": "Taux d'assurance tous risques chantier en pourcentage (InsuranceTRCRatio)."
+          },
+          "montantAssuranceTRC": {
+            "type": "number",
+            "description": "Montant d'assurance tous risques chantier (InsuranceTRCAmount)."
+          },
+          "tvaDefautPct": {
+            "type": "number",
+            "description": "TVA par défaut en pourcentage (DefaultVat).",
+            "example": 20
+          },
+          "delaiPaiementJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de paiement en jours (PaymentDelay)."
+          },
+          "montantForfaitaireHT": {
+            "type": "number",
+            "description": "Estimation confidentielle HT (EstimatedPriceHTManual) ; droit d'estimation manuelle."
+          },
+          "montantForfaitaireTTC": {
+            "type": "number",
+            "description": "Estimation confidentielle TTC (EstimatedPriceTTCManual) ; droit d'estimation manuelle."
+          },
+          "dateDebutBase": {
+            "type": "string",
+            "format": "date",
+            "description": "Est. de base : date de début (StartDateManual) ; droit d'estimation manuelle."
+          },
+          "delaiBaseJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Est. de base : durée en jours (DelayManual) ; droit d'estimation manuelle."
+          },
+          "dateFinBase": {
+            "type": "string",
+            "format": "date",
+            "description": "Est. de base : date de fin (EndDateManual) ; droit d'estimation manuelle."
+          },
+          "dateLancementAppelOffres": {
+            "type": "string",
+            "format": "date",
+            "description": "Lancement de l'appel d'offres (LaunchOfTenderDate)."
+          },
+          "dateRetraitDossiers": {
+            "type": "string",
+            "format": "date",
+            "description": "Retrait du dossier de consultation (WithdrawalTenderDocumentsDate)."
+          },
+          "dateEcheanceRemiseOffres": {
+            "type": "string",
+            "format": "date",
+            "description": "Échéance de remise des offres (TenderMaturityDate)."
+          },
+          "dateReportAppelOffres": {
+            "type": "string",
+            "format": "date",
+            "description": "Report de l'appel d'offres (TendersResortDate)."
+          },
+          "dateOuverturePlis": {
+            "type": "string",
+            "format": "date",
+            "description": "Ouverture des plis (BidOpeningDate)."
+          },
+          "dateRapportDepouillement": {
+            "type": "string",
+            "format": "date",
+            "description": "Rapport de dépouillement (TendersReportDate)."
+          },
+          "dateAdjudication": {
+            "type": "string",
+            "format": "date",
+            "description": "Adjudication (TenderDate)."
+          },
+          "dateSignatureMarche": {
+            "type": "string",
+            "format": "date",
+            "description": "Signature du marché (ContractSignatureDate)."
+          },
+          "dateOrdreService": {
+            "type": "string",
+            "format": "date",
+            "description": "Ordre de service (ServiceOrderDate)."
+          },
+          "dateLancementTravaux": {
+            "type": "string",
+            "format": "date",
+            "description": "Lancement des travaux (WorkLaunchDate)."
+          },
+          "dateAchevementTravaux": {
+            "type": "string",
+            "format": "date",
+            "description": "Achèvement des travaux (WorkCompletionDate)."
+          },
+          "dateRecollement": {
+            "type": "string",
+            "format": "date",
+            "description": "Recollement (ReattachmentDate)."
+          },
+          "variationMassePct": {
+            "type": "number",
+            "description": "Variation dans la masse des travaux en pourcentage (MassChangeRatio)."
+          },
+          "tauxRemboursementApproPct": {
+            "type": "number",
+            "description": "Remboursement de l'approvisionnement en pourcentage (StockPileRatio)."
+          },
+          "totalPoints": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total des points (TotalPoints)."
+          },
+          "typePaiementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de paiement (StlSettlementType.PKey) ; null = aucun ; inconnu → 400."
+          },
+          "remiseSurTravauxSupp": {
+            "type": "boolean",
+            "description": "Remise sur travaux supplémentaires (ApplyDiscountOnAdditionalWork)."
+          },
+          "retenueSurTravauxSupp": {
+            "type": "boolean",
+            "description": "Retenue sur travaux supplémentaires (ApplyWithholdingTaxOnAdditionalWork)."
+          },
+          "saisieSurQuantites": {
+            "type": "boolean",
+            "description": "Saisie sur les quantités exécutées (ExecutedQuantityBasedInsert)."
+          },
+          "avancementParLigne": {
+            "type": "boolean",
+            "description": "Avancement par ligne de décompte (CanEditWorkingOutLineByAchivement)."
+          },
+          "restitutionGarantieBloquee": {
+            "type": "boolean",
+            "description": "Bloquer la restitution de la retenue de garantie (BlokWarrantyRestitution)."
+          },
+          "dateResiliation": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de résiliation (CancellationDate)."
+          },
+          "causeResiliation": {
+            "type": "string",
+            "description": "Cause de la résiliation (CancellationCause), 500 caractères au plus."
+          },
+          "descriptionDetaillee": {
+            "type": "string",
+            "description": "Description détaillée (DescriptionLong), 500 caractères au plus."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Autres notes (Notes), 1000 caractères au plus."
           }
         }
       },
@@ -65434,6 +65893,55 @@
             "type": "string",
             "description": "Nom de couleur .NET du statut d'arrivée, null si absent.",
             "example": "LimeGreen"
+          }
+        }
+      },
+      "DemandeAchatLotDto": {
+        "type": "object",
+        "description": "Demande interne d'achat du lot (BuySelection), onglet « Demande interne d'achat » de la fiche lot.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuySelection.PKey."
+          },
+          "procedureAchat": {
+            "type": "string",
+            "description": "Procédure d'achat (BuySelectionKind.Description), null si absente."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut (StrStatus.Description), null si absent."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Nom .NET de la couleur du statut (StrStatus.ColorName), null si absent."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la demande."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la demande (DocDate)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de la demande."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.PKey), null si absent."
+          },
+          "fournisseurNom": {
+            "type": "string",
+            "description": "Nom du fournisseur, null si absent."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes de la demande."
           }
         }
       },

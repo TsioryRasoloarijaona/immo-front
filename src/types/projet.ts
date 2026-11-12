@@ -169,6 +169,94 @@ export interface LotDetailDto extends LotListItemDto {
   creePar: string | null;
   dateModification: string | null;
   modifiePar: string | null;
+  // FEATURE-lot-fiche-parite.md E1 : onglets de la fiche OMRAN (ratios en pourcentage 0–100).
+  typeId: UUID | null;
+  deviseId: UUID | null;
+  deviseCode: string | null;
+  categorieId: UUID | null;
+  dateDebutBase: string | null;
+  delaiBaseJours: number | null;
+  dateFinBase: string | null;
+  dateReportAppelOffres: string | null;
+  dateRapportDepouillement: string | null;
+  dateAchevementTravaux: string | null;
+  dateRecollement: string | null;
+  variationMassePct: number | null;
+  tauxRemboursementApproPct: number | null;
+  totalPoints: number | null;
+  typePaiementId: UUID | null;
+  typePaiementLibelle: string | null;
+  remiseSurTravauxSupp: boolean;
+  retenueSurTravauxSupp: boolean;
+  saisieSurQuantites: boolean;
+  avancementParLigne: boolean;
+  dateResiliation: string | null;
+  causeResiliation: string | null;
+  descriptionDetaillee: string | null;
+  montantAssuranceDEC: number | null;
+  montantAssuranceTRC: number | null;
+}
+
+/** PATCH /api/projet/lots/{id} : champ absent = inchangé, null = vidé ; taux en pourcentage 0–100. */
+export interface ModifierLotRequest {
+  description: string;
+  fournisseurId: UUID | null;
+  deviseId: UUID | null;
+  categorieId: UUID;
+  typeId: UUID;
+  dureeGarantieMois: number | null;
+  tauxAvancePct: number | null;
+  tauxRetenueGarantiePct: number | null;
+  tauxCompteProrataPct: number | null;
+  tauxAssuranceDECPct: number | null;
+  montantAssuranceDEC: number | null;
+  tauxAssuranceTRCPct: number | null;
+  montantAssuranceTRC: number | null;
+  tvaDefautPct: number | null;
+  delaiPaiementJours: number | null;
+  montantForfaitaireHT: number | null;
+  montantForfaitaireTTC: number | null;
+  dateDebutBase: string | null;
+  delaiBaseJours: number | null;
+  dateFinBase: string | null;
+  dateLancementAppelOffres: string | null;
+  dateRetraitDossiers: string | null;
+  dateEcheanceRemiseOffres: string | null;
+  dateReportAppelOffres: string | null;
+  dateOuverturePlis: string | null;
+  dateRapportDepouillement: string | null;
+  dateAdjudication: string | null;
+  dateSignatureMarche: string | null;
+  dateOrdreService: string | null;
+  dateLancementTravaux: string | null;
+  dateAchevementTravaux: string | null;
+  dateRecollement: string | null;
+  variationMassePct: number | null;
+  tauxRemboursementApproPct: number | null;
+  totalPoints: number | null;
+  typePaiementId: UUID | null;
+  remiseSurTravauxSupp: boolean | null;
+  retenueSurTravauxSupp: boolean | null;
+  saisieSurQuantites: boolean | null;
+  avancementParLigne: boolean | null;
+  restitutionGarantieBloquee: boolean | null;
+  dateResiliation: string | null;
+  causeResiliation: string | null;
+  descriptionDetaillee: string | null;
+  notes: string | null;
+}
+
+export interface DemandeAchatLotDto {
+  id: UUID;
+  procedureAchat: string | null;
+  statutDescription: string | null;
+  statutCouleur: string | null;
+  code: string | null;
+  date: string | null;
+  description: string | null;
+  fournisseurId: UUID | null;
+  fournisseurNom: string | null;
+  notes: string | null;
 }
 
 export interface LigneBordereauDto {
