@@ -26,8 +26,8 @@ export default function DialogueLignesPosition({ position, filtres, onClose }: R
   );
 
   return (
-    <Modal title={`Ligne de solde — ${position.fournisseurNom ?? 'Fournisseur'} (${position.societeCode ?? '—'})`} onClose={onClose} width={1000}>
-      <div className="flex flex-col gap-3">
+    <Modal title={`Ligne de solde — ${position.fournisseurNom ?? 'Fournisseur'} (${position.societeCode ?? '—'})`} onClose={onClose} width="min(1400px, 95vw)" pleineHauteur>
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
         {lignes.loading && !lignes.data && !lignes.error && <LoadingState />}
         {lignes.error && (
           <div className="flex flex-col items-center gap-2">
@@ -38,7 +38,7 @@ export default function DialogueLignesPosition({ position, filtres, onClose }: R
           </div>
         )}
         {!lignes.error && lignes.data && (
-          <div className="max-h-[60vh] overflow-auto rounded-xl border border-border bg-card">
+          <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
             {lignes.data.length === 0 ? (
               <EmptyState title="Aucun mouvement sur la période" />
             ) : (
@@ -47,7 +47,7 @@ export default function DialogueLignesPosition({ position, filtres, onClose }: R
             )}
           </div>
         )}
-        <div className="flex justify-end">
+        <div className="flex shrink-0 justify-end">
           <Button type="button" variant="outline" size="sm" disabled={!fournisseurId} onClick={() => void navigate(`${IMPAYES_FOURNISSEUR}&fournisseurId=${fournisseurId}`)}>
             Voir les impayés
           </Button>

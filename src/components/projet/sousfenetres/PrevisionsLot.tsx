@@ -8,6 +8,7 @@ import DonneesLot from './DonneesLot';
 const HAUTEUR = 220;
 const MARGE = { haut: 10, bas: 28, gauche: 64, droite: 44 };
 const PAS = 40;
+const ECART_ETIQUETTES = 60;
 const COULEURS = { estimation: '#16a34a', prevision: '#2563eb', reel: '#dc2626' };
 
 /** Tracé d'une série d'avancement ; un mois sans valeur interrompt la courbe. */
@@ -52,6 +53,10 @@ function Graphe({ mois }: Readonly<{ mois: PointPrevisionDto[] }>) {
   const yMontant = (v: number) => MARGE.haut + utile - (v / maxMontant) * utile;
   const yAv = (v: number) => MARGE.haut + utile - (v / maxAv) * utile;
   const xCentre = (i: number) => MARGE.gauche + i * PAS + PAS / 2;
+  // une étiquette sur `saut` (≥ 60 px d'écart) ; première et dernière gardées, l'avant-dernière cède sa place
+  const saut = Math.ceil(ECART_ETIQUETTES / PAS);
+  const dernier = mois.length - 1;
+  const afficherEtiquette = (i: number) => i === 0 || i === dernier || (i % saut === 0 && dernier - i >= saut);
   const barres: [keyof typeof COULEURS, number][] = [
     ['estimation', -1],
     ['prevision', 0],
@@ -89,9 +94,11 @@ function Graphe({ mois }: Readonly<{ mois: PointPrevisionDto[] }>) {
                 opacity={0.85}
               />
             ))}
-            <text x={xCentre(i)} y={HAUTEUR - 10} textAnchor="middle" className="fill-muted-foreground text-[10px]">
-              {moisCourt(p.mois)}
-            </text>
+            {afficherEtiquette(i) && (
+              <text x={xCentre(i)} y={HAUTEUR - 10} textAnchor="middle" className="fill-muted-foreground text-[10px]">
+                {moisCourt(p.mois)}
+              </text>
+            )}
           </g>
         ))}
         {courbes.map(([cle, valeur]) => (
