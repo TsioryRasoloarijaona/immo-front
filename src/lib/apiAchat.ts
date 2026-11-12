@@ -2,6 +2,7 @@
 import { request, withPageable } from './api';
 import type { PageDto, Pageable, UUID } from '../types';
 import type {
+  AffecterBonCommandeRequest,
   DocumentAchatDetailDto,
   DocumentAchatListItemDto,
   FiltresDocumentsAchat,
@@ -9,6 +10,7 @@ import type {
   ReferentielsAchatDto,
   SoldesFournisseursDto,
   TotauxDocumentsAchatDto,
+  TransitionPieceAchatRequest,
 } from '../types/achat';
 
 const RACINE = '/api/achat';
@@ -26,6 +28,21 @@ export function getDocumentsAchat(filtres: FiltresDocumentsAchat = {}, pageable?
 /** 404 « Pièce introuvable » : id inconnu, pièce sans projet ou hors périmètre. */
 export function getDocumentAchat(id: UUID): Promise<DocumentAchatDetailDto> {
   return request('GET', `${DOCUMENTS}/${id}`);
+}
+
+// FEATURE-achat-fiche-ecritures.md E-B2 à E-B4 : 404 pièce, 403 droit, 409 règle (detail), 400 champ.
+/** 409 : corps avec `transitionsPermises` ; renvoie la fiche relue. */
+export function transitionnerPieceAchat(id: UUID, body: TransitionPieceAchatRequest): Promise<DocumentAchatDetailDto> {
+  return request('PATCH', `${DOCUMENTS}/${id}/statut`, { body });
+}
+
+export function supprimerPieceAchat(id: UUID): Promise<void> {
+  return request('DELETE', `${DOCUMENTS}/${id}`);
+}
+
+/** Facture seulement ; 404 « Bon de commande introuvable » si le BC n'est pas visible. */
+export function affecterBonCommandeAchat(id: UUID, body: AffecterBonCommandeRequest): Promise<DocumentAchatDetailDto> {
+  return request('PUT', `${DOCUMENTS}/${id}/bon-commande`, { body });
 }
 
 /** Chemin de l'export `.xlsx` (mêmes filtres que la liste). */
