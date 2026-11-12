@@ -173,6 +173,51 @@ export interface DecompteListItemDto {
   montantRegle: number;
   /** 0 sans facture. */
   resteARegler: number;
+  notes: string | null;
+  /** « Ava. TTC » : AmountTTC − dépassement. */
+  lignesTTC: number | null;
+  /** « Ava. % » : 0 sans bordereau. */
+  avaPct: number | null;
+  /** « Dépa. TTC ». */
+  depassementTTC: number | null;
+  approvisionnementAPayer: number | null;
+  fluctuationsAPayer: number | null;
+  /** « Tot. TTC » = montantTTC + travauxSupplementaires + approvisionnementAPayer + fluctuationsAPayer. */
+  totalTTC: number | null;
+  /** Facturé ou pas le dernier du lot : lecture seule. */
+  verrouille: boolean;
+  motifVerrou: string | null;
+  peutSupprimer: boolean;
+}
+
+/** `GET /api/projet/decomptes/totaux` : mêmes filtres que la liste, toutes pages. */
+export interface TotauxDecomptesDto {
+  nombre: number;
+  montantHT: number;
+  montantTTC: number;
+  lignesTTC: number;
+  depassementTTC: number;
+  travauxSupplementaires: number;
+  approvisionnementAPayer: number;
+  fluctuationsAPayer: number;
+  totalTTC: number;
+  retenueGarantie: number;
+  netAPayer: number;
+  montantRegle: number;
+  resteARegler: number;
+}
+
+export interface LigneApprovisionnementDto {
+  id: UUID;
+  ordre: number | null;
+  code: string | null;
+  designation: string | null;
+  unite: string | null;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  tauxTVA: number | null;
+  montantHT: number | null;
+  montantTTC: number | null;
 }
 
 export interface FactureDecompteDto {
@@ -214,7 +259,13 @@ export interface LigneDecompteDto {
   montantHTPeriode: number | null;
   /** Peut dépasser 100 ; null si quantité marché nulle. */
   avancementLignePct: number | null;
+  ligneMarcheId: UUID | null;
+  /** Quantité saisie (QuantityOrigin) : seule quantité lue par l'enregistrement. */
+  quantiteSaisie: number | null;
 }
+
+/** Aperçu « lignes rechargées » : rien n'est écrit, d'où l'id null. */
+export type LigneDecompteRechargee = Omit<LigneDecompteDto, 'id'> & { id: UUID | null };
 
 export interface ExtraDecompteDto {
   id: UUID;
@@ -245,7 +296,6 @@ export interface DecompteDetailDto extends DecompteListItemDto {
   retenuesNonRemboursables: number | null;
   retenuesRemboursables: number | null;
   fluctuations: number | null;
-  fluctuationsAPayer: number | null;
   montantBrut: number | null;
   cumulTTC: number | null;
   dateCreation: string | null;
@@ -257,6 +307,68 @@ export interface DecompteDetailDto extends DecompteListItemDto {
   lignes: LigneDecompteDto[];
   extras: ExtraDecompteDto[];
   retenues: RetenueDecompteDto[];
+  referenceInterne: string | null;
+  avanceSurMontant: boolean;
+  retenueGarantieSurMontant: boolean;
+  assuranceDECSurMontant: boolean;
+  assuranceTRCSurMontant: boolean;
+  compteProrataSurMontant: boolean;
+  /** Taux en pourcentage (ratio × 100). */
+  tauxAvance: number | null;
+  tauxAssuranceDEC: number | null;
+  tauxAssuranceTRC: number | null;
+  tauxCompteProrata: number | null;
+  remboursementCompteProrata: number | null;
+  cumulPrecedentTTC: number | null;
+  tauxApprovisionnement: number | null;
+  approvisionnementAncien: number | null;
+  approvisionnementNouveau: number | null;
+  fluctuationsAnciennes: number | null;
+  resteAvance: number | null;
+  resteAvanceSurDecompte: number | null;
+  regularisation: number | null;
+  approvisionnements: LigneApprovisionnementDto[];
+  peutModifier: boolean;
+  peutRecalculer: boolean;
+  peutDefinirDernier: boolean;
+}
+
+/** Ligne de `EnregistrerDecompteRequest.lignes` ; `id` null = ligne de l'aperçu « lignes rechargées ». */
+export interface LigneDecompteSaisie {
+  id: UUID | null;
+  ligneMarcheId: UUID | null;
+  quantiteSaisie: number | null;
+  coefficient: number | null;
+}
+
+/** `PUT /api/projet/decomptes/{id}` : champ absent ou null = valeur stockée gardée ; taux en pourcentage. */
+export interface EnregistrerDecompteRequest {
+  dateDocument?: string | null;
+  referenceInterne?: string | null;
+  notes?: string | null;
+  fournisseurId?: UUID | null;
+  avanceSurMontant?: boolean | null;
+  retenueGarantieSurMontant?: boolean | null;
+  assuranceDECSurMontant?: boolean | null;
+  assuranceTRCSurMontant?: boolean | null;
+  compteProrataSurMontant?: boolean | null;
+  tauxAvance?: number | null;
+  tauxRetenueGarantie?: number | null;
+  tauxAssuranceDEC?: number | null;
+  tauxAssuranceTRC?: number | null;
+  tauxCompteProrata?: number | null;
+  avanceAmortie?: number | null;
+  retenueGarantie?: number | null;
+  assuranceDEC?: number | null;
+  assuranceTRC?: number | null;
+  compteProrata?: number | null;
+  avanceSurDecompte?: number | null;
+  remboursementCompteProrata?: number | null;
+  fluctuations?: number | null;
+  tauxApprovisionnement?: number | null;
+  regularisation?: number | null;
+  dernier?: boolean | null;
+  lignes?: LigneDecompteSaisie[] | null;
 }
 
 /** Filtres de `GET /api/projet/lots` ; `projetIds` vide = tous les projets visibles. */
@@ -278,4 +390,6 @@ export interface FiltresDecomptes {
   statutFactureId?: UUID;
   sansFacture?: boolean;
   search?: string;
+  /** Société (« Entité ») du projet du lot. */
+  societeId?: UUID;
 }
