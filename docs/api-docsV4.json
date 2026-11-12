@@ -53394,7 +53394,7 @@
           },
           "total": {
             "$ref": "#/components/schemas/TrioDto",
-            "description": "Coût total, avenants compris (= coutPrevisionnelHT/TTC de la liste pour le prévisionnel)."
+            "description": "Coût total, avenants compris (= coutPrevisionnelHT/TTC de la liste) ; coût réel : facturé moins avoirs."
           },
           "retenueNonRemboursable": {
             "type": "number",
@@ -66162,7 +66162,7 @@
         "properties": {
           "montantHT": {
             "type": "number",
-            "description": "Montant HT."
+            "description": "Montant HT des lignes, hors dépassements et travaux supplémentaires."
           },
           "tva": {
             "type": "number",
@@ -66170,7 +66170,7 @@
           },
           "montantTTC": {
             "type": "number",
-            "description": "Montant TTC."
+            "description": "Montant TTC des lignes, hors dépassements et travaux supplémentaires."
           },
           "approTTC": {
             "type": "number",
@@ -66190,7 +66190,7 @@
           },
           "totalTTC": {
             "type": "number",
-            "description": "Total TTC = montant + appro + travaux supp. + fluctuations ; null pour les avoirs."
+            "description": "Total TTC = montant + appro + dépassements + travaux supp. + fluctuations ; null pour les avoirs."
           },
           "avenantsTTC": {
             "type": "number",
