@@ -53790,6 +53790,14 @@
           "descriptionDetaillee": {
             "type": "string",
             "description": "Description détaillée (DescriptionLong)."
+          },
+          "montantAssuranceDEC": {
+            "type": "number",
+            "description": "Montant d'assurance décennale (InsuranceDECAmount), null si non saisi."
+          },
+          "montantAssuranceTRC": {
+            "type": "number",
+            "description": "Montant d'assurance tous risques chantier (InsuranceTRCAmount), null si non saisi."
           }
         }
       },

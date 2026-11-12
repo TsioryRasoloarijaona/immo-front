@@ -193,6 +193,8 @@ export interface LotDetailDto extends LotListItemDto {
   dateResiliation: string | null;
   causeResiliation: string | null;
   descriptionDetaillee: string | null;
+  montantAssuranceDEC: number | null;
+  montantAssuranceTRC: number | null;
 }
 
 /** PATCH /api/projet/lots/{id} : champ absent = inchangé, null = vidé ; taux en pourcentage 0–100. */
