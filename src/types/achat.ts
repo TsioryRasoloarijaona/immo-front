@@ -231,7 +231,8 @@ export interface VentilationProjetAchatDto {
 }
 
 export interface PieceLieeAchatDto {
-  id: UUID;
+  /** null (comme code) pour une pièce hors périmètre : affichée sans lien. */
+  id: UUID | null;
   code: string | null;
   dateDocument: string | null;
   statutCode: string | null;
