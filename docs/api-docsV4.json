@@ -40823,7 +40823,7 @@
           "Achat"
         ],
         "summary": "Liste paginée des pièces d'achat visibles (société et projet habilités)",
-        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `societeIds` est de même croisé avec les sociétés habilitées : une société non habilitée est ignorée, et si aucune ne reste la page est vide (jamais « aucun filtre »). Une liste vide ou un paramètre vide (`societeIds=`) = pas de filtre. `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `modules` se combine par ET avec `moduleProjet`. `montantDe` / `montantA` sont inclus et portent sur `AmountToPay` (`montantDe > montantA` = page vide). `du` / `au` (inclus) portent sur la colonne de `champDate` (`DATE_PIECE` = `DocDate`, `ECHEANCE` = `MaturityDate`) ; `dateRenseignee=true` garde les pièces dont cette colonne est renseignée et ignore `du` / `au`. `search` cherche, sans tenir compte de la casse, dans le code, la référence, la référence bureau d'ordre, la description, les notes, le fournisseur, le projet (code, description), le lot (code, description) et le dossier de groupement.\n\n**Bons de commande** (`natures=ORDER` seul, écran « Bons de commande ») : comme OMRAN (`OrderView.cs:803`), seuls les BC dont le déclencheur (`CfgTierTriggerId`) est le personnel du compte (`AdmUser.CfgEmployeeId`) sont rendus, sauf droit OMRAN `Yes.Buy.Front.Order.OrderList.WithNoRestriction` (l'Administrateur l'a) ; un compte sans personnel n'est pas restreint. Toute autre combinaison de natures n'est pas restreinte. Mêmes règles pour les totaux et l'export.\n\n**À clôturer** (`aCloturer`) : bon de commande dont le HT est inférieur ou égal à la Σ des HT de ses factures (`BuyOrderId`), et dont le statut n'est ni « Terminé avec succès » ni « Terminé avec échec » (une annulation alerte) ; faux sans statut et pour toute autre nature.\n\nTri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode`, `typeLotLibelle`, `moduleLibelle`, `societeNom`, `archive`, `comptabilise`, `referenceBureauOrdre`, `personneAContacter`, `dossierGroupement`, `aCloturer`, `deviseCode`, `categories`, `dateAlerte` ; une autre propriété répond 400.\n\n**Agrégats des bons de commande** (`agregats`, objet `AgregatsBonCommandeDto`, `null` hors bon de commande) : calculés sur les pièces liées par `BuyOrderId` (voir le schéma). Clés de tri en plus, lues dans `agregats` : `factureHT`, `factureTTC`, `factureNetAPayer`, `livreHT`, `livreTTC`, `livreNetAPayer`, `resteALivrerHT`, `resteALivrerTTC`, `resteALivrerNetAPayer`, `avance`, `avanceTauxPrevu`, `avanceTauxEffectif`, `avanceAmortie`, `avanceRegle`, `avanceReste`, `avanceResteAAmortir`, `garantieRetenue`, `garantieRestituee`, `garantieReste`, `regle`, `resteAPayerSurFacture`, `resteAPayerTotal`, `bonsLivraisonCodes`, `facturesCodes`, `devisCode` ; les pièces qui ne sont pas des bons de commande restent en fin de liste dans les deux sens.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
+        "description": "Pièces visibles, filtrées. `projetIds` est restreint au périmètre (un projet hors périmètre est ignoré, jamais d'erreur ; s'il ne reste rien, la page est vide). `societeIds` est de même croisé avec les sociétés habilitées : une société non habilitée est ignorée, et si aucune ne reste la page est vide (jamais « aucun filtre »). Une liste vide ou un paramètre vide (`societeIds=`) = pas de filtre. `nonSoldes=true` garde les pièces dont le reste dépasse 0,05 ; une pièce trop réglée ou à déduire n'y figure pas. `okPourPaiement=true` garde les pièces dont le statut est « OK pour paiement » ; avec `natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`, c'est la liste « Validées, non réglées ». `modules` se combine par ET avec `moduleProjet`. `montantDe` / `montantA` sont inclus et portent sur `AmountToPay` (`montantDe > montantA` = page vide). `du` / `au` (inclus) portent sur la colonne de `champDate` (`DATE_PIECE` = `DocDate`, `ECHEANCE` = `MaturityDate`) ; `dateRenseignee=true` garde les pièces dont cette colonne est renseignée et ignore `du` / `au`. `search` cherche, sans tenir compte de la casse, dans le code, la référence, la référence bureau d'ordre, la description, les notes, le fournisseur, le projet (code, description), le lot (code, description) et le dossier de groupement.\n\n**Bons de commande** (quelles que soient les natures demandées, Documents Achats compris) : comme OMRAN (`OrderView.cs:803`), seuls les BC dont le déclencheur (`CfgTierTriggerId`) est le personnel du compte (`AdmUser.CfgEmployeeId`) sont rendus, sauf droit OMRAN `Yes.Buy.Front.Order.OrderList.WithNoRestriction` (l'Administrateur l'a) ; un compte sans personnel n'est pas restreint. Les autres natures ne sont jamais restreintes. Même règle pour les totaux, l'export et la fiche.\n\n**À clôturer** (`aCloturer`) : bon de commande dont le HT est inférieur ou égal à la Σ des HT de ses factures (`BuyOrderId`), et dont le statut n'est ni « Terminé avec succès » ni « Terminé avec échec » (une annulation alerte) ; faux sans statut et pour toute autre nature.\n\nTri par défaut : `dateDocument` décroissante puis `code` décroissant. Propriétés de tri acceptées : `code`, `nature`, `dateDocument`, `dateEcheance`, `reference`, `fournisseurNom`, `projetCode`, `lotCode`, `statutCode`, `montantTTC`, `montantAPayer`, `montantRegle`, `resteARegler`, `decompteCode`, `typeLotLibelle`, `moduleLibelle`, `societeNom`, `archive`, `comptabilise`, `referenceBureauOrdre`, `personneAContacter`, `dossierGroupement`, `aCloturer`, `deviseCode`, `categories`, `dateAlerte` ; une autre propriété répond 400.\n\n**Agrégats des bons de commande** (`agregats`, objet `AgregatsBonCommandeDto`, `null` hors bon de commande) : calculés sur les pièces liées par `BuyOrderId` (voir le schéma). Clés de tri en plus, lues dans `agregats` : `factureHT`, `factureTTC`, `factureNetAPayer`, `livreHT`, `livreTTC`, `livreNetAPayer`, `resteALivrerHT`, `resteALivrerTTC`, `resteALivrerNetAPayer`, `avance`, `avanceTauxPrevu`, `avanceTauxEffectif`, `avanceAmortie`, `avanceRegle`, `avanceReste`, `avanceResteAAmortir`, `garantieRetenue`, `garantieRestituee`, `garantieReste`, `regle`, `resteAPayerSurFacture`, `resteAPayerTotal`, `bonsLivraisonCodes`, `facturesCodes`, `devisCode` ; les pièces qui ne sont pas des bons de commande restent en fin de liste dans les deux sens.\n\n**Décompte lié** (`decompteId`, `decompteCode`, `decompteNumero`) : le décompte de chantier dont `PrjWorkingOut.BuyDocumentId` pointe la pièce (le premier par date puis code si plusieurs), `null` sinon. `BuyDocument.PrjWorkingOutId` (sens des avances) n'est jamais lu.",
         "operationId": "liste",
         "parameters": [
           {
@@ -41086,8 +41086,8 @@
         "tags": [
           "Achat"
         ],
-        "summary": "Fiche d'une pièce d'achat : lignes, ventilation, historique, règlements",
-        "description": "Fiche d'une pièce visible : les champs de la ligne de liste (mêmes calculs, `agregats` compris pour un bon de commande), l'en-tête (notes, régularisation, timbre, entité, audit), les lignes (`Sorting`), la ventilation (taux par catégorie), l'historique des statuts (date croissante) et les règlements, annulés compris avec `annule = true` (exclus du réglé).",
+        "summary": "Fiche d'une pièce d'achat : lignes, ventilation, liens, historique, règlements",
+        "description": "Fiche d'une pièce visible : les champs de la ligne de liste (mêmes calculs, `agregats` compris pour un bon de commande), l'en-tête (notes, régularisation, timbre, entité, audit, déclencheur, date de livraison souhaitée, note 2, devis sélectionné, retenues et avances lues telles quelles), les lignes (`Sorting`) avec leurs colonnes calculées et le récapitulatif par taux de TVA (`recapTva`), la ventilation par catégorie et par projet (`ventilationProjets`, tous les projets, même non habilités), l'historique des statuts (date et heure croissantes, transition empruntée) et les règlements, annulés compris avec `annule = true` (exclus du réglé).\n\nLa fiche répond 200 exactement quand la pièce figure dans la liste du compte : un bon de commande d'un autre déclencheur (voir la liste) répond 404 « Pièce introuvable », comme une pièce hors périmètre.\n\n**Pièces liées** (`bonsLivraison`, `factures` pour un bon de commande ; `avoirs` pour une facture ; listes vides pour les autres natures) : seules les pièces visibles du compte (même règle que la liste), par date puis code. Factures d'un bon de commande = `BuyOrderId` ∪ table `BuyOrderInvoice`, sans doublon. `devisOrigine*`, `bonCommande*`, `factureSource*` : `null` si la pièce désignée n'est pas visible. `avoirsMontant` = Σ TTC des avoirs visibles dont `InvoiceSourceId` est la pièce (0 sans avoir) : affiché, jamais soustrait (`montantAPayer` est déjà net des avoirs).",
         "operationId": "fiche_2",
         "parameters": [
           {
@@ -41113,7 +41113,7 @@
             }
           },
           "404": {
-            "description": "Pièce introuvable ou hors périmètre (société, projet)."
+            "description": "Pièce introuvable, hors périmètre (société, projet) ou bon de commande d'un autre déclencheur."
           }
         }
       }
@@ -72029,6 +72029,33 @@
           }
         }
       },
+      "AvoirAchatDto": {
+        "type": "object",
+        "description": "Avoir visible d'une facture (InvoiceSourceId = la facture) et ses lignes.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'avoir (BuyDocument.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de l'avoir."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de l'avoir (DocDate)."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de l'avoir, par ordre (Sorting), colonnes calculées comprises.",
+            "items": {
+              "$ref": "#/components/schemas/LigneDocumentAchatDto"
+            }
+          }
+        }
+      },
       "DocumentAchatDetailDto": {
         "type": "object",
         "description": "Fiche d'une pièce d'achat : les champs de la ligne de liste, puis l'en-tête et les onglets.",
@@ -72308,6 +72335,98 @@
             "items": {
               "$ref": "#/components/schemas/ReglementDocumentAchatDto"
             }
+          },
+          "declencheurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Déclencheur (CfgTierTriggerId) ; null si absent."
+          },
+          "declencheurNom": {
+            "type": "string",
+            "description": "Nom du déclencheur (CfgTier.Description)."
+          },
+          "dateLivraisonSouhaitee": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de livraison souhaitée (PrevisionDeliveryDate), toute nature."
+          },
+          "note2": {
+            "type": "string",
+            "description": "Seconde note (Notes2)."
+          },
+          "devisSelectionne": {
+            "type": "boolean",
+            "description": "Devis sélectionné (IsSelected) ; false si absent."
+          },
+          "avoirsMontant": {
+            "type": "number",
+            "description": "Σ TTC des avoirs visibles de la pièce (InvoiceSourceId) ; 0 sans avoir, jamais soustrait."
+          },
+          "retenuesAvances": {
+            "$ref": "#/components/schemas/RetenuesAvancesAchatDto",
+            "description": "Retenues et avances (colonne droite), lues telles quelles."
+          },
+          "devisOrigineId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Devis d'origine (BuyQuoteId) ; null si absent ou hors périmètre."
+          },
+          "devisOrigineCode": {
+            "type": "string",
+            "description": "Code du devis d'origine ; null si absent ou hors périmètre."
+          },
+          "bonCommandeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Bon de commande rattaché (BuyOrderId) ; null si absent ou non visible."
+          },
+          "bonCommandeCode": {
+            "type": "string",
+            "description": "Code du bon de commande rattaché ; null si absent ou non visible."
+          },
+          "factureSourceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Facture source d'un avoir (InvoiceSourceId) ; null si absente ou hors périmètre."
+          },
+          "factureSourceCode": {
+            "type": "string",
+            "description": "Code de la facture source ; null si absente ou hors périmètre."
+          },
+          "recapTva": {
+            "type": "array",
+            "description": "Lignes groupées par taux de TVA, taux croissant ; vide sans ligne.",
+            "items": {
+              "$ref": "#/components/schemas/RecapTvaAchatDto"
+            }
+          },
+          "ventilationProjets": {
+            "type": "array",
+            "description": "Ventilation par projet, par code de projet, non filtrée par périmètre.",
+            "items": {
+              "$ref": "#/components/schemas/VentilationProjetAchatDto"
+            }
+          },
+          "bonsLivraison": {
+            "type": "array",
+            "description": "Bons de livraison visibles d'un bon de commande (BuyOrderId) ; vide pour une autre nature.",
+            "items": {
+              "$ref": "#/components/schemas/PieceLieeAchatDto"
+            }
+          },
+          "factures": {
+            "type": "array",
+            "description": "Factures visibles d'un bon de commande (BuyOrderId ∪ BuyOrderInvoice) ; vide sinon.",
+            "items": {
+              "$ref": "#/components/schemas/PieceLieeAchatDto"
+            }
+          },
+          "avoirs": {
+            "type": "array",
+            "description": "Avoirs visibles d'une facture (InvoiceSourceId), avec leurs lignes ; vide pour une autre nature.",
+            "items": {
+              "$ref": "#/components/schemas/AvoirAchatDto"
+            }
           }
         }
       },
@@ -72335,12 +72454,16 @@
           "note": {
             "type": "string",
             "description": "Note saisie au passage."
+          },
+          "transition": {
+            "type": "string",
+            "description": "Transition empruntée (BuyDocumentWorkFlow.Description) ; null à la création."
           }
         }
       },
       "LigneDocumentAchatDto": {
         "type": "object",
-        "description": "Ligne de la pièce (BuyDocumentLine), colonnes stockées.",
+        "description": "Ligne de la pièce (BuyDocumentLine) : colonnes stockées puis calculées (vue OMRAN BuyDocumentLineView).",
         "properties": {
           "id": {
             "type": "string",
@@ -72377,6 +72500,111 @@
             "type": "number",
             "description": "Remise en % (DiscountRatio × 100).",
             "example": 0
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la ligne ; null possible."
+          },
+          "fodecPourcent": {
+            "type": "number",
+            "description": "FODEC en % (FODECRatio × 100) ; 0 si absent.",
+            "example": 0
+          },
+          "prixUnitaireTTC": {
+            "type": "number",
+            "description": "Prix unitaire TTC stocké (UnitPriceTTC)."
+          },
+          "prixUnitaireHTNet": {
+            "type": "number",
+            "description": "PU HT net : PU HT × (1 − remise) × (1 + FODEC), sans arrondi."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT : PU HT net × quantité, sans arrondi."
+          },
+          "totalTVA": {
+            "type": "number",
+            "description": "Total TVA : total HT × taux de TVA."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Total TTC : total HT + total TVA."
+          }
+        }
+      },
+      "PieceLieeAchatDto": {
+        "type": "object",
+        "description": "Pièce liée visible (bon de livraison ou facture d'un bon de commande), mêmes valeurs que la liste.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la pièce liée (BuyDocument.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pièce."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (BuyDocumentStatus.ColorName).",
+            "example": "Green"
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence interne (DocRef)."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Total HT (AmountHT)."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Total TVA (AmountVat)."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Total TTC (AmountTTC)."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "lotCode": {
+            "type": "string",
+            "description": "Code du lot de marché."
+          }
+        }
+      },
+      "RecapTvaAchatDto": {
+        "type": "object",
+        "description": "Récapitulatif des lignes de la pièce pour un taux de TVA (sous-grille Base / TVA / Montant).",
+        "properties": {
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA en % (VatRatio × 100) ; taux absent compté à 0.",
+            "example": 20
+          },
+          "base": {
+            "type": "number",
+            "description": "Base : Σ totalHT des lignes de ce taux."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Montant de TVA : Σ totalTVA des lignes de ce taux."
           }
         }
       },
@@ -72416,6 +72644,71 @@
           }
         }
       },
+      "RetenueAchatDto": {
+        "type": "object",
+        "description": "Retenue affichée en % et en montant.",
+        "properties": {
+          "ratio": {
+            "type": "number",
+            "description": "Taux, fraction (0,07 = 7 %).",
+            "example": 0.07
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant."
+          }
+        }
+      },
+      "RetenuesAvancesAchatDto": {
+        "type": "object",
+        "description": "Retenues et avances de la pièce (colonne droite OMRAN), lues telles quelles ; null si non renseignées.",
+        "properties": {
+          "amortissementAvance": {
+            "$ref": "#/components/schemas/RetenueAchatDto",
+            "description": "Amortissement d'avance (AdvanceRatio, AdvanceAmount)."
+          },
+          "resteAvance": {
+            "type": "number",
+            "description": "Reste de l'avance à amortir (AdvanceRest)."
+          },
+          "retenueGarantie": {
+            "$ref": "#/components/schemas/RetenueAchatDto",
+            "description": "Retenue de garantie (WarrantyRatio, WarrantyAmount)."
+          },
+          "assuranceTRC": {
+            "$ref": "#/components/schemas/RetenueAchatDto",
+            "description": "Retenue assurance TRC (InsuranceTRCRatio, InsuranceTRCAmount)."
+          },
+          "assuranceDecennale": {
+            "$ref": "#/components/schemas/RetenueAchatDto",
+            "description": "Retenue assurance décennale (InsuranceDECRatio, InsuranceDECAmount)."
+          },
+          "compteProrata": {
+            "$ref": "#/components/schemas/RetenueAchatDto",
+            "description": "Retenue compte prorata (ProportionRatio, ProportionAmount)."
+          },
+          "retenuesForfaitaires": {
+            "type": "number",
+            "description": "Retenues forfaitaires (RetainedAmount)."
+          },
+          "avanceSurDecompte": {
+            "type": "number",
+            "description": "Avance sur décompte (WorkingOutAdvanceAmount)."
+          },
+          "approvisionnement": {
+            "type": "number",
+            "description": "Approvisionnement (StockAmountToPay)."
+          },
+          "remboursementProrata": {
+            "type": "number",
+            "description": "Remboursement de compte prorata (ProrataRefundAmount)."
+          },
+          "remboursementFluctuations": {
+            "type": "number",
+            "description": "Remboursement de fluctuations (FluctuationsToPay)."
+          }
+        }
+      },
       "VentilationDocumentAchatDto": {
         "type": "object",
         "description": "Ventilation de la pièce sur une catégorie (BuyVentilationCategory) : le seul taux est stocké.",
@@ -72432,6 +72725,30 @@
             "type": "number",
             "description": "Taux de ventilation, fraction (0,75 = 75 %).",
             "example": 0.75
+          }
+        }
+      },
+      "VentilationProjetAchatDto": {
+        "type": "object",
+        "description": "Ventilation de la pièce sur un projet (BuyVentilationExpense) ; tous les projets, même non habilités.",
+        "properties": {
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du projet (PrjProject)."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "projetDescription": {
+            "type": "string",
+            "description": "Libellé du projet."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux de ventilation, fraction (0,6 = 60 %).",
+            "example": 0.6
           }
         }
       },

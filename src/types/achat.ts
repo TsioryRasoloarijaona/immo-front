@@ -202,6 +202,75 @@ export interface LigneDocumentAchatDto {
   /** En % (20 = 20 %). */
   tauxTVA: number | null;
   remisePourcent: number | null;
+  code: string | null;
+  /** En % (FODECRatio × 100) ; 0 si absent. */
+  fodecPourcent: number | null;
+  /** Stocké (UnitPriceTTC). */
+  prixUnitaireTTC: number | null;
+  /** Calculés, pleine échelle : net = PU HT × (1 − remise) × (1 + FODEC). */
+  prixUnitaireHTNet: number | null;
+  totalHT: number | null;
+  totalTVA: number | null;
+  totalTTC: number | null;
+}
+
+// FEATURE-achat-fiche-parite.md E2-E4.
+export interface RecapTvaAchatDto {
+  /** En % (20 = 20 %). */
+  tauxTVA: number | null;
+  base: number | null;
+  montantTVA: number | null;
+}
+
+export interface VentilationProjetAchatDto {
+  projetId: UUID | null;
+  projetCode: string | null;
+  projetDescription: string | null;
+  /** Fraction (0.6 = 60 %). */
+  taux: number | null;
+}
+
+export interface PieceLieeAchatDto {
+  id: UUID;
+  code: string | null;
+  dateDocument: string | null;
+  statutCode: string | null;
+  statutDescription: string | null;
+  statutCouleur: string | null;
+  reference: string | null;
+  montantHT: number | null;
+  montantTVA: number | null;
+  montantTTC: number | null;
+  projetCode: string | null;
+  lotCode: string | null;
+}
+
+export interface AvoirAchatDto {
+  id: UUID;
+  code: string | null;
+  dateDocument: string | null;
+  lignes: LigneDocumentAchatDto[];
+}
+
+export interface RetenueAchatDto {
+  /** Fraction (0.07 = 7 %). */
+  ratio: number | null;
+  montant: number | null;
+}
+
+/** Colonne droite OMRAN, lue telle quelle ; null = vide. */
+export interface RetenuesAvancesAchatDto {
+  amortissementAvance: RetenueAchatDto;
+  resteAvance: number | null;
+  retenueGarantie: RetenueAchatDto;
+  assuranceTRC: RetenueAchatDto;
+  assuranceDecennale: RetenueAchatDto;
+  compteProrata: RetenueAchatDto;
+  retenuesForfaitaires: number | null;
+  avanceSurDecompte: number | null;
+  approvisionnement: number | null;
+  remboursementProrata: number | null;
+  remboursementFluctuations: number | null;
 }
 
 export interface VentilationDocumentAchatDto {
@@ -217,6 +286,8 @@ export interface HistoriqueDocumentAchatDto {
   statutDescription: string | null;
   utilisateur: string | null;
   note: string | null;
+  /** BuyDocumentWorkFlow.Description ; null à la création. */
+  transition: string | null;
 }
 
 export interface ReglementDocumentAchatDto {
@@ -297,4 +368,26 @@ export interface DocumentAchatDetailDto extends DocumentAchatListItemDto {
   ventilation: VentilationDocumentAchatDto[];
   historique: HistoriqueDocumentAchatDto[];
   reglements: ReglementDocumentAchatDto[];
+  declencheurId: UUID | null;
+  declencheurNom: string | null;
+  dateLivraisonSouhaitee: string | null;
+  note2: string | null;
+  devisSelectionne: boolean;
+  /** Σ TTC des avoirs visibles ; affiché, jamais soustrait (montantAPayer est déjà net). */
+  avoirsMontant: number;
+  retenuesAvances: RetenuesAvancesAchatDto;
+  /** null si absent ou non visible (de même pour bonCommande*, factureSource*). */
+  devisOrigineId: UUID | null;
+  devisOrigineCode: string | null;
+  bonCommandeId: UUID | null;
+  bonCommandeCode: string | null;
+  factureSourceId: UUID | null;
+  factureSourceCode: string | null;
+  recapTva: RecapTvaAchatDto[];
+  ventilationProjets: VentilationProjetAchatDto[];
+  /** Vides hors bon de commande. */
+  bonsLivraison: PieceLieeAchatDto[];
+  factures: PieceLieeAchatDto[];
+  /** Vide hors facture. */
+  avoirs: AvoirAchatDto[];
 }
