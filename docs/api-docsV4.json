@@ -8649,7 +8649,7 @@
           "Projet"
         ],
         "summary": "Copier un lot : en-tête, lignes de bordereau et leurs groupes",
-        "description": "Copie un lot visible : nouveau code de la séquence « Market » (incrémentée jusqu'à un code libre), description suivie de\n« (Copie) », lot ouvert, statut de départ du genre (statut « Nouveau » de plus petit ordre), ligne d'historique\n« Création » ; les lignes du bordereau définitif et leurs groupes sont copiés et rattachés à la copie. Prévisions et lignes\nde retenue de garantie ne sont pas copiées. Droit `toolNew` (Entrepreneurs) ou `toolNewMultiSupplier` (autres genres) ;\nordre des refus : 403 si l'appelant n'a aucun des deux, 404, puis 403 si le droit du genre du lot manque.",
+        "description": "Copie un lot visible : nouveau code de la séquence « Market » (incrémentée jusqu'à un code libre), description suivie de\n« (Copie) », lot ouvert, statut de départ du genre (statut « Nouveau » de plus petit ordre), ligne d'historique\n« Création ». Comme OMRAN, le bordereau de la source (lignes et groupes) devient le bordereau **estimatif** de la copie :\nl'estimatif pour un lot multi-fournisseur ; sinon le définitif, ou l'estimatif s'il n'a aucune ligne. Le définitif de la\ncopie est vide. Hors multi-fournisseur, fournisseur, dates d'appel d'offres et de marché et résiliation sont vidés, et\nl'estimation manuelle reçoit l'estimation de la source (Σ estimatif, sinon forfait). Prévisions, retenues et lignes de\nstock ne sont pas copiées. Droit `toolNew` (Entrepreneurs) ou `toolNewMultiSupplier` (autres genres) ;\nordre des refus : 403 si l'appelant n'a aucun des deux, 404, puis 403 si le droit du genre du lot manque.",
         "operationId": "copier",
         "parameters": [
           {
@@ -18845,7 +18845,7 @@
           "Projet"
         ],
         "summary": "Fiche d'un lot",
-        "description": "Fiche d'un lot : les champs de la liste, plus le montant forfaitaire saisi, l'estimation (Σ bordereau estimatif, sinon le\nforfaitaire), la retenue de garantie et l'avance théoriques (marché TTC × taux), les taux en pourcentage (0–100), les\noptions et les dates d'appel d'offres et de chantier (`null` si non saisies). Champs des onglets de la fiche OMRAN\n(`FEATURE-lot-fiche-parite.md` E1) : devise, catégorie, « Est. de base » (`dateDebutBase`, `delaiBaseJours`,\n`dateFinBase`), les 12 dates, les options (ratios en pourcentage 0–100), la résiliation et la description détaillée.\nL'avancement décompté de l'en-tête est `avancement` (fraction 0–1) de la ligne de liste.",
+        "description": "Fiche d'un lot : les champs de la liste, plus le montant forfaitaire saisi, l'estimation (même calcul que la liste :\nΣ `Quantity × UnitPriceHT × (1 + FODECRatio)` du bordereau estimatif, TTC = HT × (1 + `VatRatio`) par ligne, TVA = TTC − HT ;\nsinon le forfaitaire HT / TTC), la retenue de garantie et l'avance théoriques (marché TTC × taux), les taux en pourcentage (0–100), les\noptions et les dates d'appel d'offres et de chantier (`null` si non saisies). Champs des onglets de la fiche OMRAN\n(`FEATURE-lot-fiche-parite.md` E1) : devise, catégorie, « Est. de base » (`dateDebutBase`, `delaiBaseJours`,\n`dateFinBase`), les 12 dates, les options (ratios en pourcentage 0–100), la résiliation et la description détaillée.\nL'avancement décompté de l'en-tête est `avancement` (fraction 0–1) de la ligne de liste.",
         "operationId": "lot",
         "parameters": [
           {
@@ -53544,19 +53544,19 @@
           },
           "estimationHT": {
             "type": "number",
-            "description": "Estimation HT : Σ bordereau estimatif, sinon montant forfaitaire HT."
+            "description": "Estimation HT : Σ quantité × PU HT × (1 + FODEC) de l'estimatif, sinon forfait HT."
           },
           "estimationTVA": {
             "type": "number",
-            "description": "Estimation TVA : Σ bordereau estimatif, sinon TVA forfaitaire."
+            "description": "Estimation TVA : estimation TTC − estimation HT."
           },
           "estimationTTC": {
             "type": "number",
-            "description": "Estimation TTC : Σ bordereau estimatif, sinon montant forfaitaire TTC."
+            "description": "Estimation TTC : Σ HT ligne × (1 + TVA) de l'estimatif, sinon forfait TTC."
           },
           "estimationDepuisBordereau": {
             "type": "boolean",
-            "description": "Vrai si l'estimation vient du bordereau estimatif."
+            "description": "Vrai si l'estimation vient du bordereau estimatif (Σ HT non nulle)."
           },
           "retenueGarantieTheorique": {
             "type": "number",
