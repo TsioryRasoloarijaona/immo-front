@@ -2,7 +2,13 @@
 import { request, withPageable } from './api';
 import type { PageDto, Pageable, UUID } from '../types';
 import type {
+  AvancesLotDto,
+  AvenantLotDto,
+  AvoirLotDto,
   BordereauDto,
+  BordereauEstimatifDto,
+  PrevisionsLotDto,
+  RemboursementsLotDto,
   CreerLotRequest,
   DecompteDetailDto,
   DemandeAchatLotDto,
@@ -82,6 +88,31 @@ export function getSuiviLot(id: UUID): Promise<SuiviLotDto> {
 
 export function getBordereauLot(id: UUID): Promise<BordereauDto> {
   return request('GET', `${LOTS}/${id}/bordereau`);
+}
+
+// FEATURE-lot-sous-fenetres.md §4 : sous-fenêtres en lecture ; 404 si le lot est invisible.
+export function getBordereauEstimatifLot(id: UUID): Promise<BordereauEstimatifDto> {
+  return request('GET', `${LOTS}/${id}/bordereau-estimatif`);
+}
+
+export function getAvancesLot(id: UUID): Promise<AvancesLotDto> {
+  return request('GET', `${LOTS}/${id}/avances`);
+}
+
+export function getAvoirsLot(id: UUID): Promise<AvoirLotDto[]> {
+  return request('GET', `${LOTS}/${id}/avoirs`);
+}
+
+export function getAvenantsLot(id: UUID): Promise<AvenantLotDto[]> {
+  return request('GET', `${LOTS}/${id}/avenants`);
+}
+
+export function getRemboursementsLot(id: UUID): Promise<RemboursementsLotDto> {
+  return request('GET', `${LOTS}/${id}/remboursements`);
+}
+
+export function getPrevisionsLot(id: UUID): Promise<PrevisionsLotDto> {
+  return request('GET', `${LOTS}/${id}/previsions`);
 }
 
 export function getDecomptesLot(id: UUID): Promise<DecompteListItemDto[]> {

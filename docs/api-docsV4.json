@@ -28858,6 +28858,80 @@
         }
       }
     },
+    "/api/projet/lots/{id}/remboursements": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Remboursements du lot : échéances et réceptions de RG, remboursements RG et compte prorata",
+        "description": "Fenêtre « Remboursements » : échéances de remboursement de la retenue de garantie (`PrjMarketWarrantyLine`, pourcentage =\n`Ratio` × 100) et réceptions (`PrjMarketReception`), par ordre ; remboursements de retenue de garantie (`MARKET_WARRANTY`) et\ndu compte prorata (`MARKET_PROPORTION`) avec les mêmes champs, filtres et calculs que les avances.",
+        "operationId": "remboursements",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Quatre listes, éventuellement vides.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemboursementsLotDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/previsions": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Prévisions du lot : séries mensuelles du graphe",
+        "description": "Fenêtre « Prévisions » (`FEATURE-lot-sous-fenetres.md` §4.6) : un point par mois, du mois précédant le premier point au dernier,\nsans trou. `prevision` = Σ `PrjMarketPaymentPrevision.Amount` par mois de `PaymentDate`, `avancementPrevision` = son avancement\nmaximal du mois (null si négatif ou lot multi-fournisseur). `reel` = Σ net à payer des pièces du lot hors avoirs par mois\nd'échéance ; `avancementReel` = avancement des décomptes facturés du mois. `estimation` / `avancementEstimation` = estimation\nde base : `PrjMarketUserPrevision`, sinon courbe générée depuis les dates et le montant manuels du lot (aucun point si une date\nmanque). Montants à 0 et avancements null pour un mois sans donnée ; `mois` vide si le lot n'a aucun point.",
+        "operationId": "previsions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mois consécutifs ; liste vide si le lot n'a aucun point.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsLotDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}/demandes-achat": {
       "get": {
         "tags": [
@@ -28944,7 +29018,7 @@
           "Projet"
         ],
         "summary": "Bordereau définitif d'un lot",
-        "description": "Lignes du bordereau **définitif** (`PrjMarketLine` hors stock), tri par ordre, avec leurs totaux calculés. Liste vide : lot\nau montant forfaitaire (« Bordereau non saisi »).",
+        "description": "Lignes du bordereau **définitif** (`PrjMarketLine` hors stock), tri par ordre, avec leurs totaux calculés. Liste vide : lot\nau montant forfaitaire (« Bordereau non saisi »). `groupes` = arbre plat des regroupements (`PrjMarketLineGrouping` hors\napprovisionnement, `parentId` null à la racine), tri par ordre puis code ; chaque ligne porte `groupeId` et `ponderation`\n(`WeightingRatio` tel que stocké, jamais calculé).",
         "operationId": "bordereau",
         "parameters": [
           {
@@ -28965,6 +29039,160 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/BordereauDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/bordereau-estimatif": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Bordereau estimatif d'un lot, en lecture seule",
+        "description": "Fenêtre « Bordereau estimatif » (`FEATURE-lot-sous-fenetres.md` §4.5) : mêmes champs et mêmes calculs que le bordereau\ndéfinitif, lus dans `PrjMarketLineEstimation` / `PrjMarketLineGroupingEstimation`. `verrouille` vaut toujours `true` (aucune\nécriture dans ce lot). Lignes d'approvisionnement (`IsStock`) exclues.",
+        "operationId": "bordereauEstimatif",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes, lignes du bordereau estimatif et leurs totaux.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BordereauEstimatifDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/avoirs": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Avoirs du lot, par date décroissante",
+        "description": "Fenêtre « Avoirs » : pièces `REFUND` rattachées au lot (`PrjMarketId`), payables, d'une société habilitée. Tri par date\ndécroissante puis code.",
+        "operationId": "avoirs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Avoirs du lot (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AvoirLotDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/avenants": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Avenants du lot, par date décroissante",
+        "description": "Fenêtre « Avenants » : `PrjClause` du lot, tri par date décroissante puis code. `factureCode` = codes des factures\n(`INVOICE`) rattachées à l'avenant, séparés par « , » ; null sans facture.",
+        "operationId": "avenants",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Avenants du lot (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AvenantLotDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/avances": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Avances du lot : sur marché et sur décompte",
+        "description": "Fenêtre « Avances » : pièces `DOCUMENT_TO_PAY` du lot, `surMarche` = `ReferenceType` `MARKET_ADVANCE`, `surDecompte` =\n`WORKINGOUT_ADVANCE`. Seules les pièces payables (`CanBePayed = 1`) d'une société habilitée de l'appelant ; une pièce d'une\nautre société est omise (jamais 404). Réglé = Σ des règlements non annulés, reste = net à payer − réglé : même calcul que la\nliste Achat. Tri par date décroissante puis code.",
+        "operationId": "avances",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deux listes, éventuellement vides.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvancesLotDto"
                 }
               }
             }
@@ -67648,6 +67876,232 @@
           }
         }
       },
+      "AvanceLotDto": {
+        "type": "object",
+        "description": "Pièce à payer du lot (avance ou remboursement) ; réglé et reste = solde partagé de la liste Achat.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyDocument.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pièce."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de la pièce (BuyDocumentStatus.PKey), null si aucun."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (nom .NET, ColorName).",
+            "example": "Orange"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "netAPayer": {
+            "type": "number",
+            "description": "Net à payer (AmountToPay) ; négatif = avance à déduire."
+          },
+          "regle": {
+            "type": "number",
+            "description": "Σ des règlements non annulés."
+          },
+          "reste": {
+            "type": "number",
+            "description": "Net à payer − réglé ; négatif possible."
+          },
+          "deviseCode": {
+            "type": "string",
+            "description": "Code de la devise (StlCurrency.Code)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes de la pièce."
+          }
+        }
+      },
+      "EcheanceRgLotDto": {
+        "type": "object",
+        "description": "Échéance de remboursement de la retenue de garantie (PrjMarketWarrantyLine).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjMarketWarrantyLine.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "delaiJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai en jours (Delay)."
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'échéance (EcheanceDate)."
+          },
+          "pourcentage": {
+            "type": "number",
+            "description": "Pourcentage remboursé (Ratio × 100).",
+            "example": 50
+          }
+        }
+      },
+      "ReceptionLotDto": {
+        "type": "object",
+        "description": "Réception du lot (PrjMarketReception).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjMarketReception.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la réception."
+          },
+          "dateReception": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de réception (DocDate)."
+          },
+          "demandeeParFournisseur": {
+            "type": "boolean",
+            "description": "Réception demandée par le fournisseur (RequiredBySupplier)."
+          },
+          "lieu": {
+            "type": "string",
+            "description": "Lieu (MeetingPlace)."
+          },
+          "typeDescription": {
+            "type": "string",
+            "description": "Type de réception (PrjMarketReceptionType.Description)."
+          },
+          "genreDescription": {
+            "type": "string",
+            "description": "Genre de réception (PrjMarketReceptionKind.Description)."
+          },
+          "definitive": {
+            "type": "boolean",
+            "description": "Genre définitif (PrjMarketReceptionKind.IsFinal)."
+          }
+        }
+      },
+      "RemboursementsLotDto": {
+        "type": "object",
+        "description": "Sous-fenêtre Remboursements du lot : quatre listes.",
+        "properties": {
+          "echeances": {
+            "type": "array",
+            "description": "Échéances de remboursement de la retenue de garantie, par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/EcheanceRgLotDto"
+            }
+          },
+          "receptions": {
+            "type": "array",
+            "description": "Réceptions du lot, par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/ReceptionLotDto"
+            }
+          },
+          "remboursementsRg": {
+            "type": "array",
+            "description": "Remboursements de retenue de garantie (MARKET_WARRANTY).",
+            "items": {
+              "$ref": "#/components/schemas/AvanceLotDto"
+            }
+          },
+          "remboursementsProrata": {
+            "type": "array",
+            "description": "Remboursements du compte prorata (MARKET_PROPORTION).",
+            "items": {
+              "$ref": "#/components/schemas/AvanceLotDto"
+            }
+          }
+        }
+      },
+      "PointPrevisionDto": {
+        "type": "object",
+        "description": "Mois du graphe ; montants à 0 et avancements null sans donnée.",
+        "properties": {
+          "mois": {
+            "type": "string",
+            "format": "date",
+            "description": "Premier jour du mois."
+          },
+          "estimation": {
+            "type": "number",
+            "description": "Estimation de base : montant du mois."
+          },
+          "avancementEstimation": {
+            "type": "number",
+            "description": "Estimation de base : avancement (fraction 0–1)."
+          },
+          "prevision": {
+            "type": "number",
+            "description": "Σ PrjMarketPaymentPrevision.Amount du mois."
+          },
+          "avancementPrevision": {
+            "type": "number",
+            "description": "Avancement prévu (fraction 0–1), maximum du mois ; null si négatif."
+          },
+          "reel": {
+            "type": "number",
+            "description": "Σ net à payer des pièces du lot hors avoirs, par mois d'échéance."
+          },
+          "avancementReel": {
+            "type": "number",
+            "description": "Avancement des décomptes facturés du mois (fraction 0–1)."
+          }
+        }
+      },
+      "PrevisionsLotDto": {
+        "type": "object",
+        "description": "Prévisions du lot : séries mensuelles du graphe OMRAN (estimation de base, prévision, réel).",
+        "properties": {
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey)."
+          },
+          "debut": {
+            "type": "string",
+            "format": "date",
+            "description": "Premier mois de la série ; null sans aucun point."
+          },
+          "mois": {
+            "type": "array",
+            "description": "Tous les mois consécutifs ; vide si le lot n'a aucun point.",
+            "items": {
+              "$ref": "#/components/schemas/PointPrevisionDto"
+            }
+          }
+        }
+      },
       "DemandeAchatLotDto": {
         "type": "object",
         "description": "Demande interne d'achat du lot (BuySelection), onglet « Demande interne d'achat » de la fiche lot.",
@@ -67716,12 +68170,56 @@
           "totaux": {
             "$ref": "#/components/schemas/TotauxBordereauDto",
             "description": "Totaux des lignes."
+          },
+          "groupes": {
+            "type": "array",
+            "description": "Groupes du bordereau hors approvisionnement (arbre plat).",
+            "items": {
+              "$ref": "#/components/schemas/GroupeBordereauDto"
+            }
+          }
+        }
+      },
+      "GroupeBordereauDto": {
+        "type": "object",
+        "description": "Groupe d'un bordereau (arbre plat), par ordre puis code.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du regroupement."
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Groupe parent ; null à la racine."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du groupe."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé du groupe."
+          },
+          "stock": {
+            "type": "boolean",
+            "description": "Groupe d'approvisionnement (IsStock)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes du groupe."
           }
         }
       },
       "LigneBordereauDto": {
         "type": "object",
-        "description": "Ligne du bordereau définitif d'un lot (PrjMarketLine hors stock) ; totaux calculés, non stockés.",
+        "description": "Ligne d'un bordereau (définitif ou estimatif) d'un lot, hors stock ; totaux calculés, non stockés.",
         "properties": {
           "id": {
             "type": "string",
@@ -67769,6 +68267,15 @@
           "totalTTC": {
             "type": "number",
             "description": "Quantité × prix unitaire TTC."
+          },
+          "groupeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Groupe de la ligne (PrjMarketLineGroupingId), null sans groupe."
+          },
+          "ponderation": {
+            "type": "number",
+            "description": "Pondération (WeightingRatio) telle que stockée ; null si non saisie."
           }
         }
       },
@@ -67792,6 +68299,157 @@
             "type": "integer",
             "format": "int64",
             "description": "Nombre de lignes."
+          }
+        }
+      },
+      "BordereauEstimatifDto": {
+        "type": "object",
+        "description": "Bordereau estimatif d'un lot (PrjMarketLineEstimation hors stock), en lecture seule.",
+        "properties": {
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey)."
+          },
+          "verrouille": {
+            "type": "boolean",
+            "description": "Toujours vrai : bordereau verrouillé (cadenas OMRAN)."
+          },
+          "groupes": {
+            "type": "array",
+            "description": "Groupes du bordereau estimatif.",
+            "items": {
+              "$ref": "#/components/schemas/GroupeBordereauDto"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes, tri par ordre puis code.",
+            "items": {
+              "$ref": "#/components/schemas/LigneBordereauDto"
+            }
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxBordereauDto",
+            "description": "Totaux des lignes."
+          }
+        }
+      },
+      "AvoirLotDto": {
+        "type": "object",
+        "description": "Avoir du lot (BuyDocument DocType REFUND).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyDocument.PKey."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de l'avoir (DocDate)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de l'avoir."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (nom .NET, ColorName).",
+            "example": "Orange"
+          },
+          "personneAContacter": {
+            "type": "string",
+            "description": "Personne à contacter (PersonToContact)."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Montant de TVA."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC."
+          },
+          "referenceBureauOrdre": {
+            "type": "string",
+            "description": "Référence bureau d'ordre (OfficeOrderRef)."
+          }
+        }
+      },
+      "AvenantLotDto": {
+        "type": "object",
+        "description": "Avenant du lot (PrjClause).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjClause.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting)."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de l'avenant (DocDate)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de l'avenant."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Montant de TVA."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC."
+          },
+          "netAPayer": {
+            "type": "number",
+            "description": "Net à payer (AmountToPay)."
+          },
+          "factureCode": {
+            "type": "string",
+            "description": "Codes des factures de l'avenant séparés par « , » ; null sans facture."
+          }
+        }
+      },
+      "AvancesLotDto": {
+        "type": "object",
+        "description": "Sous-fenêtre Avances du lot : deux grilles, par date décroissante puis code.",
+        "properties": {
+          "surMarche": {
+            "type": "array",
+            "description": "Avances sur marché (ReferenceType MARKET_ADVANCE).",
+            "items": {
+              "$ref": "#/components/schemas/AvanceLotDto"
+            }
+          },
+          "surDecompte": {
+            "type": "array",
+            "description": "Avances sur décompte (ReferenceType WORKINGOUT_ADVANCE).",
+            "items": {
+              "$ref": "#/components/schemas/AvanceLotDto"
+            }
           }
         }
       },

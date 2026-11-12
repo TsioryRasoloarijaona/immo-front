@@ -399,6 +399,9 @@ export interface LigneBordereauDto {
   tauxTVA: number | null;
   totalHT: number | null;
   totalTTC: number | null;
+  groupeId: UUID | null;
+  /** WeightingRatio tel que stocké ; null si non saisi. */
+  ponderation: number | null;
 }
 
 export interface TotauxBordereauDto {
@@ -412,6 +415,122 @@ export interface BordereauDto {
   lotId: UUID;
   lignes: LigneBordereauDto[];
   totaux: TotauxBordereauDto;
+  groupes: GroupeBordereauDto[];
+}
+
+// FEATURE-lot-sous-fenetres.md §4 : sous-fenêtres de la fiche lot, en lecture.
+export interface GroupeBordereauDto {
+  id: UUID;
+  /** null à la racine. */
+  parentId: UUID | null;
+  ordre: number | null;
+  code: string | null;
+  description: string | null;
+  stock: boolean;
+  notes: string | null;
+}
+
+export interface BordereauEstimatifDto {
+  lotId: UUID;
+  /** Toujours vrai (cadenas OMRAN). */
+  verrouille: boolean;
+  groupes: GroupeBordereauDto[];
+  lignes: LigneBordereauDto[];
+  totaux: TotauxBordereauDto;
+}
+
+export interface AvanceLotDto {
+  id: UUID;
+  code: string | null;
+  statutId: UUID | null;
+  statutDescription: string | null;
+  statutCouleur: string | null;
+  date: string | null;
+  /** Négatif = avance à déduire. */
+  netAPayer: number;
+  regle: number;
+  reste: number;
+  deviseCode: string | null;
+  notes: string | null;
+}
+
+export interface AvancesLotDto {
+  surMarche: AvanceLotDto[];
+  surDecompte: AvanceLotDto[];
+}
+
+export interface AvoirLotDto {
+  id: UUID;
+  date: string | null;
+  code: string | null;
+  statutDescription: string | null;
+  statutCouleur: string | null;
+  personneAContacter: string | null;
+  montantHT: number | null;
+  montantTVA: number | null;
+  montantTTC: number | null;
+  referenceBureauOrdre: string | null;
+}
+
+export interface AvenantLotDto {
+  id: UUID;
+  ordre: number | null;
+  date: string | null;
+  code: string | null;
+  description: string | null;
+  montantHT: number | null;
+  montantTVA: number | null;
+  montantTTC: number | null;
+  netAPayer: number | null;
+  /** Codes des factures séparés par « , » ; null sans facture. */
+  factureCode: string | null;
+}
+
+export interface EcheanceRgLotDto {
+  id: UUID;
+  ordre: number | null;
+  description: string | null;
+  delaiJours: number | null;
+  echeance: string | null;
+  /** Pourcentage 0–100. */
+  pourcentage: number | null;
+}
+
+export interface ReceptionLotDto {
+  id: UUID;
+  ordre: number | null;
+  code: string | null;
+  dateReception: string | null;
+  demandeeParFournisseur: boolean;
+  lieu: string | null;
+  typeDescription: string | null;
+  genreDescription: string | null;
+  definitive: boolean;
+}
+
+export interface RemboursementsLotDto {
+  echeances: EcheanceRgLotDto[];
+  receptions: ReceptionLotDto[];
+  remboursementsRg: AvanceLotDto[];
+  remboursementsProrata: AvanceLotDto[];
+}
+
+/** Montants à 0 et avancements (fraction 0–1) null pour un mois sans donnée. */
+export interface PointPrevisionDto {
+  /** Premier jour du mois. */
+  mois: string;
+  estimation: number;
+  avancementEstimation: number | null;
+  prevision: number;
+  avancementPrevision: number | null;
+  reel: number;
+  avancementReel: number | null;
+}
+
+export interface PrevisionsLotDto {
+  lotId: UUID;
+  debut: string | null;
+  mois: PointPrevisionDto[];
 }
 
 export interface DecompteListItemDto {
