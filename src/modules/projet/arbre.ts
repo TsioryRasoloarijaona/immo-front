@@ -17,7 +17,7 @@ export const arbreProjet: ArbreModule = ({ user }) => [
     cle: 'depenses',
     titre: 'Dépenses',
     entrees: [
-      { to: '/projet/depenses', libelle: 'Synthèse', Icone: Wallet, couleur: COULEUR },
+      { to: '/projet/depenses', libelle: 'Synthèse', Icone: Wallet, couleur: COULEUR, exact: true },
       { to: '/projet/depenses/factures', libelle: 'Factures', Icone: Receipt, couleur: COULEUR },
       { to: '/projet/depenses/documents-a-regler', libelle: 'Documents à régler', Icone: ClipboardList, couleur: COULEUR },
       { to: '/projet/depenses/avoirs', libelle: 'Avoirs', Icone: Undo2, couleur: COULEUR },
