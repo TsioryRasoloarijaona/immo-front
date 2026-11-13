@@ -9,6 +9,7 @@ import {
   erreurGroupes,
   etatDepuisDto,
   groupeContientDecomptee,
+  lignesEnOrdreArbre,
   modifierGroupe,
   modifierLigne,
   regenererCodes,
@@ -25,7 +26,7 @@ import { useConfirmationSortie } from '../../../lib/useConfirmationSortie';
 import { errorMessage, refetchAllApis, useApi } from '../../../lib/useApi';
 import type { UUID } from '../../../types';
 import type { BordereauSaisieDto, GroupeBordereauDto, LigneBordereauDto, TotauxBordereauDto } from '../../../types/projet';
-import BordereauAvecArbre, { lignesEnOrdreArbre } from './ArbreBordereau';
+import BordereauAvecArbre from './ArbreBordereau';
 import BarreEditionBordereau from './BarreEditionBordereau';
 import FormulaireGroupe from './FormulaireGroupe';
 import GrilleLignesEditable from './GrilleLignesEditable';

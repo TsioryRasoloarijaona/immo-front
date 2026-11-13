@@ -2,7 +2,7 @@ import { useMemo, useState, type DragEvent, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import DataGrid from '../../DataGrid';
 import { formatCurrency } from '../../../lib/format';
-import type { Depot, Glisse } from '../../../lib/saisieBordereau';
+import { lignesEnOrdreArbre, type Depot, type Glisse } from '../../../lib/saisieBordereau';
 import { COLONNES_BORDEREAU_LIGNES, idsGroupeEtDescendants } from '../../../lib/sousFenetresLot';
 import { cn } from '../../../lib/utils';
 import type { GroupeBordereauDto, LigneBordereauDto, TotauxBordereauDto } from '../../../types/projet';
@@ -17,24 +17,6 @@ export interface EditionArbre {
   onSelection: (id: string | null) => void;
   onDeposer: (source: Glisse, depot: Depot) => void;
   grille: (groupeIds: Set<string> | null) => ReactNode;
-}
-
-/** Lignes dans l'ordre de l'arbre : lignes racine, puis chaque groupe (dans l'ordre de l'arbre) avec ses lignes, récursivement. */
-export function lignesEnOrdreArbre<L extends { groupeId: string | null }>(groupes: Pick<GroupeNoeud, 'id' | 'parentId'>[], lignes: L[]): L[] {
-  const parGroupe = new Map<string | null, L[]>();
-  for (const l of lignes) parGroupe.set(l.groupeId, [...(parGroupe.get(l.groupeId) ?? []), l]);
-  const enfants = new Map<string | null, string[]>();
-  for (const g of groupes) enfants.set(g.parentId, [...(enfants.get(g.parentId) ?? []), g.id]);
-  const resultat: L[] = [...(parGroupe.get(null) ?? [])];
-  const places = new Set<string>();
-  const descendre = (id: string) => {
-    places.add(id);
-    resultat.push(...(parGroupe.get(id) ?? []));
-    for (const fils of enfants.get(id) ?? []) descendre(fils);
-  };
-  for (const id of enfants.get(null) ?? []) descendre(id);
-  for (const [groupeId, liste] of parGroupe) if (groupeId !== null && !places.has(groupeId)) resultat.push(...liste);
-  return resultat;
 }
 
 function lireGlisse(e: DragEvent): Glisse | null {

@@ -5,6 +5,24 @@ import { idsGroupeEtDescendants } from './sousFenetresLot';
 /** Ligne en cours de saisie : `decomptee` (définitif) n'est jamais renvoyée au serveur. */
 export type LigneEditee = LigneSaisieDto & { decomptee: boolean };
 
+/** Lignes dans l'ordre de l'arbre : lignes racine, puis chaque groupe (dans l'ordre de l'arbre) avec ses lignes, récursivement. */
+export function lignesEnOrdreArbre<L extends { groupeId: string | null }>(groupes: Pick<GroupeBordereauDto, 'id' | 'parentId'>[], lignes: L[]): L[] {
+  const parGroupe = new Map<string | null, L[]>();
+  for (const l of lignes) parGroupe.set(l.groupeId, [...(parGroupe.get(l.groupeId) ?? []), l]);
+  const enfants = new Map<string | null, string[]>();
+  for (const g of groupes) enfants.set(g.parentId, [...(enfants.get(g.parentId) ?? []), g.id]);
+  const resultat: L[] = [...(parGroupe.get(null) ?? [])];
+  const places = new Set<string>();
+  const descendre = (id: string) => {
+    places.add(id);
+    resultat.push(...(parGroupe.get(id) ?? []));
+    for (const fils of enfants.get(id) ?? []) descendre(fils);
+  };
+  for (const id of enfants.get(null) ?? []) descendre(id);
+  for (const [groupeId, liste] of parGroupe) if (groupeId !== null && !places.has(groupeId)) resultat.push(...liste);
+  return resultat;
+}
+
 export interface EtatBordereau {
   groupes: GroupeSaisieDto[];
   lignes: LigneEditee[];
