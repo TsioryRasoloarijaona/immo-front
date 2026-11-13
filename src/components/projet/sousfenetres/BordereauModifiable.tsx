@@ -6,8 +6,10 @@ import {
   ajouterLigne,
   appliquerCategorie,
   deposer,
+  erreurGroupes,
   etatDepuisDto,
   groupeContientDecomptee,
+  modifierGroupe,
   modifierLigne,
   regenererCodes,
   supprimerGroupe,
@@ -25,6 +27,7 @@ import type { UUID } from '../../../types';
 import type { BordereauSaisieDto, GroupeBordereauDto, LigneBordereauDto, TotauxBordereauDto } from '../../../types/projet';
 import BordereauAvecArbre from './ArbreBordereau';
 import BarreEditionBordereau from './BarreEditionBordereau';
+import FormulaireGroupe from './FormulaireGroupe';
 import GrilleLignesEditable from './GrilleLignesEditable';
 
 export interface SourceBordereau {
@@ -74,7 +77,8 @@ function EditeurBordereau({ source, enregistrer, onModifie }: Readonly<Omit<Prop
     setLigneSel(null);
   }
 
-  const refusSuppression = refus(etat, cible, groupeSel, ligneSel);
+  const groupeEdite = etat.groupes.find((g) => g.id === groupeSel);
+  const refusSuppression =refus(etat, cible, groupeSel, ligneSel);
 
   async function supprimer() {
     if (!(await confirm('Êtes-vous sûr de vouloir supprimer ce nœud ?'))) return;
@@ -92,6 +96,11 @@ function EditeurBordereau({ source, enregistrer, onModifie }: Readonly<Omit<Prop
   }
 
   async function sauvegarder() {
+    const refusGroupes = erreurGroupes(etat);
+    if (refusGroupes) {
+      setErreur(refusGroupes);
+      return;
+    }
     setEnCours(true);
     setErreur(null);
     try {
@@ -129,6 +138,7 @@ function EditeurBordereau({ source, enregistrer, onModifie }: Readonly<Omit<Prop
           {erreur}
         </div>
       )}
+      {groupeEdite && <FormulaireGroupe groupe={groupeEdite} onChanger={(patch) => muter((e) => modifierGroupe(e, groupeEdite.id, patch))} />}
       <BordereauAvecArbre
         groupes={etat.groupes}
         lignes={[]}

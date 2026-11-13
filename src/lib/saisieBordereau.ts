@@ -155,6 +155,16 @@ export function modifierLigne(etat: EtatBordereau, id: string, patch: Partial<Li
   return { ...etat, lignes: etat.lignes.map((l) => (l.id === id ? { ...l, ...patch } : l)) };
 }
 
+export function modifierGroupe(etat: EtatBordereau, id: string, patch: Partial<GroupeSaisieDto>): EtatBordereau {
+  return { ...etat, groupes: etat.groupes.map((g) => (g.id === id ? { ...g, ...patch } : g)) };
+}
+
+/** Message de refus si un groupe n'a pas de description, sinon null. */
+export function erreurGroupes(etat: EtatBordereau): string | null {
+  const sans = etat.groupes.find((g) => !g.description?.trim());
+  return sans ? `La description du groupe « ${sans.code ?? '—'} » est obligatoire.` : null;
+}
+
 /** Réinsère `deplace` parmi ses frères, avant `avantId` (ou en fin), et renumérote leurs ordres. */
 function reinserer<T extends { id: string; ordre: number | null }>(freres: T[], deplace: T, avantId: string | null): T[] {
   const autres = freres.filter((f) => f.id !== deplace.id);

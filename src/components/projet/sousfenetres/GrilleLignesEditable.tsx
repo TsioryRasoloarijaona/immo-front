@@ -53,7 +53,7 @@ export default function GrilleLignesEditable({
 
   return (
     <div className="overflow-auto rounded-md border">
-      <table className="w-full min-w-[56rem] border-collapse text-body">
+      <table className="w-full min-w-[62rem] border-collapse text-body">
         <thead>
           <tr className="border-b">
             <th className={ENTETE}>Code</th>
@@ -62,6 +62,7 @@ export default function GrilleLignesEditable({
             <th className={ENTETE}>Qté</th>
             <th className={ENTETE}>PU HT</th>
             <th className={ENTETE}>TVA %</th>
+            <th className={ENTETE}>FODEC %</th>
             <th className={ENTETE}>PU TTC</th>
             <th className={ENTETE}>Catégorie</th>
             <th className={ENTETE}>Pondération</th>
@@ -87,6 +88,7 @@ export default function GrilleLignesEditable({
               <CelluleNombre valeur={l.quantite} libelle="Quantité" onChange={(v) => onChanger(l.id, { quantite: v })} />
               <CelluleNombre valeur={l.prixUnitaireHT} libelle="Prix unitaire HT" onChange={(v) => onChanger(l.id, { prixUnitaireHT: v })} />
               <CelluleNombre valeur={l.tauxTVA} libelle="TVA %" onChange={(v) => onChanger(l.id, { tauxTVA: v })} />
+              <CelluleNombre valeur={l.tauxFODEC ?? 0} libelle="FODEC %" onChange={(v) => onChanger(l.id, { tauxFODEC: v ?? 0 })} />
               <td className="px-1 text-right">{formatCurrency(prixUnitaireTTC(l))}</td>
               <td>
                 <select aria-label="Catégorie" className={CHAMP} value={l.categorieId ?? ''} onChange={(e) => onChanger(l.id, { categorieId: e.target.value || null })}>
