@@ -1801,6 +1801,188 @@
         }
       }
     },
+    "/api/projet/lots/{id}/bordereau": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Bordereau définitif d'un lot",
+        "description": "Lignes du bordereau **définitif** (`PrjMarketLine` hors stock), tri par ordre, avec leurs totaux calculés. Liste vide : lot\nau montant forfaitaire (« Bordereau non saisi »). `groupes` = arbre plat des regroupements (`PrjMarketLineGrouping` hors\napprovisionnement, `parentId` null à la racine), tri par ordre puis code ; chaque ligne porte `groupeId` et `ponderation`\n(`WeightingRatio` tel que stocké, jamais calculé). `decomptee` = ligne citée par une ligne de décompte. `modifiable` = vrai si\n`PUT …/bordereau` serait accepté pour l'appelant (même règle) ; `tvaParDefaut` / `categorieParDefautId` = défauts d'une\nnouvelle ligne.",
+        "operationId": "bordereau",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes du bordereau et leurs totaux.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BordereauDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Enregistrer le bordereau définitif entier d'un lot",
+        "description": "Enregistre le bordereau **définitif entier** (`FEATURE-lot-ecritures.md` §3) dans une seule transaction : un id inconnu est\ninséré, un id du bordereau modifié, une ligne ou un groupe de la base absent de l'envoi supprimé ; la moindre erreur annule\ntout. Lignes et groupes d'approvisionnement (`IsStock`) ni lus ni touchés ; leur id dans l'envoi → 400, comme un id d'un autre\nlot ou de l'estimatif. Les nouveaux ids sont générés par le front (UUID). Le PU TTC est recalculé (PU HT × (1 + FODEC) ×\n(1 + TVA)), la quantité arrondie à 6 décimales. Droits : `MarketMonitoringList.toolNew` **et** `MarketMonitoring.toolAddMarketLine`\n(aucun verrou de statut). Supprimer une ligne décomptée → 409 « Vous ne pouvez pas supprimer cette ligne » ; un groupe dont une\nligne supprimée est décomptée → 409 « Vous ne pouvez pas supprimer ce groupe ». La déplacer ou changer sa quantité / son prix\nreste permis, sans recalcul des décomptes. Après écriture, la ventilation par catégorie du lot est réécrite ; aucun montant du\nlot ni aucune prévision n'est recalculé. Ordre des refus : 404, 403, 400, 409.",
+        "operationId": "ecrireBordereau",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BordereauSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Bordereau définitif relu après écriture.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BordereauDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent ou hors bornes, id d'un autre bordereau, groupe hors envoi."
+          },
+          "403": {
+            "description": "Droit MarketMonitoringList.toolNew ou MarketMonitoring.toolAddMarketLine absent."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          },
+          "409": {
+            "description": "Suppression d'une ligne décomptée ou d'un groupe qui en contient une."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/bordereau-estimatif": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Bordereau estimatif d'un lot",
+        "description": "Fenêtre « Bordereau estimatif » (`FEATURE-lot-sous-fenetres.md` §4.5) : mêmes champs et mêmes calculs que le bordereau\ndéfinitif, lus dans `PrjMarketLineEstimation` / `PrjMarketLineGroupingEstimation`. `verrouille` = vrai si\n`PUT …/bordereau-estimatif` serait refusé à l'appelant (droit, statut du lot sans « Avec bordereau estimatif »,\nlot multi-fournisseurs). `decomptee` toujours faux. Lignes d'approvisionnement (`IsStock`) exclues.",
+        "operationId": "bordereauEstimatif",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes, lignes du bordereau estimatif et leurs totaux.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BordereauEstimatifDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Enregistrer le bordereau estimatif entier d'un lot",
+        "description": "Enregistre le bordereau **estimatif entier**, mêmes règles que `PUT …/bordereau` sur les tables estimatives, avec :\ndroit `MarketMonitoringList.toolNew` seul ; 409 « Le bordereau estimatif est verrouillé par le statut du lot » si le statut\nn'a pas `BoolField004` (« Avec bordereau estimatif »), 409 pour un lot multi-fournisseurs ; codes de ligne uniques (400 « Le\ncode X doit être unique pour les lignes du bordereaux ! ») ; aucune garde de décompte. Ordre des refus : 404, 403, 409, 400.",
+        "operationId": "ecrireBordereauEstimatif",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BordereauSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Bordereau estimatif relu après écriture.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BordereauEstimatifDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent ou hors bornes, id d'un autre bordereau, groupe hors envoi. Code de ligne en double."
+          },
+          "403": {
+            "description": "Droit MarketMonitoringList.toolNew absent."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          },
+          "409": {
+            "description": "Estimatif cadenassé par le statut du lot, ou lot multi-fournisseurs."
+          }
+        }
+      }
+    },
     "/api/projet/decomptes/{id}": {
       "get": {
         "tags": [
@@ -29012,80 +29194,6 @@
         }
       }
     },
-    "/api/projet/lots/{id}/bordereau": {
-      "get": {
-        "tags": [
-          "Projet"
-        ],
-        "summary": "Bordereau définitif d'un lot",
-        "description": "Lignes du bordereau **définitif** (`PrjMarketLine` hors stock), tri par ordre, avec leurs totaux calculés. Liste vide : lot\nau montant forfaitaire (« Bordereau non saisi »). `groupes` = arbre plat des regroupements (`PrjMarketLineGrouping` hors\napprovisionnement, `parentId` null à la racine), tri par ordre puis code ; chaque ligne porte `groupeId` et `ponderation`\n(`WeightingRatio` tel que stocké, jamais calculé).",
-        "operationId": "bordereau",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Identifiant du lot (PrjMarket.PKey).",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Lignes du bordereau et leurs totaux.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/BordereauDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
-          }
-        }
-      }
-    },
-    "/api/projet/lots/{id}/bordereau-estimatif": {
-      "get": {
-        "tags": [
-          "Projet"
-        ],
-        "summary": "Bordereau estimatif d'un lot, en lecture seule",
-        "description": "Fenêtre « Bordereau estimatif » (`FEATURE-lot-sous-fenetres.md` §4.5) : mêmes champs et mêmes calculs que le bordereau\ndéfinitif, lus dans `PrjMarketLineEstimation` / `PrjMarketLineGroupingEstimation`. `verrouille` vaut toujours `true` (aucune\nécriture dans ce lot). Lignes d'approvisionnement (`IsStock`) exclues.",
-        "operationId": "bordereauEstimatif",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Identifiant du lot (PrjMarket.PKey).",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Groupes, lignes du bordereau estimatif et leurs totaux.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/BordereauEstimatifDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
-          }
-        }
-      }
-    },
     "/api/projet/lots/{id}/avoirs": {
       "get": {
         "tags": [
@@ -44253,6 +44361,349 @@
           "superficieHabitat": {
             "type": "number",
             "description": "Lecture seule : vendable − bureau − commerce (HabitatArea)."
+          }
+        }
+      },
+      "BordereauSaisieDto": {
+        "type": "object",
+        "description": "Bordereau entier envoyé à l'enregistrement (hors approvisionnement) : la base est alignée sur cet envoi.",
+        "properties": {
+          "groupes": {
+            "type": "array",
+            "description": "Tous les groupes du bordereau ; liste vide acceptée, null refusé.",
+            "items": {
+              "$ref": "#/components/schemas/GroupeSaisieDto"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Toutes les lignes du bordereau ; liste vide acceptée, null refusé.",
+            "items": {
+              "$ref": "#/components/schemas/LigneSaisieDto"
+            }
+          }
+        }
+      },
+      "GroupeSaisieDto": {
+        "type": "object",
+        "description": "Groupe d'un bordereau envoyé à l'enregistrement.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du groupe : existant = modifié, inconnu = inséré (UUID généré par le front)."
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Groupe parent, du même envoi ; null à la racine."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting), obligatoire."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code (255 caractères au plus)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description, obligatoire (255 caractères au plus)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1 000 caractères au plus)."
+          }
+        }
+      },
+      "LigneSaisieDto": {
+        "type": "object",
+        "description": "Ligne d'un bordereau envoyée à l'enregistrement ; le PU TTC est recalculé par le serveur.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la ligne : existante = modifiée, inconnue = insérée (UUID généré par le front)."
+          },
+          "groupeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Groupe de la ligne, du même envoi ; null sans groupe."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting), obligatoire."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code (255 caractères au plus) ; unique parmi les lignes de l'estimatif."
+          },
+          "designation": {
+            "type": "string",
+            "description": "Désignation, obligatoire (255 caractères au plus)."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité, texte libre (50 caractères au plus)."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité, obligatoire, ≥ 0 ; arrondie à 6 décimales."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT, obligatoire, ≥ 0."
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA en pourcentage, obligatoire, de 0 à 100.",
+            "example": 20
+          },
+          "tauxFODEC": {
+            "type": "number",
+            "description": "Taux de FODEC en pourcentage ; null = 0.",
+            "example": 0
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de dépense (StlCategory), obligatoire et existante."
+          },
+          "ponderation": {
+            "type": "number",
+            "description": "Pondération (WeightingRatio), stockée telle quelle ; null accepté."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1 000 caractères au plus)."
+          }
+        }
+      },
+      "BordereauDto": {
+        "type": "object",
+        "description": "Bordereau définitif d'un lot ; lignes vides = lot au montant forfaitaire.",
+        "properties": {
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey)."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes, tri par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/LigneBordereauDto"
+            }
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxBordereauDto",
+            "description": "Totaux des lignes."
+          },
+          "groupes": {
+            "type": "array",
+            "description": "Groupes du bordereau hors approvisionnement (arbre plat).",
+            "items": {
+              "$ref": "#/components/schemas/GroupeBordereauDto"
+            }
+          },
+          "modifiable": {
+            "type": "boolean",
+            "description": "Vrai si l'appelant peut enregistrer ce bordereau (mêmes droits que PUT …/bordereau)."
+          },
+          "tvaParDefaut": {
+            "type": "number",
+            "description": "TVA par défaut du lot en pourcentage (DefaultVat × 100), null si vide.",
+            "example": 20
+          },
+          "categorieParDefautId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de dépense du lot (StlCategoryId), défaut d'une nouvelle ligne."
+          }
+        }
+      },
+      "GroupeBordereauDto": {
+        "type": "object",
+        "description": "Groupe d'un bordereau (arbre plat), par ordre puis code.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du regroupement."
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Groupe parent ; null à la racine."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du groupe."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé du groupe."
+          },
+          "stock": {
+            "type": "boolean",
+            "description": "Groupe d'approvisionnement (IsStock)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes du groupe."
+          }
+        }
+      },
+      "LigneBordereauDto": {
+        "type": "object",
+        "description": "Ligne d'un bordereau (définitif ou estimatif) d'un lot, hors stock ; totaux calculés, non stockés.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjMarketLine.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre de la ligne (Sorting)."
+          },
+          "groupe": {
+            "type": "string",
+            "description": "Libellé du regroupement (PrjMarketLineGrouping), null si la ligne n'en a pas."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la ligne."
+          },
+          "designation": {
+            "type": "string",
+            "description": "Désignation."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité (Unity)."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT (16 décimales en base)."
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA en pourcentage (VatRatio × 100).",
+            "example": 20
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Quantité × prix unitaire HT."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Quantité × prix unitaire TTC."
+          },
+          "groupeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Groupe de la ligne (PrjMarketLineGroupingId), null sans groupe."
+          },
+          "ponderation": {
+            "type": "number",
+            "description": "Pondération (WeightingRatio) telle que stockée ; null si non saisie."
+          },
+          "tauxFODEC": {
+            "type": "number",
+            "description": "Taux de FODEC en pourcentage (FODECRatio × 100).",
+            "example": 0
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de dépense (StlCategoryId)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes de la ligne."
+          },
+          "decomptee": {
+            "type": "boolean",
+            "description": "Définitif : ligne citée par un décompte (ne peut être supprimée) ; toujours faux à l'estimatif."
+          }
+        }
+      },
+      "TotauxBordereauDto": {
+        "type": "object",
+        "description": "Totaux du bordereau ; égaux au marché du lot quand il a des lignes.",
+        "properties": {
+          "totalHT": {
+            "type": "number",
+            "description": "Σ quantité × prix unitaire HT."
+          },
+          "totalTVA": {
+            "type": "number",
+            "description": "Σ quantité × prix unitaire HT × taux de TVA."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Σ quantité × prix unitaire TTC."
+          },
+          "nbLignes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes."
+          }
+        }
+      },
+      "BordereauEstimatifDto": {
+        "type": "object",
+        "description": "Bordereau estimatif d'un lot (PrjMarketLineEstimation hors stock).",
+        "properties": {
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey)."
+          },
+          "verrouille": {
+            "type": "boolean",
+            "description": "Vrai si l'appelant ne peut pas enregistrer l'estimatif (droit, statut du lot, multi-fournisseurs)."
+          },
+          "groupes": {
+            "type": "array",
+            "description": "Groupes du bordereau estimatif.",
+            "items": {
+              "$ref": "#/components/schemas/GroupeBordereauDto"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes, tri par ordre puis code.",
+            "items": {
+              "$ref": "#/components/schemas/LigneBordereauDto"
+            }
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxBordereauDto",
+            "description": "Totaux des lignes."
+          },
+          "tvaParDefaut": {
+            "type": "number",
+            "description": "TVA par défaut du lot en pourcentage (DefaultVat × 100), null si vide.",
+            "example": 20
+          },
+          "categorieParDefautId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de dépense du lot (StlCategoryId), défaut d'une nouvelle ligne."
           }
         }
       },
@@ -68461,190 +68912,6 @@
           "notes": {
             "type": "string",
             "description": "Notes de la demande."
-          }
-        }
-      },
-      "BordereauDto": {
-        "type": "object",
-        "description": "Bordereau définitif d'un lot ; lignes vides = lot au montant forfaitaire.",
-        "properties": {
-          "lotId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Lot (PrjMarket.PKey)."
-          },
-          "lignes": {
-            "type": "array",
-            "description": "Lignes, tri par ordre.",
-            "items": {
-              "$ref": "#/components/schemas/LigneBordereauDto"
-            }
-          },
-          "totaux": {
-            "$ref": "#/components/schemas/TotauxBordereauDto",
-            "description": "Totaux des lignes."
-          },
-          "groupes": {
-            "type": "array",
-            "description": "Groupes du bordereau hors approvisionnement (arbre plat).",
-            "items": {
-              "$ref": "#/components/schemas/GroupeBordereauDto"
-            }
-          }
-        }
-      },
-      "GroupeBordereauDto": {
-        "type": "object",
-        "description": "Groupe d'un bordereau (arbre plat), par ordre puis code.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "PKey du regroupement."
-          },
-          "parentId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Groupe parent ; null à la racine."
-          },
-          "ordre": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Ordre (Sorting)."
-          },
-          "code": {
-            "type": "string",
-            "description": "Code du groupe."
-          },
-          "description": {
-            "type": "string",
-            "description": "Libellé du groupe."
-          },
-          "stock": {
-            "type": "boolean",
-            "description": "Groupe d'approvisionnement (IsStock)."
-          },
-          "notes": {
-            "type": "string",
-            "description": "Notes du groupe."
-          }
-        }
-      },
-      "LigneBordereauDto": {
-        "type": "object",
-        "description": "Ligne d'un bordereau (définitif ou estimatif) d'un lot, hors stock ; totaux calculés, non stockés.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "PrjMarketLine.PKey."
-          },
-          "ordre": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Ordre de la ligne (Sorting)."
-          },
-          "groupe": {
-            "type": "string",
-            "description": "Libellé du regroupement (PrjMarketLineGrouping), null si la ligne n'en a pas."
-          },
-          "code": {
-            "type": "string",
-            "description": "Code de la ligne."
-          },
-          "designation": {
-            "type": "string",
-            "description": "Désignation."
-          },
-          "unite": {
-            "type": "string",
-            "description": "Unité (Unity)."
-          },
-          "quantite": {
-            "type": "number",
-            "description": "Quantité."
-          },
-          "prixUnitaireHT": {
-            "type": "number",
-            "description": "Prix unitaire HT (16 décimales en base)."
-          },
-          "tauxTVA": {
-            "type": "number",
-            "description": "Taux de TVA en pourcentage (VatRatio × 100).",
-            "example": 20
-          },
-          "totalHT": {
-            "type": "number",
-            "description": "Quantité × prix unitaire HT."
-          },
-          "totalTTC": {
-            "type": "number",
-            "description": "Quantité × prix unitaire TTC."
-          },
-          "groupeId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Groupe de la ligne (PrjMarketLineGroupingId), null sans groupe."
-          },
-          "ponderation": {
-            "type": "number",
-            "description": "Pondération (WeightingRatio) telle que stockée ; null si non saisie."
-          }
-        }
-      },
-      "TotauxBordereauDto": {
-        "type": "object",
-        "description": "Totaux du bordereau ; égaux au marché du lot quand il a des lignes.",
-        "properties": {
-          "totalHT": {
-            "type": "number",
-            "description": "Σ quantité × prix unitaire HT."
-          },
-          "totalTVA": {
-            "type": "number",
-            "description": "Σ quantité × prix unitaire HT × taux de TVA."
-          },
-          "totalTTC": {
-            "type": "number",
-            "description": "Σ quantité × prix unitaire TTC."
-          },
-          "nbLignes": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Nombre de lignes."
-          }
-        }
-      },
-      "BordereauEstimatifDto": {
-        "type": "object",
-        "description": "Bordereau estimatif d'un lot (PrjMarketLineEstimation hors stock), en lecture seule.",
-        "properties": {
-          "lotId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Lot (PrjMarket.PKey)."
-          },
-          "verrouille": {
-            "type": "boolean",
-            "description": "Toujours vrai : bordereau verrouillé (cadenas OMRAN)."
-          },
-          "groupes": {
-            "type": "array",
-            "description": "Groupes du bordereau estimatif.",
-            "items": {
-              "$ref": "#/components/schemas/GroupeBordereauDto"
-            }
-          },
-          "lignes": {
-            "type": "array",
-            "description": "Lignes, tri par ordre puis code.",
-            "items": {
-              "$ref": "#/components/schemas/LigneBordereauDto"
-            }
-          },
-          "totaux": {
-            "$ref": "#/components/schemas/TotauxBordereauDto",
-            "description": "Totaux des lignes."
           }
         }
       },

@@ -133,7 +133,7 @@ export function moisCourt(iso: string): string {
 }
 
 /** Identifiants du groupe et de tous ses descendants. */
-export function idsGroupeEtDescendants(groupes: GroupeBordereauDto[], racine: string): Set<string> {
+export function idsGroupeEtDescendants(groupes: Pick<GroupeBordereauDto, 'id' | 'parentId'>[], racine: string): Set<string> {
   const ids = new Set<string>([racine]);
   let ajoute = true;
   while (ajoute) {

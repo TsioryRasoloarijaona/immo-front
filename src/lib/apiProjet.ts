@@ -7,6 +7,7 @@ import type {
   AvoirLotDto,
   BordereauDto,
   BordereauEstimatifDto,
+  BordereauSaisieDto,
   PrevisionsLotDto,
   RemboursementsLotDto,
   CreerLotRequest,
@@ -93,6 +94,18 @@ export function getBordereauLot(id: UUID): Promise<BordereauDto> {
 // FEATURE-lot-sous-fenetres.md §4 : sous-fenêtres en lecture ; 404 si le lot est invisible.
 export function getBordereauEstimatifLot(id: UUID): Promise<BordereauEstimatifDto> {
   return request('GET', `${LOTS}/${id}/bordereau-estimatif`);
+}
+
+// FEATURE-lot-ecritures.md §4 : bordereau entier, relu après écriture (404 → 403 → 409 cadenas → 400 → 409 décompté).
+// Les deux @public tant que les écrans du lot front ne les appellent pas (knip) : à retirer avec eux.
+/** @public */
+export function putBordereauLot(id: UUID, corps: BordereauSaisieDto): Promise<BordereauDto> {
+  return request('PUT', `${LOTS}/${id}/bordereau`, { body: corps });
+}
+
+/** @public */
+export function putBordereauEstimatifLot(id: UUID, corps: BordereauSaisieDto): Promise<BordereauEstimatifDto> {
+  return request('PUT', `${LOTS}/${id}/bordereau-estimatif`, { body: corps });
 }
 
 export function getAvancesLot(id: UUID): Promise<AvancesLotDto> {

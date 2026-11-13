@@ -402,6 +402,12 @@ export interface LigneBordereauDto {
   groupeId: UUID | null;
   /** WeightingRatio tel que stocké ; null si non saisi. */
   ponderation: number | null;
+  /** Pourcentage 0–100. */
+  tauxFODEC: number | null;
+  categorieId: UUID | null;
+  notes: string | null;
+  /** Définitif : citée par un décompte (non supprimable) ; toujours faux à l'estimatif. */
+  decomptee: boolean;
 }
 
 export interface TotauxBordereauDto {
@@ -416,6 +422,44 @@ export interface BordereauDto {
   lignes: LigneBordereauDto[];
   totaux: TotauxBordereauDto;
   groupes: GroupeBordereauDto[];
+  /** Vrai si PUT …/bordereau serait accepté pour l'appelant. */
+  modifiable: boolean;
+  /** Pourcentage 0–100, null si vide. */
+  tvaParDefaut: number | null;
+  categorieParDefautId: UUID | null;
+}
+
+// FEATURE-lot-ecritures.md §4 : bordereau entier envoyé à l'enregistrement (ids des nouveaux nœuds générés par le front).
+export interface GroupeSaisieDto {
+  id: UUID;
+  parentId: UUID | null;
+  ordre: number | null;
+  code: string | null;
+  description: string | null;
+  notes: string | null;
+}
+
+export interface LigneSaisieDto {
+  id: UUID;
+  groupeId: UUID | null;
+  ordre: number | null;
+  code: string | null;
+  designation: string | null;
+  unite: string | null;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  /** Pourcentage 0–100. */
+  tauxTVA: number | null;
+  /** Pourcentage 0–100. */
+  tauxFODEC: number | null;
+  categorieId: UUID | null;
+  ponderation: number | null;
+  notes: string | null;
+}
+
+export interface BordereauSaisieDto {
+  groupes: GroupeSaisieDto[];
+  lignes: LigneSaisieDto[];
 }
 
 // FEATURE-lot-sous-fenetres.md §4 : sous-fenêtres de la fiche lot, en lecture.
@@ -432,11 +476,14 @@ export interface GroupeBordereauDto {
 
 export interface BordereauEstimatifDto {
   lotId: UUID;
-  /** Toujours vrai (cadenas OMRAN). */
+  /** Vrai si PUT …/bordereau-estimatif serait refusé (droit, statut du lot, multi-fournisseurs). */
   verrouille: boolean;
   groupes: GroupeBordereauDto[];
   lignes: LigneBordereauDto[];
   totaux: TotauxBordereauDto;
+  /** Pourcentage 0–100, null si vide. */
+  tvaParDefaut: number | null;
+  categorieParDefautId: UUID | null;
 }
 
 export interface AvanceLotDto {
