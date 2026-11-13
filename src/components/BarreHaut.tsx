@@ -46,7 +46,7 @@ export default function BarreHaut() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-6 flex h-(--hauteur-barre-haut) shrink-0 items-end gap-2 border-b border-border bg-muted/50 pr-3 pl-2 md:rounded-t-xl">
+    <header className="sticky top-0 z-6 flex h-(--hauteur-barre-haut) shrink-0 items-end gap-2 border-b border-border bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] pr-3 pl-2 md:rounded-t-xl">
       <SidebarTrigger title="Afficher/masquer la barre latérale" className="self-center" />
       <OngletsEcrans titres={titres} />
       <div className="flex-1" />

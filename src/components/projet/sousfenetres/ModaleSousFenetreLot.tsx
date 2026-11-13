@@ -1,6 +1,7 @@
 import { useState, type ComponentType } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../ui/dialog';
 import { useConfirm } from '../../../lib/confirmContext';
+import { cn } from '../../../lib/utils';
 import { TITRES_SOUS_FENETRES, type SousFenetre } from '../../../lib/sousFenetresLot';
 import AvancesLot from './AvancesLot';
 import AvenantsLot from './AvenantsLot';
@@ -39,7 +40,7 @@ export default function ModaleSousFenetreLot({
 
   return (
     <Dialog open onOpenChange={(ouvert) => !ouvert && void demanderFermeture()}>
-      <DialogContent className="max-h-[85vh] overflow-auto sm:max-w-5xl">
+      <DialogContent className={cn('max-h-[85vh] overflow-auto', sousFenetre === 'bordereau' ? 'sm:max-w-[calc(100vw-3rem)]' : 'sm:max-w-5xl')}>
         <DialogHeader>
           <DialogTitle>Lot : {description ?? '—'}</DialogTitle>
           <DialogDescription>{TITRES_SOUS_FENETRES[sousFenetre]}</DialogDescription>

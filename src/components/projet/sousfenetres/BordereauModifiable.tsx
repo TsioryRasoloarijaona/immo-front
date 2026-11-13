@@ -25,7 +25,7 @@ import { useConfirmationSortie } from '../../../lib/useConfirmationSortie';
 import { errorMessage, refetchAllApis, useApi } from '../../../lib/useApi';
 import type { UUID } from '../../../types';
 import type { BordereauSaisieDto, GroupeBordereauDto, LigneBordereauDto, TotauxBordereauDto } from '../../../types/projet';
-import BordereauAvecArbre from './ArbreBordereau';
+import BordereauAvecArbre, { lignesEnOrdreArbre } from './ArbreBordereau';
 import BarreEditionBordereau from './BarreEditionBordereau';
 import FormulaireGroupe from './FormulaireGroupe';
 import GrilleLignesEditable from './GrilleLignesEditable';
@@ -153,7 +153,7 @@ function EditeurBordereau({ source, enregistrer, onModifie }: Readonly<Omit<Prop
           onDeposer: surDepot,
           grille: (ids) => (
             <GrilleLignesEditable
-              lignes={ids ? etat.lignes.filter((l) => l.groupeId !== null && ids.has(l.groupeId)) : etat.lignes}
+              lignes={lignesEnOrdreArbre(etat.groupes, ids ? etat.lignes.filter((l) => l.groupeId !== null && ids.has(l.groupeId)) : etat.lignes)}
               categories={categories}
               selection={ligneSel}
               onSelection={(id) => {
