@@ -2,7 +2,7 @@ import { useMemo, useState, type DragEvent, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import DataGrid from '../../DataGrid';
 import { formatCurrency } from '../../../lib/format';
-import type { Depot, Glisse } from '../../../lib/saisieBordereau';
+import { lignesEnOrdreArbre, type Depot, type Glisse } from '../../../lib/saisieBordereau';
 import { COLONNES_BORDEREAU_LIGNES, idsGroupeEtDescendants } from '../../../lib/sousFenetresLot';
 import { cn } from '../../../lib/utils';
 import type { GroupeBordereauDto, LigneBordereauDto, TotauxBordereauDto } from '../../../types/projet';
@@ -105,10 +105,10 @@ export default function BordereauAvecArbre({
     return m;
   }, [groupes]);
   const idsSelection = useMemo(() => (selection ? idsGroupeEtDescendants(groupes, selection) : null), [groupes, selection]);
-  const lignesVisibles = useMemo(
-    () => (idsSelection ? lignes.filter((l) => l.groupeId !== null && idsSelection.has(l.groupeId)) : lignes),
-    [lignes, idsSelection],
-  );
+  const lignesVisibles = useMemo(() => {
+    const enOrdre = lignesEnOrdreArbre(groupes, lignes);
+    return idsSelection ? enOrdre.filter((l) => l.groupeId !== null && idsSelection.has(l.groupeId)) : enOrdre;
+  }, [groupes, lignes, idsSelection]);
 
   function basculer(id: string) {
     setOuverts((prev) => {
@@ -146,7 +146,7 @@ export default function BordereauAvecArbre({
       )}
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         {edition ? edition.grille(idsSelection) : <DataGrid rows={lignesVisibles} colonnes={COLONNES_BORDEREAU_LIGNES} cleOrdre={cleOrdre} bandeauRegroupement={false} />}
-        <p className="text-right text-body text-muted-foreground">
+        <p className="text-right text-body whitespace-nowrap text-muted-foreground">
           Total HT <b className="text-foreground">{formatCurrency(totaux.totalHT)}</b> · TVA <b className="text-foreground">{formatCurrency(totaux.totalTVA)}</b> · TTC{' '}
           <b className="text-foreground">{formatCurrency(totaux.totalTTC)}</b>
         </p>

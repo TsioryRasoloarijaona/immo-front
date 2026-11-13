@@ -57,15 +57,15 @@ export default function GrilleLignesEditable({
         <thead>
           <tr className="border-b">
             <th className={ENTETE}>Code</th>
-            <th className={ENTETE}>Désignation</th>
+            <th className={cn(ENTETE, 'min-w-56')}>Désignation</th>
             <th className={ENTETE}>Unité</th>
             <th className={ENTETE}>Qté</th>
-            <th className={ENTETE}>PU HT</th>
+            <th className={cn(ENTETE, 'min-w-28')}>PU HT</th>
             <th className={ENTETE}>TVA %</th>
             <th className={ENTETE}>FODEC %</th>
             <th className={ENTETE}>PU TTC</th>
             <th className={ENTETE}>Catégorie</th>
-            <th className={ENTETE}>Pondération</th>
+            <th className={cn(ENTETE, 'min-w-24')}>Pondération</th>
             <th className={ENTETE}>Total HT</th>
             <th className={ENTETE}>Total TTC</th>
             <th className={ENTETE} />
@@ -89,7 +89,7 @@ export default function GrilleLignesEditable({
               <CelluleNombre valeur={l.prixUnitaireHT} libelle="Prix unitaire HT" onChange={(v) => onChanger(l.id, { prixUnitaireHT: v })} />
               <CelluleNombre valeur={l.tauxTVA} libelle="TVA %" onChange={(v) => onChanger(l.id, { tauxTVA: v })} />
               <CelluleNombre valeur={l.tauxFODEC ?? 0} libelle="FODEC %" onChange={(v) => onChanger(l.id, { tauxFODEC: v ?? 0 })} />
-              <td className="px-1 text-right">{formatCurrency(prixUnitaireTTC(l))}</td>
+              <td className="px-1 text-right whitespace-nowrap">{formatCurrency(prixUnitaireTTC(l))}</td>
               <td>
                 <select aria-label="Catégorie" className={CHAMP} value={l.categorieId ?? ''} onChange={(e) => onChanger(l.id, { categorieId: e.target.value || null })}>
                   <option value="" />
@@ -101,8 +101,8 @@ export default function GrilleLignesEditable({
                 </select>
               </td>
               <CelluleNombre valeur={l.ponderation} libelle="Pondération" onChange={(v) => onChanger(l.id, { ponderation: v })} />
-              <td className="px-1 text-right">{formatCurrency(totalHTLigne(l))}</td>
-              <td className="px-1 text-right">{formatCurrency(totalTTCLigne(l))}</td>
+              <td className="px-1 text-right whitespace-nowrap">{formatCurrency(totalHTLigne(l))}</td>
+              <td className="px-1 text-right whitespace-nowrap">{formatCurrency(totalTTCLigne(l))}</td>
               <td className="px-1 text-micro text-muted-foreground">{l.decomptee ? 'Décomptée' : ''}</td>
             </tr>
           ))}

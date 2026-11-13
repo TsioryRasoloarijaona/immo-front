@@ -9,6 +9,7 @@ import {
   erreurGroupes,
   etatDepuisDto,
   groupeContientDecomptee,
+  lignesEnOrdreArbre,
   modifierGroupe,
   modifierLigne,
   regenererCodes,
@@ -153,7 +154,7 @@ function EditeurBordereau({ source, enregistrer, onModifie }: Readonly<Omit<Prop
           onDeposer: surDepot,
           grille: (ids) => (
             <GrilleLignesEditable
-              lignes={ids ? etat.lignes.filter((l) => l.groupeId !== null && ids.has(l.groupeId)) : etat.lignes}
+              lignes={lignesEnOrdreArbre(etat.groupes, ids ? etat.lignes.filter((l) => l.groupeId !== null && ids.has(l.groupeId)) : etat.lignes)}
               categories={categories}
               selection={ligneSel}
               onSelection={(id) => {
