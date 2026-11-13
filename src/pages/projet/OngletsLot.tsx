@@ -1,10 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import DataGrid from '../../components/DataGrid';
-import BordereauAvecArbre from '../../components/projet/sousfenetres/ArbreBordereau';
+import BordereauModifiable from '../../components/projet/sousfenetres/BordereauModifiable';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { getDocumentsAchat } from '../../lib/apiAchat';
 import { getReglementsProjet } from '../../lib/apiDepensesProjet';
-import { getBordereauLot, getDecomptesLot } from '../../lib/apiProjet';
+import { getBordereauLot, getDecomptesLot, putBordereauLot } from '../../lib/apiProjet';
 import { useApi } from '../../lib/useApi';
 import { COLONNES_DECOMPTES } from './colonnesDecomptes';
 import { COLONNES_FACTURES_LOT } from './colonnesFacturesProjet';
@@ -55,6 +55,8 @@ export function OngletBordereau({ lotId }: Readonly<{ lotId: string }>) {
   const { data, loading, error } = useApi(() => getBordereauLot(lotId), [lotId]);
   if (error) return <ErrorState message={error} />;
   if (!data) return loading ? <LoadingState /> : null;
-  if (data.lignes.length === 0) return <EmptyState title="Bordereau non saisi — montant forfaitaire" />;
-  return <BordereauAvecArbre groupes={data.groupes} lignes={data.lignes} totaux={data.totaux} cleOrdre="projet-lot-bordereau" />;
+  if (!data.modifiable && data.lignes.length === 0) return <EmptyState title="Bordereau non saisi — montant forfaitaire" />;
+  return (
+    <BordereauModifiable source={data} editable={data.modifiable} cleOrdre="projet-lot-bordereau" enregistrer={(corps) => putBordereauLot(lotId, corps)} />
+  );
 }
