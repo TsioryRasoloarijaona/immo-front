@@ -8,8 +8,10 @@ import type {
   FiltresDocumentsAchat,
   FiltresPositionsFournisseurs,
   LignePositionDto,
+  ModelePieceAchatDto,
   PositionsFournisseursDto,
   ReferentielsAchatDto,
+  SaisiePieceAchatRequest,
   TotauxDocumentsAchatDto,
   TransitionPieceAchatRequest,
 } from '../types/achat';
@@ -44,6 +46,23 @@ export function supprimerPieceAchat(id: UUID): Promise<void> {
 /** Facture seulement ; 404 « Bon de commande introuvable » si le BC n'est pas visible. */
 export function affecterBonCommandeAchat(id: UUID, body: AffecterBonCommandeRequest): Promise<DocumentAchatDetailDto> {
   return request('PUT', `${DOCUMENTS}/${id}/bon-commande`, { body });
+}
+
+// FEATURE-achat-fiche-creation.md : 400 champ / nature, 403 droit, 404 société, projet ou pièce, 409 gérée ailleurs,
+// lecture seule ou quantités du BC (detail). Les trois @public tant que la fiche du lot front ne les appelle pas (knip).
+/** @public */
+export function getModelePieceAchat(nature: string): Promise<ModelePieceAchatDto> {
+  return request('GET', `${DOCUMENTS}/modele`, { query: { nature } });
+}
+
+/** @public */
+export function creerPieceAchat(body: SaisiePieceAchatRequest): Promise<DocumentAchatDetailDto> {
+  return request('POST', DOCUMENTS, { body });
+}
+
+/** @public */
+export function modifierPieceAchat(id: UUID, body: SaisiePieceAchatRequest): Promise<DocumentAchatDetailDto> {
+  return request('PUT', `${DOCUMENTS}/${id}`, { body });
 }
 
 /** Chemin de l'export `.xlsx` (mêmes filtres que la liste). */

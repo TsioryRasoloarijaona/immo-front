@@ -51,6 +51,8 @@ export interface SocieteAchatDto {
 export interface ModuleAchatDto {
   code: ModuleAchat;
   libelle: string;
+  /** AdmModule.PKey, à envoyer en moduleId ; null si absent de la base. */
+  id: UUID | null;
 }
 
 export interface TypeLotAchatDto {
@@ -93,6 +95,8 @@ export interface ReferentielsAchatDto {
   societes: SocieteAchatDto[];
   modules: ModuleAchatDto[];
   typesLot: TypeLotAchatDto[];
+  /** Natures que le compte peut créer : seule source du bouton « Nouveau ». */
+  naturesCreables: string[];
 }
 
 export interface DocumentAchatListItemDto {
@@ -366,6 +370,8 @@ export interface DocumentAchatDetailDto extends DocumentAchatListItemDto {
   avoirs: AvoirAchatDto[];
   /** Actions d'écriture ouvertes au compte (FEATURE-achat-fiche-ecritures.md E-B6) : seule source des boutons. */
   actions: ActionsPieceAchatDto;
+  societeId: UUID | null;
+  moduleId: UUID | null;
 }
 
 export interface TransitionPermiseAchatDto {
@@ -379,6 +385,66 @@ export interface ActionsPieceAchatDto {
   peutSupprimer: boolean;
   peutAffecter: boolean;
   transitions: TransitionPermiseAchatDto[];
+  /** Même règle que le PUT de la fiche (FEATURE-achat-fiche-creation.md E-C6). */
+  peutModifier: boolean;
+}
+
+// FEATURE-achat-fiche-creation.md : création / modification d'une pièce. Taux en fraction (0,2 = 20 %).
+export interface LigneSaisieAchat {
+  /** null = nouvelle ligne. */
+  id: UUID | null;
+  code: string | null;
+  description: string;
+  unite: string | null;
+  quantite: number;
+  prixUnitaireHT: number;
+  remise: number | null;
+  fodec: number | null;
+  tva: number;
+  categorieId: UUID;
+  notes: string | null;
+}
+
+export interface PartVentilationAchat {
+  cleId: UUID;
+  taux: number;
+}
+
+export interface SaisiePieceAchatRequest {
+  /** QUOTE | ORDER | DELIVRY | INVOICE ; ignorée en modification. */
+  nature: string;
+  dateDocument: string;
+  dateEcheance: string | null;
+  dateLivraisonSouhaitee: string | null;
+  societeId: UUID;
+  moduleId: UUID;
+  fournisseurId: UUID;
+  projetId: UUID | null;
+  lotId: UUID | null;
+  typeMarcheId: UUID;
+  declencheurId: UUID | null;
+  personneAContacter: string | null;
+  referenceInterne: string | null;
+  referenceBureauOrdre: string | null;
+  notes: string | null;
+  notes2: string | null;
+  montantRegul: number | null;
+  timbreFiscal: number | null;
+  categorieId: UUID | null;
+  lignes: LigneSaisieAchat[];
+  ventilationProjets: PartVentilationAchat[];
+}
+
+/** Formulaire vierge : champs de la saisie pré-remplis (certains null), puis les valeurs lues. */
+export interface ModelePieceAchatDto extends Omit<SaisiePieceAchatRequest, 'societeId' | 'fournisseurId'> {
+  societeId: UUID | null;
+  fournisseurId: UUID | null;
+  gestion: string | null;
+  statutDepartId: UUID | null;
+  statutDepartLibelle: string | null;
+  deviseId: UUID | null;
+  tvaParDefaut: number | null;
+  sources: UUID[];
 }
 
 export interface TransitionPieceAchatRequest {
