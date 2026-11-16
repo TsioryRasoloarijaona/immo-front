@@ -69,6 +69,14 @@ export interface TransitionAchatEcritureDto {
   valideeParDeclencheur?: boolean;
   /** Remplacés en bloc ; vide = aucun rôle. */
   roleIds?: UUID[];
+  /** Noms du catalogue des statuts ; absent = inchangés. */
+  champsObligatoires?: string[];
+  champsObligatoiresFournisseur?: string[];
+  /** Les 4 cases : absent = inchangé (false à la création). */
+  avecNotification?: boolean;
+  envoiEmails?: boolean;
+  notifierDeclencheur?: boolean;
+  emailDeclencheur?: boolean;
 }
 
 /** Type d'état (/statuts/types) ou type de document (/statuts/types-documents). */
@@ -120,4 +128,12 @@ export interface TransitionAchatDto {
   dernierPassage: string | null;
   /** StrEntity.PKey, null sans gestion ; à renvoyer tel quel dans un PUT (remplacement entier). */
   gestionId: UUID | null;
+  /** Noms du catalogue (`/statuts/champs-obligatoires`, liste `piece`). */
+  champsObligatoires: string[];
+  /** Noms du catalogue (liste `fournisseur`). */
+  champsObligatoiresFournisseur: string[];
+  avecNotification: boolean;
+  envoiEmails: boolean;
+  notifierDeclencheur: boolean;
+  emailDeclencheur: boolean;
 }

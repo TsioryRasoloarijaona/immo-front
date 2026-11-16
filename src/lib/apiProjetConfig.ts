@@ -3,6 +3,7 @@
 import { request } from './api';
 import type { UUID } from '../types';
 import type {
+  CatalogueStatutLotDto,
   ChoixProjetDto,
   CritereAvancementDto,
   CritereAvancementEcritureDto,
@@ -13,7 +14,10 @@ import type {
   ProjetConfigRequest,
   ReferentielsProjetConfigDto,
   StatutLotDto,
+  StatutLotEcritureDto,
+  TransitionLotEcritureDto,
   TransitionProjetDto,
+  TransitionStatutLotDto,
   TypeLotParDefautDto,
   VentilationTrancheDto,
   VentilationTrancheEcritureDto,
@@ -21,6 +25,8 @@ import type {
 
 const RACINE = '/api/projet/config';
 const PROJETS = `${RACINE}/projets`;
+const STATUTS_LOT = `${RACINE}/statuts-lot`;
+const TRANSITIONS_LOT = `${RACINE}/transitions-lot`;
 
 export function listProjetsConfig(): Promise<ProjetConfigDto[]> {
   return request('GET', PROJETS);
@@ -45,7 +51,35 @@ export function getReferentielsProjetConfig(): Promise<ReferentielsProjetConfigD
 }
 
 export function listStatutsLot(): Promise<StatutLotDto[]> {
-  return request('GET', `${RACINE}/statuts-lot`);
+  return request('GET', STATUTS_LOT);
+}
+
+/** 404 genre inconnu ou hors des 5 genres de lot. */
+export function getCatalogueStatutLot(genreId: UUID): Promise<CatalogueStatutLotDto> {
+  return request('GET', `${STATUTS_LOT}/catalogue?genreId=${genreId}`);
+}
+
+/** POST sans id, PUT avec ; 403 sans droit MarketStatusList, 400 saisie, 409 code pris dans le genre. */
+export function saveStatutLot(body: StatutLotEcritureDto, id?: UUID): Promise<StatutLotDto> {
+  return id ? request('PUT', `${STATUTS_LOT}/${id}`, { body }) : request('POST', STATUTS_LOT, { body });
+}
+
+/** 409 statut cité (lots, transitions, historique, paramétrages) : message du serveur à afficher tel quel. */
+export function deleteStatutLot(id: UUID): Promise<void> {
+  return request('DELETE', `${STATUTS_LOT}/${id}`);
+}
+
+export function listTransitionsLot(): Promise<TransitionStatutLotDto[]> {
+  return request('GET', TRANSITIONS_LOT);
+}
+
+/** POST sans id, PUT avec ; 403 sans droit MarketWorkFlowList, 400 saisie, 409 couple départ → arrivée déjà pris. */
+export function saveTransitionLot(body: TransitionLotEcritureDto, id?: UUID): Promise<TransitionStatutLotDto> {
+  return id ? request('PUT', `${TRANSITIONS_LOT}/${id}`, { body }) : request('POST', TRANSITIONS_LOT, { body });
+}
+
+export function deleteTransitionLot(id: UUID): Promise<void> {
+  return request('DELETE', `${TRANSITIONS_LOT}/${id}`);
 }
 
 /** Type de lot par défaut (AdmParamsGuid « DefaultMarketType ») : lecture pour tous, écriture Administrateur. */
