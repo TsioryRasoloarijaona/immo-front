@@ -1,4 +1,10 @@
+import { useState } from 'react';
+import { Pencil } from 'lucide-react';
+import BarreIcones from '../../BarreIcones';
 import DataGrid from '../../DataGrid';
+import { EmptyState } from '../../ui';
+import { Button } from '../../ui/button';
+import ModalePrevisionsLot from './ModalePrevisionsLot';
 import { getPrevisionsLot } from '../../../lib/apiProjet';
 import { formatMontantCompact, formatPercent } from '../../../lib/format';
 import { COLONNES_PREVISIONS, moisCourt } from '../../../lib/sousFenetresLot';
@@ -109,16 +115,46 @@ function Graphe({ mois }: Readonly<{ mois: PointPrevisionDto[] }>) {
   );
 }
 
-export default function PrevisionsLot({ lotId }: Readonly<{ lotId: string }>) {
+function ContenuPrevisions({ lotId, initial }: Readonly<{ lotId: string; initial: PrevisionsLotDto }>) {
+  const [enregistre, setEnregistre] = useState<PrevisionsLotDto | null>(null);
+  const [saisie, setSaisie] = useState(false);
+  const d = enregistre ?? initial;
   return (
-    <DonneesLot<PrevisionsLotDto> lotId={lotId} charger={getPrevisionsLot} estVide={(d) => d.mois.length === 0} texteVide="Aucune prévision pour ce lot">
-      {(d) => (
-        <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
+      {d.modifiable && (
+        <BarreIcones className="flex items-center gap-1">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setSaisie(true)}>
+            <Pencil /> Modifier les prévisions
+          </Button>
+        </BarreIcones>
+      )}
+      {d.mois.length === 0 ? (
+        <EmptyState title="Aucune prévision pour ce lot" />
+      ) : (
+        <>
           <Legende />
           <Graphe mois={d.mois} />
           <DataGrid rows={d.mois.map((p) => ({ ...p, id: p.mois }))} colonnes={COLONNES_PREVISIONS} cleOrdre="lot-previsions" bandeauRegroupement={false} />
-        </div>
+        </>
       )}
+      {saisie && (
+        <ModalePrevisionsLot
+          lotId={lotId}
+          onFermer={() => setSaisie(false)}
+          onEnregistre={(reponse) => {
+            setEnregistre(reponse);
+            setSaisie(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+export default function PrevisionsLot({ lotId }: Readonly<{ lotId: string }>) {
+  return (
+    <DonneesLot<PrevisionsLotDto> lotId={lotId} charger={getPrevisionsLot} estVide={() => false} texteVide="Aucune prévision pour ce lot">
+      {(d) => <ContenuPrevisions lotId={lotId} initial={d} />}
     </DonneesLot>
   );
 }
