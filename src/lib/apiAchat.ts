@@ -49,18 +49,15 @@ export function affecterBonCommandeAchat(id: UUID, body: AffecterBonCommandeRequ
 }
 
 // FEATURE-achat-fiche-creation.md : 400 champ / nature, 403 droit, 404 société, projet ou pièce, 409 gérée ailleurs,
-// lecture seule ou quantités du BC (detail). Les trois @public tant que la fiche du lot front ne les appelle pas (knip).
-/** @public */
+// lecture seule ou quantités du BC (detail).
 export function getModelePieceAchat(nature: string): Promise<ModelePieceAchatDto> {
   return request('GET', `${DOCUMENTS}/modele`, { query: { nature } });
 }
 
-/** @public */
 export function creerPieceAchat(body: SaisiePieceAchatRequest): Promise<DocumentAchatDetailDto> {
   return request('POST', DOCUMENTS, { body });
 }
 
-/** @public */
 export function modifierPieceAchat(id: UUID, body: SaisiePieceAchatRequest): Promise<DocumentAchatDetailDto> {
   return request('PUT', `${DOCUMENTS}/${id}`, { body });
 }

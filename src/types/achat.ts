@@ -216,6 +216,8 @@ export interface LigneDocumentAchatDto {
   totalHT: number | null;
   totalTVA: number | null;
   totalTTC: number | null;
+  /** StlCategoryId de la ligne. */
+  categorieId: UUID | null;
 }
 
 // FEATURE-achat-fiche-parite.md E2-E4.
@@ -372,6 +374,8 @@ export interface DocumentAchatDetailDto extends DocumentAchatListItemDto {
   actions: ActionsPieceAchatDto;
   societeId: UUID | null;
   moduleId: UUID | null;
+  /** Catégorie d'en-tête : celle de la ventilation si elle n'a qu'une part, sinon null. */
+  categorieId: UUID | null;
 }
 
 export interface TransitionPermiseAchatDto {

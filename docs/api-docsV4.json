@@ -49326,6 +49326,11 @@
             "type": "string",
             "format": "uuid",
             "description": "Module de la pièce (AdmModuleId)."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie d'en-tête : celle de la ventilation si elle n'a qu'une part, sinon null."
           }
         }
       },
@@ -49640,6 +49645,11 @@
           "totalTTC": {
             "type": "number",
             "description": "Total TTC : total HT + total TVA."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de la ligne (StlCategoryId) ; null possible."
           }
         }
       },
