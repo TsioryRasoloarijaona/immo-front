@@ -9,6 +9,8 @@ import type {
   BordereauEstimatifDto,
   BordereauSaisieDto,
   PrevisionsLotDto,
+  PrevisionsSaisieLotDto,
+  PrevisionsSaisieRequest,
   RemboursementsLotDto,
   CreerLotRequest,
   DecompteDetailDto,
@@ -126,6 +128,17 @@ export function getRemboursementsLot(id: UUID): Promise<RemboursementsLotDto> {
 
 export function getPrevisionsLot(id: UUID): Promise<PrevisionsLotDto> {
   return request('GET', `${LOTS}/${id}/previsions`);
+}
+
+// FEATURE-lot-previsions.md §4.2-4.3 : saisie et enregistrement (404 → 403 → 400), graphe relu après écriture.
+/** @public */
+export function getSaisiePrevisionsLot(id: UUID): Promise<PrevisionsSaisieLotDto> {
+  return request('GET', `${LOTS}/${id}/previsions/saisie`);
+}
+
+/** @public */
+export function putPrevisionsLot(id: UUID, corps: PrevisionsSaisieRequest): Promise<PrevisionsLotDto> {
+  return request('PUT', `${LOTS}/${id}/previsions`, { body: corps });
 }
 
 export function getDecomptesLot(id: UUID): Promise<DecompteListItemDto[]> {
