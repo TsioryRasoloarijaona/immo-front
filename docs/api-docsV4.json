@@ -49650,6 +49650,10 @@
             "type": "string",
             "format": "uuid",
             "description": "Catégorie de la ligne (StlCategoryId) ; null possible."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes de la ligne (Notes) ; null possible."
           }
         }
       },

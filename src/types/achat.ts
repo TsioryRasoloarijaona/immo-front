@@ -218,6 +218,8 @@ export interface LigneDocumentAchatDto {
   totalTTC: number | null;
   /** StlCategoryId de la ligne. */
   categorieId: UUID | null;
+  /** Notes de la ligne. */
+  notes: string | null;
 }
 
 // FEATURE-achat-fiche-parite.md E2-E4.

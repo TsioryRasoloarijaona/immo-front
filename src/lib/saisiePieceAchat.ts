@@ -98,7 +98,6 @@ export function depuisModele(m: ModelePieceAchatDto): BrouillonPiece {
   };
 }
 
-/** La fiche ne renvoie pas les notes de ligne : elles repartent vides. */
 export function depuisDetail(d: DocumentAchatDetailDto): BrouillonPiece {
   return {
     nature: d.nature ?? '',
@@ -123,7 +122,7 @@ export function depuisDetail(d: DocumentAchatDetailDto): BrouillonPiece {
     lignes: d.lignes.map((l) => ({
       cle: prochaineCle(), id: l.id, code: l.code ?? '', description: l.designation ?? '', unite: l.unite ?? '',
       quantite: l.quantite, prixUnitaireHT: l.prixUnitaireHT, remise: l.remisePourcent, fodec: l.fodecPourcent,
-      tva: l.tauxTVA, categorieId: l.categorieId, notes: '',
+      tva: l.tauxTVA, categorieId: l.categorieId, notes: l.notes ?? '',
     })),
     parts: d.ventilationProjets.map((p) => ({ cle: prochaineCle(), projetId: p.projetId, taux: enPourcent(p.taux) })),
   };
