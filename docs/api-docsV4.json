@@ -4586,7 +4586,7 @@
           "Achat — configuration"
         ],
         "summary": "Remplace une transition de statut d'achat, rôles compris",
-        "description": "La transition est remplacée, ses rôles réécrits en bloc. Mêmes contrôles que la création, précédés du 404.",
+        "description": "La transition est remplacée, ses rôles réécrits en bloc. Les champs obligatoires, les 4 cases de notification et `documentsAJoindre` absents du corps sont gardés ; une liste vide les efface. Mêmes contrôles que la création, précédés du 404. La suppression emporte les rôles et les documents à joindre.",
         "operationId": "modifierTransition_1",
         "parameters": [
           {
@@ -17732,7 +17732,7 @@
           "Achat — configuration"
         ],
         "summary": "Crée une transition de statut d'achat dans une gestion, avec ses rôles",
-        "description": "Ordre des contrôles : droit (403), saisie (400 : statut de départ ou d'arrivée absent ou inconnu, départ = arrivée, gestion ou rôle inconnu), puis unicité (409) du triplet gestion / départ / arrivée — l'absence de gestion compte comme une gestion. `roleIds` vide ou absent = aucun rôle.",
+        "description": "Ordre des contrôles : droit (403), saisie (400 : statut de départ ou d'arrivée absent ou inconnu, départ = arrivée, gestion ou rôle inconnu, document à joindre invalide), puis unicité (409) du triplet gestion / départ / arrivée — l'absence de gestion compte comme une gestion. `roleIds` vide ou absent = aucun rôle.\n\nDocuments à joindre (grille OMRAN « Fichiers attachés ») : un document = type de document × type de marché, toujours obligatoire. Pour la seule gestion `PrjInvoiceDebitWorkingOut`, chaque document porte aussi son décompte (`PREMIER`, `INTERMEDIAIRE` ou `FINAL`, obligatoire) ; ailleurs `decompte` doit être absent. 400 sur un type inconnu, un décompte manquant ou en trop, un triplet en double.",
         "operationId": "creerTransition_2",
         "requestBody": {
           "content": {
@@ -50201,9 +50201,44 @@
           }
         }
       },
+      "DocumentTransitionAchatDto": {
+        "type": "object",
+        "description": "Document à joindre d'une transition d'achat (BuyDocumentWorkFlowDocumentToAttach), toujours obligatoire, en lecture comme en écriture.",
+        "properties": {
+          "typeDocumentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de document (AdmAttachedFileType.PKey) ; obligatoire en écriture."
+          },
+          "typeDocumentLibelle": {
+            "type": "string",
+            "description": "Libellé du type de document ; ignoré en écriture.",
+            "readOnly": true
+          },
+          "typeMarcheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de marché (PrjMarketType.PKey) ; obligatoire en écriture."
+          },
+          "typeMarcheLibelle": {
+            "type": "string",
+            "description": "Libellé du type de marché ; ignoré en écriture.",
+            "readOnly": true
+          },
+          "decompte": {
+            "type": "string",
+            "description": "Décompte visé, pour la seule gestion PrjInvoiceDebitWorkingOut (obligatoire) ; null ailleurs.",
+            "enum": [
+              "PREMIER",
+              "INTERMEDIAIRE",
+              "FINAL"
+            ]
+          }
+        }
+      },
       "TransitionAchatEcritureDto": {
         "type": "object",
-        "description": "Transition de statut d'achat (POST et PUT) ; un PUT remplace la transition entière, rôles compris.",
+        "description": "Transition de statut d'achat (POST et PUT) ; un PUT remplace tout sauf les champs « absent = inchangé ».",
         "properties": {
           "ordre": {
             "type": "integer",
@@ -50276,6 +50311,13 @@
           "emailDeclencheur": {
             "type": "boolean",
             "description": "Envoyer un e-mail au déclencheur (SendEMailToCfgTierTrigger) ; absent = inchangé."
+          },
+          "documentsAJoindre": {
+            "type": "array",
+            "description": "Documents à joindre, remplacés en bloc ; absent = inchangés, vide = aucun.",
+            "items": {
+              "$ref": "#/components/schemas/DocumentTransitionAchatDto"
+            }
           }
         }
       },
@@ -50388,6 +50430,13 @@
           "emailDeclencheur": {
             "type": "boolean",
             "description": "Envoyer un e-mail au déclencheur (SendEMailToCfgTierTrigger = 1)."
+          },
+          "documentsAJoindre": {
+            "type": "array",
+            "description": "Documents à joindre, triés par type de document puis de marché ; vide si aucun.",
+            "items": {
+              "$ref": "#/components/schemas/DocumentTransitionAchatDto"
+            }
           }
         }
       },

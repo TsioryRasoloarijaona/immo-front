@@ -77,6 +77,21 @@ export interface TransitionAchatEcritureDto {
   envoiEmails?: boolean;
   notifierDeclencheur?: boolean;
   emailDeclencheur?: boolean;
+  /** Remplacés en bloc ; absent = inchangés, vide = aucun. */
+  documentsAJoindre?: DocumentTransitionAchatDto[];
+}
+
+/** Grille OMRAN « Fichiers attachés » : type de document × type de marché (× décompte), toujours obligatoire. */
+export interface DocumentTransitionAchatDto {
+  typeDocumentId: UUID;
+  /** Lecture seule, ignoré en écriture. */
+  typeDocumentLibelle?: string | null;
+  /** PrjMarketType.PKey. */
+  typeMarcheId: UUID;
+  /** Lecture seule, ignoré en écriture. */
+  typeMarcheLibelle?: string | null;
+  /** Gestion PrjInvoiceDebitWorkingOut seulement (obligatoire) ; null ailleurs. */
+  decompte?: 'PREMIER' | 'INTERMEDIAIRE' | 'FINAL' | null;
 }
 
 /** Type d'état (/statuts/types) ou type de document (/statuts/types-documents). */
@@ -136,4 +151,6 @@ export interface TransitionAchatDto {
   envoiEmails: boolean;
   notifierDeclencheur: boolean;
   emailDeclencheur: boolean;
+  /** Triés par type de document puis de marché ; vide si aucun. */
+  documentsAJoindre: DocumentTransitionAchatDto[];
 }
