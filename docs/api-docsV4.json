@@ -36,6 +36,10 @@
       "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b), et import générique avec mapping (P9e) des entités\njuridiques, programmes, tranches et prospections terrain. Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul.\n\n`fournisseurs` et `contacts` : import générique sans tranche ; `Pivot` se compare au code dans le type, vide ou inconnu =\ncréation avec un code du compteur, trouvé une fois = mise à jour (cellule vide = valeur gardée), plusieurs fois = erreur.\n\n`banques` et `organismes` : même import, colonne `Code` obligatoire : vide = erreur de ligne, inconnu dans le type = création\navec ce code, deux fois dans le fichier = erreur de ligne.\n\n`personnels` : même import que `contacts`, personnes physiques seules : `Prénom` et `Nom` requis, ligne sans eux = erreur de\nligne. Forme sociale et devise facultatives. Aucune colonne de paie : un tel en-tête est ignoré comme tout en-tête inconnu."
     },
     {
+      "name": "Projet — statuts et transitions de lot",
+      "description": "Écrans OMRAN « Statuts des lots » et « Transitions des lots » : statuts (`StrStatus`) et transitions (`StrWorkFlow`) des 5 genres de lot (`StrEntity` de code `PrjMarket`, `PrjMarketMultiSupplier`, `PrjMarketAdministrative`, `PrjMarketStudies`, `PrjMarketDealers`). Lectures ouvertes à tout authentifié. Écritures : droit OMRAN `Yes.Prj.Front.Config.MarketStatusList` (statuts) ou `Yes.Prj.Front.Config.MarketWorkFlowList` (transitions), l'Administrateur passe. Ordre des refus : 404 (id inconnu), 403, 400 (saisie), 409. Voir `instructions/FEATURE-restes-projet-achat.md` §6."
+    },
+    {
       "name": "Dossiers — actions",
       "description": "Onglet « Actions » du dossier de vente (règle GEN0005 d'OMRAN) et instructions adressées au commercial du dossier. Les actions sont des `ComActionMessage` rattachées au dossier par `ComFolderId` ; leur catégorie est déduite du statut du dossier (Réservation → « Dossier de vente (Réservation) », Annulation ou Désistement → « Désistement et annulation », tout autre statut → « Dossier de vente (Livraison) »), comme `Sale.cs:AttachNotes`. Toute écriture signe le dossier (`UserUpdate`, `UserUpdateDateTime`)."
     },
@@ -94,10 +98,6 @@
     {
       "name": "Suivi des actions",
       "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
-    },
-    {
-      "name": "Projet — configuration",
-      "description": "Configuration du module Projet : projets de chantier (`PrjProject`) et statuts de lot. Les projets sont réservés à l'Administrateur et montrés tous, hors périmètre ; les statuts de lot se lisent par tout utilisateur authentifié. Les types de lot passent par le moteur `/api/referentiels-admin/types-lot` (famille `PROJET`). Voir `instructions/FEATURE-projet-config.md`."
     },
     {
       "name": "Entités juridiques",
@@ -306,6 +306,10 @@
     {
       "name": "Clés d'API (admin)",
       "description": "Clés d'API des clients machine (n8n, agents), réservées au rôle Administrateur. Une clé s'envoie dans l'en-tête `X-Api-Key` ; elle authentifie un compte de service et n'autorise que les routes de ses portées. Le secret n'est montré qu'à la création et à la régénération. Voir `FEATURE-cle-api-n8n.md`."
+    },
+    {
+      "name": "Projet — configuration",
+      "description": "Configuration du module Projet : projets de chantier (`PrjProject`). Les projets sont réservés à l'Administrateur et montrés tous, hors périmètre ; les statuts de lot sont sous le tag « Projet — statuts et transitions de lot ». Les types de lot passent par le moteur `/api/referentiels-admin/types-lot` (famille `PROJET`). Voir `instructions/FEATURE-projet-config.md`."
     },
     {
       "name": "Parcours commercial",
@@ -2162,6 +2166,182 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/projet/config/transitions-lot/{id}": {
+      "put": {
+        "tags": [
+          "Projet — statuts et transitions de lot"
+        ],
+        "summary": "Remplace une transition de statut de lot, rôles compris",
+        "description": "Remplace toute la transition, rôles compris (liens recréés). `genreId` ne change pas : une valeur différente répond 400.",
+        "operationId": "modifierTransition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "StrWorkFlow.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionLotEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "La transition à jour, telle que la liste la rend.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionStatutLotDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ absent, trop long ou inconnu ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Config.MarketWorkFlowList."
+          },
+          "404": {
+            "description": "Transition inconnue."
+          },
+          "409": {
+            "description": "Même départ et même arrivée déjà dans ce genre."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet — statuts et transitions de lot"
+        ],
+        "summary": "Supprime une transition de lot et ses liens de rôles ; l'historique des lots est gardé",
+        "operationId": "supprimerTransition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "StrWorkFlow.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Transition supprimée."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Config.MarketWorkFlowList."
+          },
+          "404": {
+            "description": "Transition inconnue."
+          }
+        }
+      }
+    },
+    "/api/projet/config/statuts-lot/{id}": {
+      "put": {
+        "tags": [
+          "Projet — statuts et transitions de lot"
+        ],
+        "summary": "Remplace la fiche entière d'un statut de lot ; le genre ne change pas",
+        "description": "Remplace toute la fiche : un champ facultatif absent est vidé, les cases du catalogue absentes de `cases` sont décochées, les champs obligatoires sont remplacés en bloc. `genreId` ne change pas : une valeur différente du genre du statut répond 400.",
+        "operationId": "modifierStatut",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "StrStatus.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatutLotEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Le statut à jour, tel que la liste le rend.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutLotDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ absent, trop long ou inconnu ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Config.MarketStatusList."
+          },
+          "404": {
+            "description": "Statut inconnu."
+          },
+          "409": {
+            "description": "Code déjà pris par un autre statut du genre."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet — statuts et transitions de lot"
+        ],
+        "summary": "Supprime un statut de lot inutilisé, avec ses champs obligatoires",
+        "description": "Refusée en 409 tant que le statut est cité par un lot (`PrjMarket.StrStatusId`), une transition (départ ou arrivée), une ligne d'historique (`StrHistory`) ou un paramétrage d'intervenants ou de rapports du statut ; le message donne les nombres. Ses champs obligatoires partent avec lui.",
+        "operationId": "supprimerStatut",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "StrStatus.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Statut supprimé."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Config.MarketStatusList."
+          },
+          "404": {
+            "description": "Statut inconnu."
+          },
+          "409": {
+            "description": "Statut cité ; le message donne les nombres."
           }
         }
       }
@@ -4406,8 +4586,8 @@
           "Achat — configuration"
         ],
         "summary": "Remplace une transition de statut d'achat, rôles compris",
-        "description": "La transition est remplacée, ses rôles réécrits en bloc. Mêmes contrôles que la création, précédés du 404.",
-        "operationId": "modifierTransition",
+        "description": "La transition est remplacée, ses rôles réécrits en bloc. Les champs obligatoires, les 4 cases de notification et `documentsAJoindre` absents du corps sont gardés ; une liste vide les efface. Mêmes contrôles que la création, précédés du 404. La suppression emporte les rôles et les documents à joindre.",
+        "operationId": "modifierTransition_1",
         "parameters": [
           {
             "name": "id",
@@ -4460,7 +4640,7 @@
           "Achat — configuration"
         ],
         "summary": "Supprime une transition et ses liens de rôles ; l'historique des pièces est gardé",
-        "operationId": "supprimerTransition",
+        "operationId": "supprimerTransition_1",
         "parameters": [
           {
             "name": "id",
@@ -4496,7 +4676,7 @@
         ],
         "summary": "Remplace la fiche entière d'un statut d'achat, listes et documents compris",
         "description": "La fiche est **remplacée** : un champ absent prend sa valeur par défaut (`dureeVieJours` 0, booléens false, `imageId` et `notes` vides, listes vides) et les documents à joindre sont réécrits. Mêmes contrôles que la création, précédés du 404 ; le code du statut lui-même (autre casse comprise) n'est pas un doublon.",
-        "operationId": "modifierStatut",
+        "operationId": "modifierStatut_1",
         "parameters": [
           {
             "name": "id",
@@ -4550,7 +4730,7 @@
         ],
         "summary": "Supprime un statut d'achat inutilisé, avec ses documents à joindre",
         "description": "Refusé (409) tant qu'une pièce, une transition (départ ou arrivée) ou une ligne d'historique cite le statut ; le message donne les trois nombres. Les documents à joindre du statut sont supprimés avec lui.",
-        "operationId": "supprimerStatut",
+        "operationId": "supprimerStatut_1",
         "parameters": [
           {
             "name": "id",
@@ -9047,6 +9227,133 @@
         }
       }
     },
+    "/api/projet/config/transitions-lot": {
+      "get": {
+        "tags": [
+          "Projet — statuts et transitions de lot"
+        ],
+        "summary": "Transitions de statut des 5 genres de lot, par genre puis ordre (tout authentifié)",
+        "operationId": "transitions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionStatutLotDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet — statuts et transitions de lot"
+        ],
+        "summary": "Crée une transition de statut de lot, avec ses rôles",
+        "description": "Obligatoires : `genreId`, `description`, `statutDepartId` et `statutArriveeId`, deux statuts différents de ce genre (400 sinon). Une seule transition par couple départ → arrivée dans un genre (409). Chaque rôle de `roleIds` devient un intervenant du genre (`StrIntervener`, réutilisé s'il existe) lié à la transition.",
+        "operationId": "creerTransition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionLotEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "La transition créée, telle que la liste la rend.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionStatutLotDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ absent, trop long ou inconnu ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Config.MarketWorkFlowList."
+          },
+          "409": {
+            "description": "Même départ et même arrivée déjà dans ce genre."
+          }
+        }
+      }
+    },
+    "/api/projet/config/statuts-lot": {
+      "get": {
+        "tags": [
+          "Projet — statuts et transitions de lot"
+        ],
+        "summary": "Statuts des 5 genres de lot, par genre puis par ordre (tout authentifié)",
+        "description": "Fiche complète de chaque statut, triée par code de genre puis par ordre. `couleur` est un nom de couleur .NET (`LimeGreen`…), à traduire côté écran ; `cases` liste les numéros cochés, `champsObligatoiresIds` les `StrField` exigés.",
+        "operationId": "statutsLot",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StatutLotDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet — statuts et transitions de lot"
+        ],
+        "summary": "Crée un statut de lot (fiche OMRAN « Statuts des lots »)",
+        "description": "Obligatoires : `genreId` (un des 5 genres), `ordre`, `code`, `description`, `typeId`. Le code est unique dans le genre, sans tenir compte de la casse (409). `cases` et `champsObligatoires` doivent figurer au catalogue du genre (400 sinon) ; durée de vie ≥ 0 (0 = infinie) ; couleur = nom .NET connu ou vide.",
+        "operationId": "creerStatut",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatutLotEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Le statut créé, tel que la liste le rend.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutLotDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ absent, trop long ou inconnu ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Config.MarketStatusList."
+          },
+          "409": {
+            "description": "Code déjà pris dans le genre."
+          }
+        }
+      }
+    },
     "/api/projet/config/projets": {
       "get": {
         "tags": [
@@ -11246,7 +11553,7 @@
         ],
         "summary": "Transitions empruntables depuis le statut courant par un rôle de l'appelant",
         "description": "Transitions dont le statut de départ est le statut courant et dont un rôle autorisé (`AdmRole.Code`) est un rôle du\njeton de l'appelant, parmi les rôles lecteurs (Administrateur, Direction Générale : un autre rôle listé est sans\neffet) ; une transition sans rôle n'est proposée à personne. Pour chacune : champs obligatoires de la\ntransition (`renseigne` faux = texte vide ou date absente ; un nombre, même 0, est toujours renseigné, comme OMRAN) et\ndocuments exigés (`fourni` = une pièce jointe vivante de l'étude de ce type ; `IsMandatory` n'est pas lu : toute ligne\nest exigée). `possible` = étude non bloquée, champs renseignés, documents fournis.",
-        "operationId": "transitions",
+        "operationId": "transitions_1",
         "parameters": [
           {
             "name": "id",
@@ -15195,7 +15502,7 @@
           "Études de faisabilité — configuration des statuts et transitions"
         ],
         "summary": "Transitions d'étude, par ordre",
-        "operationId": "transitions_1",
+        "operationId": "transitions_2",
         "responses": {
           "403": {
             "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
@@ -15218,7 +15525,7 @@
         ],
         "summary": "Crée une transition d'étude",
         "description": "`description`, `statutDepartId`, `statutArriveeId` obligatoires. Défauts : `sorting` 1, `noteObligatoire`,\n`avecNotification`, `envoyerEmail` faux (stockés sans effet). `champsObligatoires` : comme pour un statut (255 caractères\nau plus une fois stockés).",
-        "operationId": "creerTransition",
+        "operationId": "creerTransition_1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -15302,7 +15609,7 @@
         ],
         "summary": "Crée un statut d'étude",
         "description": "`code`, `description` et `typeEtatId` obligatoires (400 nommant le champ) ; `code` unique (409). Défauts : `sorting` 1,\n`delai` 0, `couleur` et `notes` vides. `champsObligatoires` : noms du catalogue `/champs-obligatoires` (nom inconnu →\n400), stockés au format OMRAN avec virgule initiale (« ,Code,Area »), vide si aucun. Plusieurs statuts « Nouveau » sont\npermis (le premier par ordre est le statut initial d'une étude). Documents stockés sans effet.",
-        "operationId": "creerStatut",
+        "operationId": "creerStatut_1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17391,7 +17698,7 @@
         ],
         "summary": "Transitions des pièces d'achat par gestion, avec rôles et usage réel (lecture seule)",
         "description": "Les transitions sont **propres à une gestion** (`StrEntityId`). Tri : libellé de gestion (la ligne sans gestion, « Sans gestion », en dernier), puis `ordre`, puis `description`. `roles` est vide pour une transition sans rôle. `nombrePassages` compte les lignes d'historique (`BuyDocumentStatusHistory.buyDocumentWorkFlowId`) portant **l'identifiant** de la transition, quelle que soit la gestion actuelle de la pièce ; la ligne de création d'une pièce n'en porte aucune.",
-        "operationId": "transitions_2",
+        "operationId": "transitions_3",
         "parameters": [
           {
             "name": "utilisees",
@@ -17425,8 +17732,8 @@
           "Achat — configuration"
         ],
         "summary": "Crée une transition de statut d'achat dans une gestion, avec ses rôles",
-        "description": "Ordre des contrôles : droit (403), saisie (400 : statut de départ ou d'arrivée absent ou inconnu, départ = arrivée, gestion ou rôle inconnu), puis unicité (409) du triplet gestion / départ / arrivée — l'absence de gestion compte comme une gestion. `roleIds` vide ou absent = aucun rôle.",
-        "operationId": "creerTransition_1",
+        "description": "Ordre des contrôles : droit (403), saisie (400 : statut de départ ou d'arrivée absent ou inconnu, départ = arrivée, gestion ou rôle inconnu, document à joindre invalide), puis unicité (409) du triplet gestion / départ / arrivée — l'absence de gestion compte comme une gestion. `roleIds` vide ou absent = aucun rôle.\n\nDocuments à joindre (grille OMRAN « Fichiers attachés ») : un document = type de document × type de marché, toujours obligatoire. Pour la seule gestion `PrjInvoiceDebitWorkingOut`, chaque document porte aussi son décompte (`PREMIER`, `INTERMEDIAIRE` ou `FINAL`, obligatoire) ; ailleurs `decompte` doit être absent. 400 sur un type inconnu, un décompte manquant ou en trop, un triplet en double.",
+        "operationId": "creerTransition_2",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17490,7 +17797,7 @@
         ],
         "summary": "Crée un statut de pièce d'achat (fiche OMRAN « Statuts Documents Achats »)",
         "description": "Ordre des contrôles : droit (403), puis toute la saisie (400), puis l'unicité du code (409) ; rien n'est écrit avant. Obligatoires : `ordre`, `code`, `description`, `typeId` — le message du 400 nomme le champ. `code` et `description` sont écrits sans espaces de bord, 255 caractères au plus ; `notes` 1000 au plus. `couleur` est un nom de couleur .NET (`Pink`, `DarkGreen`…, sans casse) ou vide ; `imageId` doit exister dans la bibliothèque (`/images`) ; chaque nom des listes de champs doit venir du catalogue ; un type de document au plus une fois. L'`ordre` n'est pas unique. Trace d'audit OMRAN `Yes.Buy.Config.BuyDocumentStatus`.",
-        "operationId": "creerStatut_1",
+        "operationId": "creerStatut_2",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20806,7 +21113,7 @@
         ],
         "summary": "Supprime une transition, ses rôles et ses documents",
         "description": "Retire d'abord les rôles (comme OMRAN), puis les documents, puis la transition.",
-        "operationId": "supprimerTransition_1",
+        "operationId": "supprimerTransition_2",
         "parameters": [
           {
             "name": "id",
@@ -20837,7 +21144,7 @@
         ],
         "summary": "Modifie une transition d'étude ; champ absent = inchangé, liste reçue = remplace",
         "description": "Un champ absent ou null reste inchangé ; `roles`, `documents` ou `champsObligatoires` reçus remplacent l'existant\n(rôles en double dédoublonnés). Une transition à 0 rôle est permise : personne ne peut alors l'emprunter. Seuls les\nrôles lecteurs de l'étude (Administrateur, Direction Générale) comptent : un autre rôle listé est stocké sans effet.",
-        "operationId": "modifierTransition_1",
+        "operationId": "modifierTransition_2",
         "parameters": [
           {
             "name": "id",
@@ -20972,7 +21279,7 @@
         ],
         "summary": "Supprime un statut inutilisé, avec ses documents",
         "description": "409 si une étude est à ce statut, si une transition part de lui ou y arrive, ou si l'historique d'une étude le cite.\nSes documents partent avec lui.",
-        "operationId": "supprimerStatut_1",
+        "operationId": "supprimerStatut_2",
         "parameters": [
           {
             "name": "id",
@@ -21005,7 +21312,7 @@
           "Études de faisabilité — configuration des statuts et transitions"
         ],
         "summary": "Modifie un statut d'étude ; champ absent = inchangé",
-        "operationId": "modifierStatut_1",
+        "operationId": "modifierStatut_2",
         "parameters": [
           {
             "name": "id",
@@ -21841,7 +22148,7 @@
         ],
         "summary": "Change le statut d'une pièce d'achat par une transition de sa gestion",
         "description": "Transitions candidates : celles de la **gestion de la pièce** (`StrEntityId`) qui partent du statut courant, triées par ordre (`Sorting`). Une transition est permise au compte si l'un de ses rôles (`AdmUserRole`) figure dans les rôles de la transition, **ou** si elle est validée par le déclencheur et que le déclencheur de la pièce est l'employé du compte. L'Administrateur n'a **aucune** exemption. Ordre des refus : 404 pièce → 400 `statutId` absent → 409 → 403 → 400 note vide (après `trim`) exigée par la transition, ou note de plus de 1000 caractères. Écrit le statut, l'auteur et la date de modification, et une ligne d'historique (note ou vide, transition retenue = la première autorisée par ordre). Une pièce à statut en lecture seule peut changer de statut. Les statuts acceptés sont exactement ceux de `actions.transitions` de la fiche.",
-        "operationId": "modifierStatut_2",
+        "operationId": "modifierStatut_3",
         "parameters": [
           {
             "name": "id",
@@ -28563,7 +28870,7 @@
         ],
         "summary": "Transitions sortantes du statut courant",
         "description": "Toutes les transitions sortantes du statut courant (`StrWorkFlow.StatusFromId`), sans filtre de rôle.",
-        "operationId": "transitions_3",
+        "operationId": "transitions_4",
         "parameters": [
           {
             "name": "id",
@@ -28971,7 +29278,7 @@
         ],
         "summary": "Transitions de statut exécutables par l'appelant depuis le statut actuel du lot",
         "description": "Transitions OMRAN (`StrWorkFlow`) partant du statut actuel du lot. Si aucun rôle de l'appelant n'est à\n`AdmRole.WithSequenceFreeRestriction = 0`, seules celles dont un intervenant (`StrWorkFlowIntervener`) est son rôle ou lui.\nLes transitions à second valideur (`WithPassword`) ne sont jamais proposées.\nC'est exactement l'ensemble accepté par `POST …/transition`.",
-        "operationId": "transitions_4",
+        "operationId": "transitions_5",
         "parameters": [
           {
             "name": "id",
@@ -30093,27 +30400,29 @@
         }
       }
     },
-    "/api/projet/config/statuts-lot": {
+    "/api/projet/config/statuts-lot/catalogue": {
       "get": {
         "tags": [
-          "Projet — configuration"
+          "Projet — statuts et transitions de lot"
         ],
-        "summary": "Statuts de lot, groupés par genre de lot puis par ordre (lecture seule, tout authentifié)",
-        "description": "Statuts des genres de lot (`StrEntity` dont le code commence par `PrjMarket` : entrepreneurs, fournisseurs, maîtres d'ouvrage), triés par genre puis par ordre. `couleur` est un nom de couleur .NET (`LimeGreen`…), à traduire côté écran.",
-        "operationId": "statutsLot",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/StatutLotDto"
-                  }
-                }
-              }
+        "summary": "Listes de choix de la fiche statut pour un genre de lot (tout authentifié)",
+        "description": "`cases` ne rend que les cases dont le genre porte un libellé (`StrEntity.BoolFieldNNNLabel` non vide) : ce sont les seules qu'un statut de ce genre peut cocher. `champs` = les `StrField` du genre.",
+        "operationId": "catalogue",
+        "parameters": [
+          {
+            "name": "genreId",
+            "in": "query",
+            "description": "Genre de lot (StrEntity.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Genre inconnu ou qui n'est pas un genre de lot."
           }
         }
       }
@@ -30145,7 +30454,7 @@
           "Projet — configuration, onglets"
         ],
         "summary": "Transitions partant du statut courant du projet",
-        "operationId": "transitions_5",
+        "operationId": "transitions_6",
         "parameters": [
           {
             "name": "id",
@@ -36490,7 +36799,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Catalogue des cadeaux, avec prix et stock",
-        "operationId": "catalogue",
+        "operationId": "catalogue_1",
         "parameters": [
           {
             "name": "id",
@@ -45646,6 +45955,302 @@
           }
         }
       },
+      "TransitionLotEcritureDto": {
+        "type": "object",
+        "description": "Transition de statut de lot (POST et PUT) ; un PUT remplace la transition entière, rôles compris.",
+        "properties": {
+          "genreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Genre de lot (StrEntity.PKey, un des 5 genres), obligatoire, celui des deux statuts."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T (Sorting) ; absent = 1.",
+            "example": 1
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, ≤ 255."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé, obligatoire, ≤ 255.",
+            "example": "Adjuger"
+          },
+          "statutDepartId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de départ (StrStatus.PKey du genre), obligatoire."
+          },
+          "statutArriveeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut d'arrivée (StrStatus.PKey du genre), obligatoire, différent du départ."
+          },
+          "avecCommentaire": {
+            "type": "boolean",
+            "description": "Commentaire obligatoire (WithComment) ; absent = false."
+          },
+          "avecMotDePasse": {
+            "type": "boolean",
+            "description": "Mot de passe demandé (WithPassword) ; absent = false."
+          },
+          "transitionAutomatique": {
+            "type": "boolean",
+            "description": "Transition automatique (WithAutomaticTransition) ; absent = false."
+          },
+          "roleIds": {
+            "type": "array",
+            "description": "Rôles autorisés (AdmRole.PKey), remplacés en bloc ; vide ou absent = aucun.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "RoleTransitionDto": {
+        "type": "object",
+        "description": "Rôle autorisé à emprunter une transition (BuyDocumentWorkFlowAdmRole → AdmRole).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmRole.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du rôle (AdmRole.Code).",
+            "example": "Comptabilité"
+          }
+        }
+      },
+      "TransitionStatutLotDto": {
+        "type": "object",
+        "description": "Transition de statut de lot (StrWorkFlow d'un des 5 genres de lot), telle que l'éditeur la montre.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrWorkFlow.PKey."
+          },
+          "genreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Genre de lot (StrEntity.PKey)."
+          },
+          "genre": {
+            "type": "string",
+            "description": "Libellé du genre de lot.",
+            "example": "Lot Entrepreneurs"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T (Sorting), null si absent."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la transition."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de la transition."
+          },
+          "statutDepartId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de départ (StrStatus.PKey)."
+          },
+          "statutDepartCode": {
+            "type": "string",
+            "description": "Code du statut de départ."
+          },
+          "statutArriveeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut d'arrivée (StrStatus.PKey)."
+          },
+          "statutArriveeCode": {
+            "type": "string",
+            "description": "Code du statut d'arrivée."
+          },
+          "avecCommentaire": {
+            "type": "boolean",
+            "description": "Commentaire obligatoire (WithComment = 1)."
+          },
+          "avecMotDePasse": {
+            "type": "boolean",
+            "description": "Mot de passe demandé (WithPassword = 1)."
+          },
+          "transitionAutomatique": {
+            "type": "boolean",
+            "description": "Transition automatique (WithAutomaticTransition = 1)."
+          },
+          "roles": {
+            "type": "array",
+            "description": "Rôles autorisés (intervenants StrWorkFlowIntervener → StrIntervener.AdmRoleId), par code.",
+            "items": {
+              "$ref": "#/components/schemas/RoleTransitionDto"
+            }
+          }
+        }
+      },
+      "StatutLotEcritureDto": {
+        "type": "object",
+        "description": "Statut de lot (POST et PUT) ; un PUT remplace la fiche entière, cases et champs obligatoires compris.",
+        "properties": {
+          "genreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Genre de lot (StrEntity.PKey, un des 5 genres) ; obligatoire, fixe après création."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T (Sorting), obligatoire.",
+            "example": 3
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, obligatoire, unique dans le genre sans casse, ≤ 255.",
+            "example": "ADJUDICATION"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé, obligatoire, ≤ 255."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type (StrStatusType.PKey, voir le catalogue), obligatoire."
+          },
+          "dureeVieJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de vie en jours, ≥ 0 ; 0 ou absent = infinie.",
+            "example": 0
+          },
+          "couleur": {
+            "type": "string",
+            "description": "Nom de couleur .NET du catalogue (sans casse) ; vide ou absent = aucune.",
+            "example": "LimeGreen"
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Image (CfgImage.PKey), absent = aucune."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes, ≤ 1000."
+          },
+          "cases": {
+            "type": "array",
+            "description": "Numéros des cases cochées, pris dans le catalogue du genre ; absent = aucune.",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "champsObligatoires": {
+            "type": "array",
+            "description": "Champs obligatoires (StrField.PKey du catalogue du genre) ; absent = aucun.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "StatutLotDto": {
+        "type": "object",
+        "description": "Statut de lot (StrStatus d'un des 5 genres de lot PrjMarket*), fiche complète de l'éditeur.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrStatus.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du statut, unique dans le genre.",
+            "example": "ADJUDICATION"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre dans le workflow (Sorting), null si absent."
+          },
+          "couleur": {
+            "type": "string",
+            "description": "Nom de couleur .NET (ColorName) tel quel, null ou vide si absent.",
+            "example": "LimeGreen"
+          },
+          "groupeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Genre de lot (StrEntity.PKey du groupe)."
+          },
+          "groupeCode": {
+            "type": "string",
+            "description": "Code du genre de lot.",
+            "example": "PrjMarket"
+          },
+          "genre": {
+            "type": "string",
+            "description": "Libellé du genre de lot (StrEntity.Description).",
+            "example": "Lot Entrepreneurs"
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégorie du statut (StrStatusType.Description), null si absente.",
+            "example": "Nouveau"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type du statut (StrStatusType.PKey), null si absent."
+          },
+          "duree": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de vie en jours (Delay) ; 0 = infinie ; null si absente.",
+            "example": 0
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Image du statut (CfgImage.PKey), null si aucune."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes, null ou vide si aucune."
+          },
+          "cases": {
+            "type": "array",
+            "description": "Numéros (1-20) des cases cochées (BoolField001…020), croissants.",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "champsObligatoiresIds": {
+            "type": "array",
+            "description": "Champs obligatoires du statut (StrField.PKey de StrStatusMandatoryField).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "ProjetConfigRequest": {
         "type": "object",
         "description": "Saisie d'un projet (création ou remplacement complet) ; statut et type d'objet sont posés par le serveur.",
@@ -49596,9 +50201,44 @@
           }
         }
       },
+      "DocumentTransitionAchatDto": {
+        "type": "object",
+        "description": "Document à joindre d'une transition d'achat (BuyDocumentWorkFlowDocumentToAttach), toujours obligatoire, en lecture comme en écriture.",
+        "properties": {
+          "typeDocumentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de document (AdmAttachedFileType.PKey) ; obligatoire en écriture."
+          },
+          "typeDocumentLibelle": {
+            "type": "string",
+            "description": "Libellé du type de document ; ignoré en écriture.",
+            "readOnly": true
+          },
+          "typeMarcheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de marché (PrjMarketType.PKey) ; obligatoire en écriture."
+          },
+          "typeMarcheLibelle": {
+            "type": "string",
+            "description": "Libellé du type de marché ; ignoré en écriture.",
+            "readOnly": true
+          },
+          "decompte": {
+            "type": "string",
+            "description": "Décompte visé, pour la seule gestion PrjInvoiceDebitWorkingOut (obligatoire) ; null ailleurs.",
+            "enum": [
+              "PREMIER",
+              "INTERMEDIAIRE",
+              "FINAL"
+            ]
+          }
+        }
+      },
       "TransitionAchatEcritureDto": {
         "type": "object",
-        "description": "Transition de statut d'achat (POST et PUT) ; un PUT remplace la transition entière, rôles compris.",
+        "description": "Transition de statut d'achat (POST et PUT) ; un PUT remplace tout sauf les champs « absent = inchangé ».",
         "properties": {
           "ordre": {
             "type": "integer",
@@ -49641,22 +50281,43 @@
               "type": "string",
               "format": "uuid"
             }
-          }
-        }
-      },
-      "RoleTransitionDto": {
-        "type": "object",
-        "description": "Rôle autorisé à emprunter une transition (BuyDocumentWorkFlowAdmRole → AdmRole).",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "AdmRole.PKey."
           },
-          "code": {
-            "type": "string",
-            "description": "Code du rôle (AdmRole.Code).",
-            "example": "Comptabilité"
+          "champsObligatoires": {
+            "type": "array",
+            "description": "Champs obligatoires de la pièce (noms du catalogue des statuts) ; absent = inchangés.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "champsObligatoiresFournisseur": {
+            "type": "array",
+            "description": "Champs obligatoires du fournisseur (noms du catalogue) ; absent = inchangés.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "avecNotification": {
+            "type": "boolean",
+            "description": "Avec notification (WithNotification) ; absent = inchangé (false à la création)."
+          },
+          "envoiEmails": {
+            "type": "boolean",
+            "description": "Avec envoi des e-mails (SendEmailToUsers) ; absent = inchangé (false à la création)."
+          },
+          "notifierDeclencheur": {
+            "type": "boolean",
+            "description": "Notifier le déclencheur (NotifyCfgTierTrigger) ; absent = inchangé (false à la création)."
+          },
+          "emailDeclencheur": {
+            "type": "boolean",
+            "description": "Envoyer un e-mail au déclencheur (SendEMailToCfgTierTrigger) ; absent = inchangé."
+          },
+          "documentsAJoindre": {
+            "type": "array",
+            "description": "Documents à joindre, remplacés en bloc ; absent = inchangés, vide = aucun.",
+            "items": {
+              "$ref": "#/components/schemas/DocumentTransitionAchatDto"
+            }
           }
         }
       },
@@ -49739,6 +50400,43 @@
             "type": "string",
             "format": "uuid",
             "description": "Gestion (StrEntity.PKey), null sans gestion ; à renvoyer tel quel dans un PUT."
+          },
+          "champsObligatoires": {
+            "type": "array",
+            "description": "Champs obligatoires de la pièce (MandatoryFields), noms du catalogue.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "champsObligatoiresFournisseur": {
+            "type": "array",
+            "description": "Champs obligatoires du fournisseur (SupplierMandatoryFields), noms du catalogue.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "avecNotification": {
+            "type": "boolean",
+            "description": "Avec notification (WithNotification = 1)."
+          },
+          "envoiEmails": {
+            "type": "boolean",
+            "description": "Avec envoi des e-mails (SendEmailToUsers = 1)."
+          },
+          "notifierDeclencheur": {
+            "type": "boolean",
+            "description": "Notifier le déclencheur (NotifyCfgTierTrigger = 1)."
+          },
+          "emailDeclencheur": {
+            "type": "boolean",
+            "description": "Envoyer un e-mail au déclencheur (SendEMailToCfgTierTrigger = 1)."
+          },
+          "documentsAJoindre": {
+            "type": "array",
+            "description": "Documents à joindre, triés par type de document puis de marché ; vide si aucun.",
+            "items": {
+              "$ref": "#/components/schemas/DocumentTransitionAchatDto"
+            }
           }
         }
       },
@@ -69380,56 +70078,6 @@
           }
         }
       },
-      "StatutLotDto": {
-        "type": "object",
-        "description": "Statut de lot (StrStatus d'un genre de lot PrjMarket*), en lecture seule.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "StrStatus.PKey."
-          },
-          "code": {
-            "type": "string",
-            "description": "Code du statut.",
-            "example": "ADJUDICATION"
-          },
-          "description": {
-            "type": "string",
-            "description": "Libellé du statut."
-          },
-          "ordre": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Ordre dans le workflow (Sorting), null si absent."
-          },
-          "couleur": {
-            "type": "string",
-            "description": "Nom de couleur .NET (ColorName) tel quel, null si absent.",
-            "example": "LimeGreen"
-          },
-          "groupeId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Genre de lot (StrEntity.PKey du groupe)."
-          },
-          "groupeCode": {
-            "type": "string",
-            "description": "Code du genre de lot.",
-            "example": "PrjMarket"
-          },
-          "genre": {
-            "type": "string",
-            "description": "Libellé du genre de lot (StrEntity.Description).",
-            "example": "Lot Entrepreneurs"
-          },
-          "categorie": {
-            "type": "string",
-            "description": "Catégorie du statut (StrStatusType.Description), null si absente.",
-            "example": "Nouveau"
-          }
-        }
-      },
       "ReferentielsProjetConfigDto": {
         "type": "object",
         "description": "Listes de choix du formulaire projet, par code.",
@@ -75149,15 +75797,15 @@
           },
           "retenues": {
             "type": "number",
-            "description": "Pièce : aPayer − montantTTC ; null pour un règlement."
+            "description": "Facture ou document : aPayer − montantTTC ; null pour un avoir et un règlement."
           },
           "aPayer": {
             "type": "number",
-            "description": "Pièce : montant compté dans la position (net à payer × taux de projet, avoirs non financiers réajoutés pour une facture) ;\nnull pour un règlement. Σ (crédits − débits) des lignes sans `du` = `soldeFin` du fournisseur."
+            "description": "Facture ou document à régler : montant compté dans la position (net à payer × taux de projet, avoirs non financiers\nréajoutés pour une facture) ; null pour un avoir (montant en `base`, comme OMRAN) et pour un règlement.\nΣ (crédits − débits) des montants (`aPayer`, sinon `base`) des lignes sans `du` = `soldeFin` du fournisseur."
           },
           "base": {
             "type": "number",
-            "description": "Règlement : montant de base (AmountBase) de la part ; null pour une pièce."
+            "description": "Règlement : base (AmountBase) de la part ; avoir : son montant, positif ; null sinon."
           },
           "ras": {
             "type": "number",
