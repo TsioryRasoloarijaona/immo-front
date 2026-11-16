@@ -2,7 +2,7 @@ const NBSP = ' ';
 
 export function formatCurrency(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
-  return `${formatNumber(value, 2)} DH`;
+  return `${formatNumber(value, 2)}${NBSP}DH`;
 }
 
 /** `undefined` quand le montant est absent : `Field` affiche alors son propre tiret. */

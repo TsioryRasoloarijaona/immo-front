@@ -42,7 +42,7 @@ function grouperParGestion(lignes: TransitionAchatDto[]): [string, TransitionAch
   return [...parGestion.entries()].sort(([a], [b]) => rang(a) - rang(b) || a.localeCompare(b, 'fr'));
 }
 
-/** Transitions des pièces d'achat, une table par gestion ; ajout et suppression, modification des transitions sans gestion. */
+/** Transitions des pièces d'achat, une table par gestion ; ajout, modification et suppression. */
 export default function TransitionsAchatList() {
   const [utilisees, setUtilisees] = useState(false);
   const [edition, setEdition] = useState<TransitionAchatDto | 'ajout' | null>(null);
@@ -50,6 +50,11 @@ export default function TransitionsAchatList() {
   const toast = useToast();
   const { data, loading, error, refetch } = useApi(() => listTransitionsAchat(utilisees), [utilisees], 'achat-config-transitions');
   const groupes = useMemo(() => grouperParGestion(data ?? []), [data]);
+  const gestions = useMemo(() => {
+    const parId = new Map<string, string>();
+    for (const t of data ?? []) if (t.gestionId) parId.set(t.gestionId, t.gestionLibelle);
+    return [...parId].map(([id, libelle]) => ({ id, libelle })).sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'));
+  }, [data]);
 
   async function supprimer(t: TransitionAchatDto) {
     const ok = await confirm({
@@ -104,9 +109,7 @@ export default function TransitionsAchatList() {
                 libelleLigne={(t) => `${t.statutDepartCode ?? ''} → ${t.statutArriveeCode ?? ''}`}
                 actions={(t) => (
                   <BarreIcones className="flex items-center justify-center gap-1">
-                    {t.gestionCode === null && (
-                      <Button type="button" variant="ghost" size="sm" onClick={() => setEdition(t)}><Pencil /> Modifier</Button>
-                    )}
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setEdition(t)}><Pencil /> Modifier</Button>
                     <Button type="button" variant="ghost" size="sm" onClick={() => void supprimer(t)}><Trash2 /> Supprimer</Button>
                   </BarreIcones>
                 )}
@@ -116,7 +119,7 @@ export default function TransitionsAchatList() {
         ))}
       </div>
       {edition && (
-        <DialogueTransitionAchat key={edition === 'ajout' ? 'ajout' : edition.id} transition={edition === 'ajout' ? null : edition}
+        <DialogueTransitionAchat key={edition === 'ajout' ? 'ajout' : edition.id} transition={edition === 'ajout' ? null : edition} gestions={gestions}
           onClose={() => setEdition(null)} onEnregistre={() => { setEdition(null); void refetch(); }} />
       )}
     </PageShell>

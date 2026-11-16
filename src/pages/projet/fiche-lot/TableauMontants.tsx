@@ -23,7 +23,7 @@ export default function TableauMontants({ colonnes, lignes }: Readonly<{ colonne
           <tr key={l.label} className="border-b last:border-0">
             <th scope="row" className="py-1 pr-2 text-left font-normal">{l.label}</th>
             {l.valeurs.map((v, i) => (
-              <td key={colonnes[i]} className={cn('px-2 py-1 text-right tabular-nums', v !== null && v < 0 && 'text-destructive')}>
+              <td key={colonnes[i]} className={cn('whitespace-nowrap px-2 py-1 text-right tabular-nums', v !== null && v < 0 && 'text-destructive')}>
                 {formatCurrency(v)}
               </td>
             ))}

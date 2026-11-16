@@ -6,7 +6,8 @@ import { DialogFooter } from '../ui/dialog';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { creerStatutAchat, getChampsObligatoiresStatutAchat, getImagesStatutAchat, getTypesDocumentsStatutAchat, getTypesStatutAchat, modifierStatutAchat, urlImageStatut } from '../../lib/apiAchatConfig';
+import SelecteurImageStatut from './SelecteurImageStatut';
+import { creerStatutAchat, getChampsObligatoiresStatutAchat, getTypesDocumentsStatutAchat, getTypesStatutAchat, modifierStatutAchat } from '../../lib/apiAchatConfig';
 import { oublierLecturesRecentes } from '../../lib/api';
 import { errorMessage, useApi } from '../../lib/useApi';
 import type { UUID } from '../../types';
@@ -30,24 +31,6 @@ function ListeChamps({ champs, choisis, onChange }: Readonly<{ champs: ChampStat
       {champs.map((c) => (
         <Case key={c.nom} libelle={c.libelle} coche={choisis.includes(c.nom)}
           onChange={(v) => onChange(v ? [...choisis, c.nom] : choisis.filter((n) => n !== c.nom))} />
-      ))}
-    </div>
-  );
-}
-
-function SelecteurImage({ valeur, onChange }: Readonly<{ valeur: UUID | null; onChange: (id: UUID | null) => void }>) {
-  const { data, loading, error } = useApi(getImagesStatutAchat, [], 'achat-config-images');
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <Button type="button" size="sm" variant={valeur ? 'outline' : 'default'} onClick={() => onChange(null)}>Aucune</Button>
-      {loading && !data && <span className="text-micro text-muted-foreground">Chargement…</span>}
-      {error && <span className="text-micro text-destructive">{error}</span>}
-      {!error && data?.map((i) => (
-        <button key={i.id} type="button" title={i.code ?? undefined} aria-label={i.code ?? 'Image'} aria-pressed={valeur === i.id}
-          onClick={() => onChange(i.id)}
-          className={`rounded-md border p-0.5 ${valeur === i.id ? 'border-primary ring-2 ring-primary/40' : 'border-border'}`}>
-          <img src={urlImageStatut(i.id)} alt="" className="size-6 object-contain" />
-        </button>
       ))}
     </div>
   );
@@ -164,7 +147,7 @@ export default function DialogueStatutAchat({ statut, ordreDefaut, onClose, onEn
           </div>
           <Field className="col-span-2">
             <FieldLabel>Image</FieldLabel>
-            <SelecteurImage valeur={imageId} onChange={setImageId} />
+            <SelecteurImageStatut valeur={imageId} onChange={setImageId} />
           </Field>
           <Field className="col-span-2">
             <FieldLabel htmlFor="st-notes">Notes</FieldLabel>
