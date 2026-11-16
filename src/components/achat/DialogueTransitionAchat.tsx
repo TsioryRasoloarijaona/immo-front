@@ -4,6 +4,9 @@ import { Button } from '../ui/button';
 import { DialogFooter } from '../ui/dialog';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import DocumentsTransitionAchat from './DocumentsTransitionAchat';
+import { documentsValides, GESTION_DECOMPTES } from '../../lib/documentsTransitionAchat';
 import { oublierLecturesRecentes } from '../../lib/api';
 import { creerTransitionAchat, getChampsObligatoiresStatutAchat, listStatutsAchat, modifierTransitionAchat } from '../../lib/apiAchatConfig';
 import { listerRoles } from '../../lib/apiRoles';
@@ -40,7 +43,7 @@ function CasesChoix({ titre, choix, valeur, onChange }: Readonly<{
 /** Création ou modification d'une transition, avec ou sans gestion. `gestions` : celles des lignes chargées. */
 export default function DialogueTransitionAchat({ transition, gestions, onClose, onEnregistre }: Readonly<{
   transition: TransitionAchatDto | null;
-  gestions: { id: string; libelle: string }[];
+  gestions: { id: string; libelle: string; code: string | null }[];
   onClose: () => void;
   onEnregistre: () => void;
 }>) {
@@ -61,8 +64,10 @@ export default function DialogueTransitionAchat({ transition, gestions, onClose,
   const [note, setNote] = useState(transition?.noteObligatoire ?? false);
   const [declencheur, setDeclencheur] = useState(transition?.valideeParDeclencheur ?? false);
   const [roleIds, setRoleIds] = useState((transition?.roles ?? []).map((r) => r.id));
+  const [documents, setDocuments] = useState(transition?.documentsAJoindre ?? []);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const avecDecompte = gestions.find((g) => g.id === gestionId)?.code === GESTION_DECOMPTES;
 
   const roles = [...new Map([...(transition?.roles ?? []), ...(catalogue.data ?? [])].map((r) => [r.id, r])).values()];
 
@@ -74,6 +79,7 @@ export default function DialogueTransitionAchat({ transition, gestions, onClose,
       gestionId: gestionId || null,
       champsObligatoires: champsPiece, champsObligatoiresFournisseur: champsFournisseur,
       avecNotification: notification, envoiEmails: emails, notifierDeclencheur: notifierDecl, emailDeclencheur: emailDecl,
+      documentsAJoindre: documents.map((d) => ({ ...d, decompte: avecDecompte ? d.decompte : null })),
     };
     setEnvoi(true);
     setErreur(null);
@@ -100,7 +106,7 @@ export default function DialogueTransitionAchat({ transition, gestions, onClose,
   );
 
   return (
-    <Modal title={transition ? 'Modifier la transition' : 'Nouvelle transition'} onClose={onClose} width={560}>
+    <Modal title={transition ? 'Modifier la transition' : 'Nouvelle transition'} onClose={onClose} width={720}>
       <form onSubmit={(e) => void enregistrer(e)} className="flex flex-col gap-3">
         <div className="grid grid-cols-2 gap-3">
           <Field>
@@ -121,6 +127,12 @@ export default function DialogueTransitionAchat({ transition, gestions, onClose,
             </select>
           </Field>
         </div>
+        <Tabs defaultValue="general">
+          <TabsList>
+            <TabsTrigger value="general">Général</TabsTrigger>
+            <TabsTrigger value="documents">Documents à joindre</TabsTrigger>
+          </TabsList>
+          <TabsContent value="general" className="flex flex-col gap-3 pt-2">
         <label className="flex w-fit items-center gap-2 text-label text-foreground">
           <input type="checkbox" className="accent-(--brand)" checked={note} onChange={(e) => setNote(e.target.checked)} />
           Commentaire obligatoire
@@ -161,10 +173,15 @@ export default function DialogueTransitionAchat({ transition, gestions, onClose,
             </label>
           ))}
         </fieldset>
-        {erreur && <p role="alert" className="text-body text-destructive">{erreur}</p>}
+          </TabsContent>
+          <TabsContent value="documents" className="pt-2">
+            <DocumentsTransitionAchat lignes={documents} avecDecompte={avecDecompte} onChange={setDocuments} />
+          </TabsContent>
+        </Tabs>
+        {erreur &&<p role="alert" className="text-body text-destructive">{erreur}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose} disabled={envoi}>Annuler</Button>
-          <Button type="submit" disabled={envoi || !depart || !arrivee}>Enregistrer</Button>
+          <Button type="submit" disabled={envoi || !depart || !arrivee || !documentsValides(documents, avecDecompte)}>Enregistrer</Button>
         </DialogFooter>
       </form>
     </Modal>

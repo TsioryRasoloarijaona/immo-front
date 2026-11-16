@@ -51,9 +51,9 @@ export default function TransitionsAchatList() {
   const { data, loading, error, refetch } = useApi(() => listTransitionsAchat(utilisees), [utilisees], 'achat-config-transitions');
   const groupes = useMemo(() => grouperParGestion(data ?? []), [data]);
   const gestions = useMemo(() => {
-    const parId = new Map<string, string>();
-    for (const t of data ?? []) if (t.gestionId) parId.set(t.gestionId, t.gestionLibelle);
-    return [...parId].map(([id, libelle]) => ({ id, libelle })).sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'));
+    const parId = new Map<string, { libelle: string; code: string | null }>();
+    for (const t of data ?? []) if (t.gestionId) parId.set(t.gestionId, { libelle: t.gestionLibelle, code: t.gestionCode });
+    return [...parId].map(([id, g]) => ({ id, ...g })).sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'));
   }, [data]);
 
   async function supprimer(t: TransitionAchatDto) {
