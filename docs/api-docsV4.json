@@ -1805,6 +1805,94 @@
         }
       }
     },
+    "/api/projet/lots/{id}/previsions": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Prévisions du lot : séries mensuelles du graphe",
+        "description": "Fenêtre « Prévisions » (`FEATURE-lot-sous-fenetres.md` §4.6) : un point par mois, du mois précédant le premier point au dernier,\nsans trou. `prevision` = Σ `PrjMarketPaymentPrevision.Amount` par mois de `PaymentDate`, `avancementPrevision` = son avancement\nmaximal du mois (null si négatif ou lot multi-fournisseur). `reel` = Σ net à payer des pièces payables du lot hors avoirs par mois\nd'échéance ; `avancementReel` = avancement maximal des décomptes facturés du mois (null si lot multi-fournisseur).\n`estimation` = paiements simulés de l'estimation de base OMRAN (avance, décomptes, solde, prorata, retenue de garantie),\ncalculés à la lecture et jamais stockés ; `avancementEstimation` = avancement de base du mois (null s'il vaut 0 après le début\nde base). Voir `FEATURE-lot-previsions.md` §3.3. `modifiable` = droit `Yes.Prj.Front.Tdb.ProjectPrevision.toolNew`.\nMontants à 0 et avancements null pour un mois sans donnée ; `mois` vide si le lot n'a ni point ni estimation.",
+        "operationId": "previsions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mois consécutifs ; liste vide si le lot n'a aucun point.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsLotDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Enregistrer les prévisions d'un lot",
+        "description": "Remplace les prévisions du lot (`FEATURE-lot-previsions.md` §4.3, R1-R8). Contrôles dans l'ordre : **404** lot invisible ;\n**403** sans `ProjectPrevision.toolNew`, ou si `debutBase`, `dureeBase`, `estimationBaseHT` ou `pointsBase` diffèrent de l'état\nstocké sans `ManualEstimationAdministrator` (valeurs égales acceptées) ; **400** date ou durée absente, durée négative, liste\nnon vide de moins de 2 points, point hors des bornes de sa liste, avancement hors [0 ; 1] ou décroissant avec la date (message\nOMRAN dans `detail`). Écrit `StartDate`, `Delay`, `EndDate`, `StartDateManual`, `DelayManual`, `EndDateManual` et l'estimation\nde base (TVA = HT × `DefaultVat`, 0 si absent) ; les points `PrjMarketPrevision` / `PrjMarketUserPrevision` sont supprimés puis\nréinsérés ; une liste vide efface les points (retour à la courbe générée). Les prévisions de paiement\n(`PrjMarketPaymentPrevision`) du lot, et celles du lot gestionnaire du compte prorata du projet, sont recalculées dans la même\ntransaction : un échec annule tout (**500**). Une ligne d'historique (`AdmWebHistorics`) par enregistrement. Renvoie le graphe\nrelu, comme `GET /api/projet/lots/{id}/previsions`.",
+        "operationId": "enregistrerPrevisions_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrevisionsSaisieRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Graphe des prévisions relu après écriture et recalcul.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsLotDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date ou durée absente, durée négative, points incohérents."
+          },
+          "403": {
+            "description": "Droit ProjectPrevision.toolNew absent. Ou estimation de base modifiée sans droit."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}/bordereau": {
       "get": {
         "tags": [
@@ -29384,14 +29472,14 @@
         }
       }
     },
-    "/api/projet/lots/{id}/previsions": {
+    "/api/projet/lots/{id}/previsions/saisie": {
       "get": {
         "tags": [
           "Projet"
         ],
-        "summary": "Prévisions du lot : séries mensuelles du graphe",
-        "description": "Fenêtre « Prévisions » (`FEATURE-lot-sous-fenetres.md` §4.6) : un point par mois, du mois précédant le premier point au dernier,\nsans trou. `prevision` = Σ `PrjMarketPaymentPrevision.Amount` par mois de `PaymentDate`, `avancementPrevision` = son avancement\nmaximal du mois (null si négatif ou lot multi-fournisseur). `reel` = Σ net à payer des pièces payables du lot hors avoirs par mois\nd'échéance ; `avancementReel` = avancement maximal des décomptes facturés du mois (null si lot multi-fournisseur).\n`estimation` / `avancementEstimation` (estimation de base OMRAN) ne sont pas encore calculées : toujours 0 et null.\nMontants à 0 et avancements null pour un mois sans donnée ; `mois` vide si le lot n'a aucun point.",
-        "operationId": "previsions",
+        "summary": "Fenêtre de saisie des prévisions d'un lot",
+        "description": "Fenêtre OMRAN « Prévisions » d'un lot (`ProjectPrevisionMarket`, `FEATURE-lot-previsions.md` §4.2). Ordre des contrôles : lot\ninvisible **404** (même `detail` que `GET /api/projet/lots/{id}`), puis droit `Yes.Prj.Front.Tdb.ProjectPrevision.toolNew`\nabsent **403**. `estimationDeBaseModifiable` = droit `Yes.Prj.Front.Market.MarketMonitoring.ManualEstimationAdministrator` en\nplus. `fin` = `debut` + `duree` jours, `finBase` = `debutBase` + `dureeBase`. `avancement`, `temps`, `paiement` des points\nsont des fractions 0–1 ; `montant` = `paiement` × `prixPrevisions` (points) ou × `estimationBaseTTC` (points de base). Listes\nvides si aucun point n'est stocké : la courbe générée par défaut n'est pas renvoyée.",
+        "operationId": "saisiePrevisions",
         "parameters": [
           {
             "name": "id",
@@ -29406,14 +29494,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Mois consécutifs ; liste vide si le lot n'a aucun point.",
+            "description": "Dates, estimation de base, montants de référence et points stockés.",
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PrevisionsLotDto"
+                  "$ref": "#/components/schemas/PrevisionsSaisieLotDto"
                 }
               }
             }
+          },
+          "403": {
+            "description": "Droit ProjectPrevision.toolNew absent."
           },
           "404": {
             "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
@@ -44670,6 +44761,127 @@
           "superficieHabitat": {
             "type": "number",
             "description": "Lecture seule : vendable − bureau − commerce (HabitatArea)."
+          }
+        }
+      },
+      "PointSaisieDto": {
+        "type": "object",
+        "description": "Point de prévision envoyé : date et avancement cumulé.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du point, entre le début et la fin de sa liste."
+          },
+          "avancement": {
+            "type": "number",
+            "description": "Avancement cumulé (fraction 0–1), croissant avec la date."
+          }
+        }
+      },
+      "PrevisionsSaisieRequest": {
+        "type": "object",
+        "description": "Saisie des prévisions d'un lot ; les listes remplacent les points stockés (vides acceptées).",
+        "properties": {
+          "debut": {
+            "type": "string",
+            "format": "date",
+            "description": "Début des prévisions (PrjMarket.StartDate), obligatoire."
+          },
+          "duree": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des prévisions en jours (PrjMarket.Delay), obligatoire, ≥ 0."
+          },
+          "debutBase": {
+            "type": "string",
+            "format": "date",
+            "description": "Début de l'estimation de base (StartDateManual), obligatoire."
+          },
+          "dureeBase": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de l'estimation de base en jours (DelayManual), obligatoire, ≥ 0."
+          },
+          "estimationBaseHT": {
+            "type": "number",
+            "description": "Estimation de base HT ; TVA et TTC sont déduites du taux par défaut du lot."
+          },
+          "points": {
+            "type": "array",
+            "description": "Points « Prévisions » (PrjMarketPrevision).",
+            "items": {
+              "$ref": "#/components/schemas/PointSaisieDto"
+            }
+          },
+          "pointsBase": {
+            "type": "array",
+            "description": "Points « Estimation de base » (PrjMarketUserPrevision).",
+            "items": {
+              "$ref": "#/components/schemas/PointSaisieDto"
+            }
+          }
+        }
+      },
+      "PointPrevisionDto": {
+        "type": "object",
+        "description": "Mois du graphe ; montants à 0 et avancements null sans donnée.",
+        "properties": {
+          "mois": {
+            "type": "string",
+            "format": "date",
+            "description": "Premier jour du mois."
+          },
+          "estimation": {
+            "type": "number",
+            "description": "Estimation de base : paiements simulés du mois, calculés à la lecture."
+          },
+          "avancementEstimation": {
+            "type": "number",
+            "description": "Estimation de base : avancement 0–1 du mois ; null sans valeur."
+          },
+          "prevision": {
+            "type": "number",
+            "description": "Σ PrjMarketPaymentPrevision.Amount du mois."
+          },
+          "avancementPrevision": {
+            "type": "number",
+            "description": "Avancement prévu (fraction 0–1), maximum du mois ; null si négatif."
+          },
+          "reel": {
+            "type": "number",
+            "description": "Σ net à payer des pièces payables du lot hors avoirs, par mois d'échéance."
+          },
+          "avancementReel": {
+            "type": "number",
+            "description": "Avancement des décomptes facturés du mois (fraction 0–1)."
+          }
+        }
+      },
+      "PrevisionsLotDto": {
+        "type": "object",
+        "description": "Prévisions du lot : séries mensuelles du graphe OMRAN (estimation de base, prévision, réel).",
+        "properties": {
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey)."
+          },
+          "debut": {
+            "type": "string",
+            "format": "date",
+            "description": "Premier mois de la série ; null sans aucun point."
+          },
+          "modifiable": {
+            "type": "boolean",
+            "description": "Vrai si le compte peut saisir les prévisions (droit ProjectPrevision.toolNew)."
+          },
+          "mois": {
+            "type": "array",
+            "description": "Tous les mois consécutifs ; vide si le lot n'a aucun point.",
+            "items": {
+              "$ref": "#/components/schemas/PointPrevisionDto"
+            }
           }
         }
       },
@@ -69506,60 +69718,149 @@
           }
         }
       },
-      "PointPrevisionDto": {
+      "PointSaisiDto": {
         "type": "object",
-        "description": "Mois du graphe ; montants à 0 et avancements null sans donnée.",
+        "description": "Point de prévision stocké (PrjMarketPrevision ou PrjMarketUserPrevision).",
         "properties": {
-          "mois": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du point."
+          },
+          "date": {
             "type": "string",
             "format": "date",
-            "description": "Premier jour du mois."
+            "description": "Date du point."
           },
-          "estimation": {
+          "avancement": {
             "type": "number",
-            "description": "Estimation de base : montant du mois (pas encore calculée, toujours 0)."
+            "description": "Avancement cumulé (fraction 0–1)."
           },
-          "avancementEstimation": {
+          "temps": {
             "type": "number",
-            "description": "Estimation de base : avancement 0–1 (pas encore calculé, toujours null)."
+            "description": "Temps écoulé depuis le début (fraction 0–1 de la durée)."
           },
-          "prevision": {
+          "paiement": {
             "type": "number",
-            "description": "Σ PrjMarketPaymentPrevision.Amount du mois."
+            "description": "Avancement propre au point (fraction 0–1)."
           },
-          "avancementPrevision": {
+          "montant": {
             "type": "number",
-            "description": "Avancement prévu (fraction 0–1), maximum du mois ; null si négatif."
-          },
-          "reel": {
-            "type": "number",
-            "description": "Σ net à payer des pièces payables du lot hors avoirs, par mois d'échéance."
-          },
-          "avancementReel": {
-            "type": "number",
-            "description": "Avancement des décomptes facturés du mois (fraction 0–1)."
+            "description": "Montant TTC du point : paiement × prix des prévisions ou TTC de base."
           }
         }
       },
-      "PrevisionsLotDto": {
+      "PrevisionsSaisieLotDto": {
         "type": "object",
-        "description": "Prévisions du lot : séries mensuelles du graphe OMRAN (estimation de base, prévision, réel).",
+        "description": "Fenêtre de saisie des prévisions d'un lot (OMRAN ProjectPrevisionMarket).",
         "properties": {
           "lotId": {
             "type": "string",
             "format": "uuid",
             "description": "Lot (PrjMarket.PKey)."
           },
+          "description": {
+            "type": "string",
+            "description": "Libellé du lot."
+          },
+          "modifiable": {
+            "type": "boolean",
+            "description": "Vrai si le compte peut enregistrer (droit ProjectPrevision.toolNew)."
+          },
+          "estimationDeBaseModifiable": {
+            "type": "boolean",
+            "description": "Vrai si l'estimation de base est modifiable (droit ManualEstimationAdministrator)."
+          },
           "debut": {
             "type": "string",
             "format": "date",
-            "description": "Premier mois de la série ; null sans aucun point."
+            "description": "Début des prévisions (StartDate)."
           },
-          "mois": {
+          "duree": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des prévisions en jours (Delay)."
+          },
+          "fin": {
+            "type": "string",
+            "format": "date",
+            "description": "Fin des prévisions = début + durée."
+          },
+          "debutBase": {
+            "type": "string",
+            "format": "date",
+            "description": "Début de l'estimation de base (StartDateManual)."
+          },
+          "dureeBase": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de l'estimation de base en jours (DelayManual)."
+          },
+          "finBase": {
+            "type": "string",
+            "format": "date",
+            "description": "Fin de l'estimation de base = début + durée."
+          },
+          "estimationBaseHT": {
+            "type": "number",
+            "description": "Estimation de base HT (EstimatedPriceHTManual)."
+          },
+          "estimationBaseTVA": {
+            "type": "number",
+            "description": "Estimation de base TVA (EstimatedVatAmountManual)."
+          },
+          "estimationBaseTTC": {
+            "type": "number",
+            "description": "Estimation de base TTC (EstimatedPriceTTCManual)."
+          },
+          "tvaParDefaut": {
+            "type": "number",
+            "description": "Taux de TVA par défaut du lot en pourcentage (DefaultVat × 100)."
+          },
+          "estimationConfidentielleHT": {
+            "type": "number",
+            "description": "Estimation confidentielle HT (lignes estimatives)."
+          },
+          "estimationConfidentielleTVA": {
+            "type": "number",
+            "description": "Estimation confidentielle TVA."
+          },
+          "estimationConfidentielleTTC": {
+            "type": "number",
+            "description": "Estimation confidentielle TTC."
+          },
+          "marcheHT": {
+            "type": "number",
+            "description": "Marché HT (bordereau ou devis retenu)."
+          },
+          "marcheTVA": {
+            "type": "number",
+            "description": "Marché TVA."
+          },
+          "marcheTTC": {
+            "type": "number",
+            "description": "Marché TTC."
+          },
+          "prixPrevisions": {
+            "type": "number",
+            "description": "TTC qui valorise les points « Prévisions » : marché si non nul, sinon estimation confidentielle."
+          },
+          "avancementReel": {
+            "type": "number",
+            "description": "Avancement facturé à date (fraction 0–1), lecture seule."
+          },
+          "points": {
             "type": "array",
-            "description": "Tous les mois consécutifs ; vide si le lot n'a aucun point.",
+            "description": "Points « Prévisions » stockés, par date ; vide si aucun.",
             "items": {
-              "$ref": "#/components/schemas/PointPrevisionDto"
+              "$ref": "#/components/schemas/PointSaisiDto"
+            }
+          },
+          "pointsBase": {
+            "type": "array",
+            "description": "Points « Estimation de base » stockés, par date ; vide si aucun.",
+            "items": {
+              "$ref": "#/components/schemas/PointSaisiDto"
             }
           }
         }
