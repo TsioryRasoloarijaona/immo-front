@@ -1,5 +1,6 @@
 // Contrat de FEATURE-projet-config.md (/api/projet/config) ; noms du fil exacts.
 import type { ReferentielItemDto, UUID } from '../types';
+import type { RoleTransitionDto } from './achatConfig';
 
 export interface ProjetConfigDto {
   id: UUID;
@@ -156,9 +157,91 @@ export interface StatutLotDto {
   couleur?: string | null;
   groupeId: UUID;
   groupeCode?: string;
-  /** Libellé du genre de lot (Entrepreneurs, Fournisseurs, Maîtres d'ouvrage). */
+  /** Libellé du genre de lot (5 genres : Entrepreneurs, Fournisseurs, Administration, Maîtres d'ouvrage, Concessionnaires). */
   genre?: string;
   categorie?: string | null;
+  /** StrStatusType.PKey. */
+  typeId?: UUID | null;
+  /** Durée de vie en jours ; 0 = infinie. */
+  duree?: number | null;
+  imageId?: UUID | null;
+  notes?: string | null;
+  /** Numéros (1-20) des cases cochées. */
+  cases: number[];
+  /** StrField.PKey exigés par le statut. */
+  champsObligatoiresIds: UUID[];
+}
+
+/** Corps POST / PUT /statuts-lot ; un PUT remplace toute la fiche, `genreId` ne change pas. */
+export interface StatutLotEcritureDto {
+  genreId: UUID;
+  ordre: number;
+  code: string;
+  description: string;
+  typeId: UUID;
+  /** Absent = 0 (infinie). */
+  dureeVieJours?: number;
+  /** Nom .NET du catalogue ou vide. */
+  couleur?: string;
+  imageId?: UUID | null;
+  notes?: string;
+  /** Seules les cases du catalogue du genre. */
+  cases?: number[];
+  /** StrField.PKey du genre. */
+  champsObligatoires?: UUID[];
+}
+
+export interface ChoixStatutLotDto {
+  id: UUID;
+  code: string | null;
+  libelle: string | null;
+}
+
+export interface CaseStatutLotDto {
+  numero: number;
+  libelle: string;
+}
+
+/** GET /statuts-lot/catalogue?genreId= */
+export interface CatalogueStatutLotDto {
+  types: ChoixStatutLotDto[];
+  couleurs: string[];
+  /** Seules les cases libellées du genre. */
+  cases: CaseStatutLotDto[];
+  champs: ChoixStatutLotDto[];
+}
+
+export interface TransitionStatutLotDto {
+  id: UUID;
+  genreId: UUID;
+  genre: string | null;
+  ordre: number | null;
+  code: string | null;
+  description: string | null;
+  statutDepartId: UUID | null;
+  statutDepartCode: string | null;
+  statutArriveeId: UUID | null;
+  statutArriveeCode: string | null;
+  avecCommentaire: boolean;
+  avecMotDePasse: boolean;
+  transitionAutomatique: boolean;
+  /** Par code. */
+  roles: RoleTransitionDto[];
+}
+
+/** Corps POST / PUT /transitions-lot ; un PUT remplace tout, rôles compris ; `genreId` ne change pas. */
+export interface TransitionLotEcritureDto {
+  genreId: UUID;
+  /** Absent = 1. */
+  ordre?: number;
+  code?: string;
+  description: string;
+  statutDepartId: UUID;
+  statutArriveeId: UUID;
+  avecCommentaire?: boolean;
+  avecMotDePasse?: boolean;
+  transitionAutomatique?: boolean;
+  roleIds?: UUID[];
 }
 
 export interface ReferentielsProjetConfigDto {
