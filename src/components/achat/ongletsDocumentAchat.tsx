@@ -184,7 +184,7 @@ function LigneMontant({ libelle, valeur, fort, alerte }: Readonly<{ libelle: str
       <th scope="row" className="py-1 pr-2 text-left text-body font-normal text-muted-foreground">
         {libelle}
       </th>
-      <td className={`py-1 text-right tabular-nums ${fort ? 'text-label font-semibold' : 'text-body'} ${alerte ? 'text-destructive' : 'text-foreground'}`}>
+      <td className={`whitespace-nowrap py-1 text-right tabular-nums ${fort ? 'text-label font-semibold' : 'text-body'} ${alerte ? 'text-destructive' : 'text-foreground'}`}>
         {formatCurrency(valeur)}
       </td>
     </tr>

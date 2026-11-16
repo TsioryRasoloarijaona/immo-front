@@ -1,6 +1,7 @@
 // Endpoints de FEATURE-admin-roles.md, Administrateur seul (403 sinon).
 import { request } from './api';
 import type { PageDto, UUID } from '../types';
+import type { RoleTransitionDto } from '../types/achatConfig';
 import type {
   DroitsRoleEcritureDto,
   FiltresRoles,
@@ -16,6 +17,15 @@ export const EXPORT_ROLES = `${RACINE_ROLES}/export`;
 
 export function listRoles(filtres: FiltresRoles & { page?: number; size?: number }): Promise<PageDto<RoleLigneDto>> {
   return request('GET', RACINE_ROLES, { query: { ...filtres } });
+}
+
+/** Le catalogue des rôles est réservé aux administrateurs : sans lui, liste vide (les rôles déjà liés restent proposés). */
+export async function listerRoles(): Promise<RoleTransitionDto[]> {
+  try {
+    return (await listRoles({ size: 200 })).content.map((r) => ({ id: r.id, code: r.code }));
+  } catch {
+    return [];
+  }
 }
 
 export function getArbreDroits(): Promise<NoeudDroitDto[]> {

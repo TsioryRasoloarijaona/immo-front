@@ -8,6 +8,7 @@ export type RaccourciPeriode =
   | 'mois-suivant'
   | 'annee'
   | 'annee-precedente'
+  | 'annee-suivante'
   | 'tous';
 
 export const RACCOURCIS_PERIODE: { label: string; value: RaccourciPeriode }[] = [
@@ -17,6 +18,7 @@ export const RACCOURCIS_PERIODE: { label: string; value: RaccourciPeriode }[] = 
   { label: 'Mois suivant', value: 'mois-suivant' },
   { label: 'Année en cours', value: 'annee' },
   { label: 'Année précédente', value: 'annee-precedente' },
+  { label: 'Année suivante', value: 'annee-suivante' },
   { label: 'Toutes les dates', value: 'tous' },
 ];
 
@@ -47,6 +49,8 @@ export function plagePeriode(raccourci: RaccourciPeriode, ref: Date = new Date()
       return annee(ref, 0);
     case 'annee-precedente':
       return annee(ref, -1);
+    case 'annee-suivante':
+      return annee(ref, 1);
     default:
       return { debut: '', fin: '' };
   }
@@ -60,16 +64,22 @@ export function raccourciCourant(debut: string, fin: string): RaccourciPeriode |
   })?.value;
 }
 
-/* Période des filtres cochés des listes (lot B1) : Toutes, Aujourd'hui, Cette semaine, Ce mois, Cette année, Personnalisée. */
+/* Période des filtres cochés des listes, alignée sur la liste d'OMRAN. */
 
-export type CodePeriode = 'toutes' | 'aujourdhui' | 'semaine' | 'mois' | 'annee' | 'perso';
+export type CodePeriode =
+  | 'toutes' | 'aujourdhui' | 'semaine' | 'mois' | 'mois-precedent' | 'mois-suivant'
+  | 'annee' | 'annee-precedente' | 'annee-suivante' | 'perso';
 
 export const PERIODES: { code: CodePeriode; libelle: string }[] = [
   { code: 'toutes', libelle: 'Toutes' },
   { code: 'aujourdhui', libelle: "Aujourd'hui" },
   { code: 'semaine', libelle: 'Cette semaine' },
   { code: 'mois', libelle: 'Ce mois' },
+  { code: 'mois-precedent', libelle: 'Mois précédent' },
+  { code: 'mois-suivant', libelle: 'Mois suivant' },
   { code: 'annee', libelle: 'Cette année' },
+  { code: 'annee-precedente', libelle: 'Année précédente' },
+  { code: 'annee-suivante', libelle: 'Année suivante' },
   { code: 'perso', libelle: 'Personnalisée' },
 ];
 
@@ -89,8 +99,16 @@ export function bornesPeriode(code: CodePeriode, ref: Date = new Date()): { debu
     }
     case 'mois':
       return mois(ref, 0);
+    case 'mois-precedent':
+      return mois(ref, -1);
+    case 'mois-suivant':
+      return mois(ref, 1);
     case 'annee':
       return annee(ref, 0);
+    case 'annee-precedente':
+      return annee(ref, -1);
+    case 'annee-suivante':
+      return annee(ref, 1);
     case 'perso':
       return null;
   }
