@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRightLeft, Link2, Trash2 } from 'lucide-react';
+import { ArrowRightLeft, Link2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import DialogueAffectationBonCommande from './DialogueAffectationBonCommande';
 import DialogueChangementStatutAchat from './DialogueChangementStatutAchat';
@@ -14,15 +14,16 @@ import type { DocumentAchatDetailDto } from '../../types/achat';
 type Dialogue = 'statut' | 'affecter' | null;
 
 /** Boutons d'écriture d'une pièce d'achat, à placer dans une `BarreIcones` : chacun n'existe que si `actions` l'autorise. */
-export default function BarreActionsPieceAchat({ piece, onChange, onFermer }: Readonly<{
+export default function BarreActionsPieceAchat({ piece, onChange, onFermer, onModifier }: Readonly<{
   piece: DocumentAchatDetailDto;
   onChange: (piece: DocumentAchatDetailDto) => void;
   onFermer: () => void;
+  onModifier: () => void;
 }>) {
   const confirmer = useConfirm();
   const [dialogue, setDialogue] = useState<Dialogue>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const { transitions, peutAffecter, peutSupprimer } = piece.actions;
+  const { transitions, peutAffecter, peutSupprimer, peutModifier } = piece.actions;
 
   async function supprimer() {
     const ok = await confirmer({
@@ -46,6 +47,11 @@ export default function BarreActionsPieceAchat({ piece, onChange, onFermer }: Re
 
   return (
     <>
+      {peutModifier && (
+        <Button type="button" variant="ghost" size="sm" onClick={onModifier}>
+          <Pencil /> Modifier
+        </Button>
+      )}
       {transitions.length > 0 && (
         <Button type="button" variant="ghost" size="sm" onClick={() => { setMessage(null); setDialogue('statut'); }}>
           <ArrowRightLeft /> Changer de statut

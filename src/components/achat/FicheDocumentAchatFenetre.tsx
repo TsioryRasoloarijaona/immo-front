@@ -10,6 +10,7 @@ import { Badge, EmptyState, ErrorState, LoadingState } from '../ui';
 import { Button } from '../ui/button';
 import BarreActionsPieceAchat from './BarreActionsPieceAchat';
 import BlocRetenuesAvances from './BlocRetenuesAvances';
+import FormulairePieceAchatFenetre from './FormulairePieceAchatFenetre';
 import {
   HistoriqueDocumentAchat,
   LignesDocumentAchat,
@@ -83,18 +84,19 @@ function ongletBas(id: OngletPieceAchat, d: DocumentAchatDetailDto, onOuvrir: Ou
   }
 }
 
-function CorpsDocument({ d, onOuvrir, onChange, onFermer }: Readonly<{
+function CorpsDocument({ d, onOuvrir, onChange, onFermer, onModifier }: Readonly<{
   d: DocumentAchatDetailDto;
   onOuvrir: Ouvrir;
   onChange: (piece: DocumentAchatDetailDto) => void;
   onFermer: () => void;
+  onModifier: () => void;
 }>) {
   const [onglet, setOnglet] = useState('lignes');
   const onglets = ongletsPieceAchat(d.nature).map((id) => ({ id, ...ongletBas(id, d, onOuvrir) }));
   return (
     <>
       <BarreIcones className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
-        <BarreActionsPieceAchat piece={d} onChange={onChange} onFermer={onFermer} />
+        <BarreActionsPieceAchat piece={d} onChange={onChange} onFermer={onFermer} onModifier={onModifier} />
         <Button type="button" variant="ghost" size="sm" disabled>
           <Printer /> Imprimer
         </Button>
@@ -132,7 +134,10 @@ async function chargerPiece(id: UUID): Promise<DocumentAchatDetailDto | null> {
   }
 }
 
-/** Fiche d'une pièce d'achat en fenêtre flottante, en lecture seule ; un lien vers une pièce liée l'ouvre dans la même fenêtre. */
+/**
+ * Fiche d'une pièce d'achat en fenêtre flottante ; un lien vers une pièce liée l'ouvre dans la même fenêtre.
+ * « Modifier » remplace la fiche par le formulaire de saisie ; « Enregistrer » y revient avec la pièce de la réponse.
+ */
 export default function FicheDocumentAchatFenetre({
   id,
   voisins,
@@ -141,12 +146,30 @@ export default function FicheDocumentAchatFenetre({
   const [courant, setCourant] = useState(id);
   const { data: lue, loading, error } = useApi(() => chargerPiece(courant), [courant]);
   const [remplacee, setRemplacee] = useState<DocumentAchatDetailDto | null>(null);
+  const [edition, setEdition] = useState(false);
   const d = remplacee?.id === courant ? remplacee : lue;
+
+  if (edition && d) {
+    return (
+      <FormulairePieceAchatFenetre
+        piece={d}
+        onFermer={() => setEdition(false)}
+        onEnregistre={(p, fermer) => {
+          if (fermer) {
+            onFermer();
+            return;
+          }
+          setRemplacee(p);
+          setEdition(false);
+        }}
+      />
+    );
+  }
 
   let corps: ReactNode;
   if (error) corps = <ErrorState message={error} />;
   else if (loading && d?.id !== courant) corps = <LoadingState />;
-  else if (d) corps = <CorpsDocument key={d.id} d={d} onOuvrir={setCourant} onChange={setRemplacee} onFermer={onFermer} />;
+  else if (d) corps = <CorpsDocument key={d.id} d={d} onOuvrir={setCourant} onChange={setRemplacee} onFermer={onFermer} onModifier={() => setEdition(true)} />;
   else corps = <EmptyState title="Pièce introuvable" message="Cette pièce n'existe pas ou n'est pas accessible avec votre périmètre." />;
 
   return (

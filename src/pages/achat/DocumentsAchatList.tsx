@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { RotateCcw } from 'lucide-react';
+import { Plus, RotateCcw } from 'lucide-react';
 import ColumnSelector from '../../components/ColumnSelector';
 import DataGrid from '../../components/DataGrid';
 import Pagination from '../../components/Pagination';
 import FiltresDocumentsAchat from '../../components/achat/FiltresDocumentsAchat';
 import FicheDocumentAchatFenetre from '../../components/achat/FicheDocumentAchatFenetre';
+import FormulairePieceAchatFenetre from '../../components/achat/FormulairePieceAchatFenetre';
+import MenuNaturesAchat from '../../components/achat/MenuNaturesAchat';
 import BandeTotauxAchat from '../../components/achat/BandeTotauxAchat';
 import { COLONNES_ACHAT } from '../../components/achat/colonnesAchat';
 import BarreEtatListe from '../../components/liste/BarreEtatListe';
-import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
+import BarreOutilsFlottante, { type OutilPropre } from '../../components/liste/BarreOutilsFlottante';
 import EnteteListe from '../../components/liste/EnteteListe';
 import PageListe from '../../components/liste/PageListe';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
@@ -69,6 +71,13 @@ export default function DocumentsAchatList({ vue }: Readonly<{ vue: VueAchat }>)
   const totaux = useApi(() => getTotauxDocumentsAchat(filtres), [cle], `achat-${vue.cle}-totaux`);
   const exportListe = useExportListe(cheminExportDocumentsAchat(), { ...filtres }, 'pieces-achat');
 
+  const [creation, setCreation] = useState<string | null>(null);
+  const [menuNatures, setMenuNatures] = useState(false);
+  const creables = (referentiels.data?.naturesCreables ?? []).filter((n) => !vue.natures || vue.natures.some((v) => v === n));
+  const libelleNature = (n: string) => referentiels.data?.natures.find((x) => x.code === n)?.libelle ?? n;
+  const nouveau = creables.length === 1 ? { libelle: `Nouveau : ${libelleNature(creables[0])}`, onClick: () => setCreation(creables[0]) } : undefined;
+  const ajouter: OutilPropre[] = creables.length > 1 ? [{ id: 'ajouter', libelle: 'Ajouter', icone: Plus, onClick: () => setMenuNatures(true) }] : [];
+
   const lignes = liste.data?.content ?? [];
   const decompte = liste.data ? pluriel(liste.data.totalElements, 'pièce') : undefined;
   const ouvrir = (id: string) => void navigate(`${vue.chemin}/${id}${requeteUrl}`);
@@ -126,11 +135,31 @@ export default function DocumentsAchatList({ vue }: Readonly<{ vue: VueAchat }>)
       <BarreOutilsFlottante
         cle={`achat-${vue.cle}`}
         ligneSelectionnee={false}
+        nouveau={nouveau}
+        propres={ajouter}
         actions={[
           { id: 'rafraichir', onClick: () => void liste.refetch() },
           { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
         ]}
       />
+      {menuNatures && (
+        <MenuNaturesAchat
+          natures={creables.map((n) => ({ code: n, libelle: libelleNature(n) }))}
+          onChoisir={(n) => { setMenuNatures(false); setCreation(n); }}
+          onFermer={() => setMenuNatures(false)}
+        />
+      )}
+      {creation && (
+        <FormulairePieceAchatFenetre
+          key={creation}
+          nature={creation}
+          onFermer={() => setCreation(null)}
+          onEnregistre={(p, fermer) => {
+            setCreation(null);
+            if (!fermer) void navigate(`${vue.chemin}/${p.id}${requeteUrl}`);
+          }}
+        />
+      )}
       {idOuvert && <FicheDocumentAchatFenetre key={idOuvert} id={idOuvert} voisins={voisins} onFermer={() => void navigate(`${vue.chemin}${requeteUrl}`)} />}
     </PageListe>
   );
