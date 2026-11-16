@@ -577,7 +577,65 @@ export interface PointPrevisionDto {
 export interface PrevisionsLotDto {
   lotId: UUID;
   debut: string | null;
+  /** Droit ProjectPrevision.toolNew : la saisie est ouverte. */
+  modifiable: boolean;
   mois: PointPrevisionDto[];
+}
+
+/** Point stocké ; avancement, temps, paiement en fraction 0–1. */
+export interface PointSaisiDto {
+  id: UUID;
+  date: string;
+  avancement: number;
+  temps: number | null;
+  paiement: number | null;
+  montant: number | null;
+}
+
+/** GET /lots/{id}/previsions/saisie (FEATURE-lot-previsions.md §4.2). */
+export interface PrevisionsSaisieLotDto {
+  lotId: UUID;
+  description: string | null;
+  modifiable: boolean;
+  estimationDeBaseModifiable: boolean;
+  debut: string | null;
+  duree: number | null;
+  fin: string | null;
+  debutBase: string | null;
+  dureeBase: number | null;
+  finBase: string | null;
+  estimationBaseHT: number | null;
+  estimationBaseTVA: number | null;
+  estimationBaseTTC: number | null;
+  /** Pourcentage (DefaultVat × 100). */
+  tvaParDefaut: number | null;
+  estimationConfidentielleHT: number;
+  estimationConfidentielleTVA: number;
+  estimationConfidentielleTTC: number;
+  marcheHT: number;
+  marcheTVA: number;
+  marcheTTC: number;
+  prixPrevisions: number;
+  avancementReel: number;
+  points: PointSaisiDto[];
+  pointsBase: PointSaisiDto[];
+}
+
+export interface PointSaisieDto {
+  date: string;
+  /** Fraction 0–1. */
+  avancement: number;
+}
+
+/** Corps du PUT /lots/{id}/previsions ; listes vides acceptées. */
+export interface PrevisionsSaisieRequest {
+  debut: string;
+  duree: number;
+  debutBase: string;
+  dureeBase: number;
+  estimationBaseHT: number;
+  points: PointSaisieDto[];
+  pointsBase: PointSaisieDto[];
 }
 
 export interface DecompteListItemDto {
