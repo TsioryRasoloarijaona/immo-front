@@ -45,6 +45,10 @@ export interface BrouillonPiece {
   montantRegul: number | null;
   timbreFiscal: number | null;
   categorieId: UUID | null;
+  /** Avoir seulement : montants saisis quand la pièce n'a aucune ligne. */
+  montantHT: number | null;
+  montantTVA: number | null;
+  avoirFinancier: boolean;
   lignes: LigneBrouillon[];
   parts: PartBrouillon[];
   /** Pièces sources d'une génération ; vide = création libre. */
@@ -72,6 +76,8 @@ export const tvaParDefautPourcent = (m: ModelePieceAchatDto): number | null => e
 
 export function depuisModele(m: ModelePieceAchatDto): BrouillonPiece {
   const tva = tvaParDefautPourcent(m);
+  // Un avoir sans ligne reste sans ligne : ses montants HT/TVA se saisissent.
+  const lignesVides = m.nature === 'REFUND' ? [] : [ligneVide(tva)];
   return {
     nature: m.nature,
     dateDocument: m.dateDocument,
@@ -92,6 +98,9 @@ export function depuisModele(m: ModelePieceAchatDto): BrouillonPiece {
     montantRegul: m.montantRegul,
     timbreFiscal: m.timbreFiscal,
     categorieId: m.categorieId,
+    montantHT: m.montantHT ?? null,
+    montantTVA: m.montantTVA ?? null,
+    avoirFinancier: m.avoirFinancier ?? false,
     lignes: m.lignes.length
       ? m.lignes.map((l) => ({
           cle: prochaineCle(), id: null, code: l.code ?? '', description: l.description, unite: l.unite ?? '',
@@ -99,7 +108,7 @@ export function depuisModele(m: ModelePieceAchatDto): BrouillonPiece {
           tva: enPourcent(l.tva), categorieId: l.categorieId, notes: l.notes ?? '',
           ligneBordereauId: l.ligneBordereauId ?? null,
         }))
-      : [ligneVide(tva)],
+      : lignesVides,
     parts: m.ventilationProjets.map((p) => ({ cle: prochaineCle(), projetId: p.cleId, taux: enPourcent(p.taux) })),
     sources: m.sources ?? [],
   };
@@ -126,6 +135,9 @@ export function depuisDetail(d: DocumentAchatDetailDto): BrouillonPiece {
     montantRegul: d.regularisation,
     timbreFiscal: d.timbreFiscal,
     categorieId: d.categorieId,
+    montantHT: d.lignes.length ? null : d.montantHT,
+    montantTVA: d.lignes.length ? null : d.montantTVA,
+    avoirFinancier: d.avoirFinancier ?? false,
     lignes: d.lignes.map((l) => ({
       cle: prochaineCle(), id: l.id, code: l.code ?? '', description: l.designation ?? '', unite: l.unite ?? '',
       quantite: l.quantite, prixUnitaireHT: l.prixUnitaireHT, remise: l.remisePourcent, fodec: l.fodecPourcent,
@@ -185,7 +197,11 @@ const vide = (s: string): string | null => (s.trim() === '' ? null : s);
 
 /** À n'appeler qu'après `verifier` : les champs obligatoires sont alors renseignés. */
 export function versRequete(b: BrouillonPiece): SaisiePieceAchatRequest {
+  const avoir = b.nature === 'REFUND';
+  const sansLigne = avoir && b.lignes.length === 0;
   return {
+    ...(avoir && { avoirFinancier: b.avoirFinancier }),
+    ...(sansLigne && { montantHT: b.montantHT ?? 0, montantTVA: b.montantTVA ?? 0 }),
     nature: b.nature,
     dateDocument: b.dateDocument,
     dateEcheance: vide(b.dateEcheance),

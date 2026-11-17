@@ -12,7 +12,7 @@ import GrilleLignesSaisieAchat from './GrilleLignesSaisieAchat';
 import TotauxSaisieAchat from './TotauxSaisieAchat';
 import VentilationProjetsSaisie from './VentilationProjetsSaisie';
 import { ApiError, oublierLecturesRecentes } from '../../lib/api';
-import { creerPieceAchat, getModelePieceAchat, getReferentielsAchat, modifierPieceAchat } from '../../lib/apiAchat';
+import { creerPieceAchat, getDocumentAchat, getModelePieceAchat, getReferentielsAchat, modifierPieceAchat } from '../../lib/apiAchat';
 import { getReferentielPatrimoine } from '../../lib/apiPatrimoine';
 import { getReferentielsProjet, listLots } from '../../lib/apiProjet';
 import { messageActionPieceAchat } from '../../lib/actionsPieceAchat';
@@ -64,13 +64,14 @@ function ChampLecture({ id, libelle, valeur }: Readonly<{ id: string; libelle: s
 
 type Maj = (patch: Partial<BrouillonPiece>) => void;
 
-function EnteteSaisie({ b, maj, erreurs, listes, statut, dossierGroupement }: Readonly<{
+function EnteteSaisie({ b, maj, erreurs, listes, statut, dossierGroupement, factureSource }: Readonly<{
   b: BrouillonPiece;
   maj: Maj;
   erreurs: Record<string, string>;
   listes: Listes;
   statut: string | null;
   dossierGroupement: string | null;
+  factureSource: string | null;
 }>) {
   const { data: lots } = useApi(
     () => (b.projetId ? listLots({ projetIds: [b.projetId] }, { page: 0, size: 200 }) : Promise.resolve(null)),
@@ -102,7 +103,7 @@ function EnteteSaisie({ b, maj, erreurs, listes, statut, dossierGroupement }: Re
       <ChampListe id="saisie-projetId" libelle="Projet" items={listes.projets} valeur={b.projetId} erreur={erreurs.projetId}
         onChange={(v) => maj({ projetId: v, lotId: null })} />
       <ChampListe id="saisie-lotId" libelle="Lot" items={options(lots?.content ?? [])} valeur={b.lotId} erreur={erreurs.lotId}
-        onChange={(v) => maj({ lotId: v })} disabled={!b.projetId} />
+        onChange={(v) => maj({ lotId: v })} disabled={!b.projetId || b.nature === 'REFUND'} />
       {liste('typeMarcheId', 'Type', listes.typesLot, true)}
       {liste('declencheurId', 'Déclencheur', listes.declencheurs)}
       {texte('personneAContacter', 'Personne à contacter')}
@@ -115,7 +116,31 @@ function EnteteSaisie({ b, maj, erreurs, listes, statut, dossierGroupement }: Re
       <ChampLecture id="saisie-statut" libelle="Statut" valeur={statut} />
       {nombre('montantRegul', 'Montant de régularisation')}
       {nombre('timbreFiscal', 'Timbre fiscal')}
+      {b.nature === 'REFUND' && <ChampsAvoir b={b} maj={maj} factureSource={factureSource} />}
     </div>
+  );
+}
+
+/** Spécifique à l'avoir : facture source, case « Avoir financier », HT/TVA saisissables seulement sans ligne. */
+function ChampsAvoir({ b, maj, factureSource }: Readonly<{ b: BrouillonPiece; maj: Maj; factureSource: string | null }>) {
+  const sansLigne = b.lignes.length === 0;
+  const montant = (id: 'montantHT' | 'montantTVA', libelle: string) => (
+    <Field>
+      <FieldLabel htmlFor={`saisie-${id}`}>{libelle}</FieldLabel>
+      <ChampNombre id={`saisie-${id}`} libelle={libelle} valeur={b[id]} onChange={(v) => maj({ [id]: v })} />
+    </Field>
+  );
+  return (
+    <>
+      <ChampLecture id="saisie-factureSource" libelle="Facture source" valeur={factureSource} />
+      <Field orientation="horizontal">
+        <input id="saisie-avoirFinancier" type="checkbox" checked={b.avoirFinancier} className="m-0 accent-(--brand)"
+          onChange={(e) => maj({ avoirFinancier: e.target.checked })} />
+        <FieldLabel htmlFor="saisie-avoirFinancier">Avoir financier</FieldLabel>
+      </Field>
+      {sansLigne && montant('montantHT', 'Montant HT')}
+      {sansLigne && montant('montantTVA', 'Montant TVA')}
+    </>
   );
 }
 
@@ -139,6 +164,9 @@ function Saisie({ titre, creer, tvaDefaut, listes, statut, piece, onFermer, onEn
   const [message, setMessage] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
   const [lectureSeule, setLectureSeule] = useState(false);
+  const idSource = piece || initial.nature !== 'REFUND' ? undefined : initial.sources.at(0);
+  const source = useApi(() => (idSource ? getDocumentAchat(idSource) : Promise.resolve(null)), [idSource]);
+  const factureSource = piece?.factureSourceCode ?? source.data?.code ?? null;
   const modifie = JSON.stringify(b) !== JSON.stringify(initial);
   const maj: Maj = (patch) => setB((prec) => ({ ...prec, ...patch }));
 
@@ -207,7 +235,7 @@ function Saisie({ titre, creer, tvaDefaut, listes, statut, piece, onFermer, onEn
       </BarreIcones>
       <fieldset disabled={lectureSeule} className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-4 py-3">
         <legend className="sr-only">{titre}</legend>
-        <EnteteSaisie b={b} maj={maj} erreurs={erreurs} listes={listes} statut={statut} dossierGroupement={piece?.dossierGroupement ?? null} />
+        <EnteteSaisie b={b} maj={maj} erreurs={erreurs} listes={listes} statut={statut} dossierGroupement={piece?.dossierGroupement ?? null} factureSource={factureSource} />
         <GrilleLignesSaisieAchat lignes={b.lignes} onChange={(lignes) => maj({ lignes })} categories={listes.categories} tvaDefaut={tvaDefaut} erreur={erreurs.lignes} />
         <VentilationProjetsSaisie parts={b.parts} onChange={(parts) => maj({ parts })} projets={listes.projets} parCategorie={piece?.ventilation ?? []} erreur={erreurs.ventilation} />
         <TotauxSaisieAchat b={b} piece={piece && !modifie ? piece : null} />
