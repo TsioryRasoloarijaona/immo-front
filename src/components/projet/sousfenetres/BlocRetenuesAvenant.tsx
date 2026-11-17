@@ -46,7 +46,7 @@ export default function BlocRetenuesAvenant({
                 onChange={(e) => onChanger(cle, { parMontant: e.target.checked, taux, montant })}
               />
               <Nombre libelle={`${libelle} : taux`} valeur={taux} actif={!lectureSeule && !r.parMontant} onChange={(v) => onChanger(cle, { parMontant: false, taux: v, montant: null })} />
-              <Nombre libelle={`${libelle} : montant`} valeur={montant} actif={!lectureSeule && r.parMontant} onChange={(v) => onChanger(cle, { parMontant: true, taux, montant: v })} />
+              <Nombre libelle={`${libelle} : montant`} valeur={montant} actif={!lectureSeule && r.parMontant && parMontantAutorise} onChange={(v) => onChanger(cle, { parMontant: true, taux, montant: v })} />
             </div>
           );
         })}

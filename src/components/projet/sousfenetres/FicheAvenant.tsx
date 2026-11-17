@@ -161,7 +161,7 @@ function EditeurAvenant({
           <Lock className="size-3.5" aria-hidden /> Avenant facturé{detail.factureCode ? ` (${detail.factureCode})` : ''} : lignes et retenues figées.
         </p>
       )}
-      <BlocRetenuesAvenant retenues={etat.retenues} ttc={totaux.ttc} parMontantAutorise={detail?.retenuesParMontantAutorisees ?? true} lectureSeule={lectureSeule} onChanger={changerRetenue} />
+      <BlocRetenuesAvenant retenues={etat.retenues} ttc={totaux.ttc} parMontantAutorise={detail?.retenuesParMontantAutorisees ?? false} lectureSeule={lectureSeule} onChanger={changerRetenue} />
       {!lectureSeule && (
         <BarreIcones className="flex items-center gap-1">
           <Button type="button" variant="ghost" size="sm" onClick={() => ajouterLignes((rang) => [ligneVide(rang, defauts)])}>
