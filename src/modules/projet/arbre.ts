@@ -1,4 +1,4 @@
-import { AlertCircle, Banknote, ClipboardList, FileText, HardHat, ListChecks, Receipt, Shapes, Tags, Undo2, Wallet } from 'lucide-react';
+import { AlertCircle, Banknote, ClipboardList, FileText, HardHat, LineChart, ListChecks, Receipt, Shapes, Tags, Undo2, Wallet } from 'lucide-react';
 import { estAdministrateur } from '../../lib/roles';
 import type { ArbreModule } from '../arbre';
 
@@ -32,6 +32,7 @@ export const arbreProjet: ArbreModule = ({ user }) => [
       ...(estAdministrateur(user) ? [{ to: '/projet/config/projets', libelle: 'Projets', Icone: HardHat, couleur: COULEUR }] : []),
       { to: '/projet/config/types-lot', libelle: 'Types de lot', Icone: Shapes, couleur: COULEUR },
       { to: '/projet/config/statuts-lot', libelle: 'Statuts de lot', Icone: Tags, couleur: COULEUR },
+      { to: '/projet/config/modeles-simulation', libelle: 'Modèles de simulation', Icone: LineChart, couleur: COULEUR },
     ],
   },
 ];

@@ -11,6 +11,7 @@ import {
   copierPoints,
   dureeDe,
   erreurSaisie,
+  appliquerProposition,
   etatDepuisDto,
   finDe,
   retirerPoint,
@@ -25,6 +26,7 @@ import BarreIcones from '../../BarreIcones';
 import { ErrorState, LoadingState } from '../../ui';
 import { Button } from '../../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../ui/dialog';
+import BoutonsAlignementModeles from './BoutonsAlignementModeles';
 import GrillePointsPrevision from './GrillePointsPrevision';
 
 type NomOnglet = 'previsions' | 'base';
@@ -104,12 +106,14 @@ function Saisie({ saisie, onModifie, onEnregistre, onAnnuler }: Readonly<{ saisi
   const [selection, setSelection] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const baseEditable = saisie.estimationDeBaseModifiable;
   const actif = onglet === 'base';
   const taux = saisie.tvaParDefaut ?? 0;
 
   function maj(neuf: EtatSaisie) {
     setEtat(neuf);
+    setDirty(true);
     setErreur(null);
     onModifie();
   }
@@ -170,6 +174,18 @@ function Saisie({ saisie, onModifie, onEnregistre, onAnnuler }: Readonly<{ saisi
         <Button type="button" variant="ghost" size="sm" onClick={() => copier('base', 'previsions')}>
           <ChevronsLeft /> Copier est. de base → prévisions
         </Button>
+        {saisie.modifiable && (
+          <BoutonsAlignementModeles
+            lotId={saisie.lotId}
+            modifie={dirty}
+            grilleVide={etat.previsions.points.length === 0}
+            onErreur={setErreur}
+            onProposition={(p) => {
+              maj(appliquerProposition(etat, p));
+              setOnglet('previsions');
+            }}
+          />
+        )}
         <Button type="button" variant="ghost" size="sm" disabled={enCours} onClick={() => void enregistrer()}>
           <Save /> Enregistrer
         </Button>
