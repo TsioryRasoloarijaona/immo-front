@@ -46412,7 +46412,7 @@
           },
           "taux": {
             "type": "number",
-            "description": "Taux en pourcentage 0–100 ; recalculé par le serveur si parMontant.",
+            "description": "Taux en pourcentage 0–100 ; si parMontant, ignoré et recalculé (peut dépasser 100).",
             "example": 10
           },
           "montant": {
