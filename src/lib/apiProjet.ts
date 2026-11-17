@@ -105,12 +105,10 @@ export function getBordereauEstimatifLot(id: UUID): Promise<BordereauEstimatifDt
 
 // FEATURE-lot-ecritures.md §4 : bordereau entier, relu après écriture (404 → 403 → 409 cadenas → 400 → 409 décompté).
 // Les deux @public tant que les écrans du lot front ne les appellent pas (knip) : à retirer avec eux.
-/** @public */
 export function putBordereauLot(id: UUID, corps: BordereauSaisieDto): Promise<BordereauDto> {
   return request('PUT', `${LOTS}/${id}/bordereau`, { body: corps });
 }
 
-/** @public */
 export function putBordereauEstimatifLot(id: UUID, corps: BordereauSaisieDto): Promise<BordereauEstimatifDto> {
   return request('PUT', `${LOTS}/${id}/bordereau-estimatif`, { body: corps });
 }
@@ -132,48 +130,38 @@ export function getRemboursementsLot(id: UUID): Promise<RemboursementsLotDto> {
 }
 
 // FEATURE-lot-avenants-avances.md : avenants, échéances RG, réceptions (404 → 403 → 400 → 409), relus après écriture.
-// @public tant que les écrans du lot front ne les appellent pas (knip) : à retirer avec eux.
-/** @public */
 export function getAvenantLot(id: UUID, avenantId: UUID): Promise<AvenantDetailDto> {
   return request('GET', `${LOTS}/${id}/avenants/${avenantId}`);
 }
 
-/** @public */
 export function creerAvenantLot(id: UUID, corps: AvenantSaisieDto): Promise<AvenantDetailDto> {
   return request('POST', `${LOTS}/${id}/avenants`, { body: corps });
 }
 
-/** @public */
 export function modifierAvenantLot(id: UUID, avenantId: UUID, corps: AvenantSaisieDto): Promise<AvenantDetailDto> {
   return request('PUT', `${LOTS}/${id}/avenants/${avenantId}`, { body: corps });
 }
 
-/** @public */
 export function supprimerAvenantLot(id: UUID, avenantId: UUID): Promise<void> {
   return request('DELETE', `${LOTS}/${id}/avenants/${avenantId}`);
 }
 
-/** @public */
 export function putEcheancesRgLot(id: UUID, corps: EcheanceRgSaisieDto[]): Promise<RemboursementsLotDto> {
   return request('PUT', `${LOTS}/${id}/echeances-rg`, { body: corps });
 }
 
-/** @public */
 export function getReceptionLot(id: UUID, receptionId: UUID): Promise<ReceptionDetailDto> {
   return request('GET', `${LOTS}/${id}/receptions/${receptionId}`);
 }
 
-/** @public */
 export function creerReceptionLot(id: UUID, corps: ReceptionSaisieDto): Promise<ReceptionDetailDto> {
   return request('POST', `${LOTS}/${id}/receptions`, { body: corps });
 }
 
-/** @public */
 export function modifierReceptionLot(id: UUID, receptionId: UUID, corps: ReceptionSaisieDto): Promise<ReceptionDetailDto> {
   return request('PUT', `${LOTS}/${id}/receptions/${receptionId}`, { body: corps });
 }
 
-/** @public */
 export function supprimerReceptionLot(id: UUID, receptionId: UUID): Promise<void> {
   return request('DELETE', `${LOTS}/${id}/receptions/${receptionId}`);
 }
@@ -183,12 +171,10 @@ export function getPrevisionsLot(id: UUID): Promise<PrevisionsLotDto> {
 }
 
 // FEATURE-lot-previsions.md §4.2-4.3 : saisie et enregistrement (404 → 403 → 400), graphe relu après écriture.
-/** @public */
 export function getSaisiePrevisionsLot(id: UUID): Promise<PrevisionsSaisieLotDto> {
   return request('GET', `${LOTS}/${id}/previsions/saisie`);
 }
 
-/** @public */
 export function putPrevisionsLot(id: UUID, corps: PrevisionsSaisieRequest): Promise<PrevisionsLotDto> {
   return request('PUT', `${LOTS}/${id}/previsions`, { body: corps });
 }
