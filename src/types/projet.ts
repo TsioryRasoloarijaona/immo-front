@@ -499,11 +499,17 @@ export interface AvanceLotDto {
   reste: number;
   deviseCode: string | null;
   notes: string | null;
+  /** Même règle que le PUT de la pièce (FEATURE-lot-pieces-a-payer.md R10, R17). */
+  modifiable: boolean;
+  /** Même règle que le DELETE de la pièce (R2, R11, R17). */
+  supprimable: boolean;
 }
 
 export interface AvancesLotDto {
   surMarche: AvanceLotDto[];
   surDecompte: AvanceLotDto[];
+  /** Droit toolAdvance : active Ajouter (R2). */
+  droitPieces: boolean;
 }
 
 export interface AvoirLotDto {
@@ -517,6 +523,55 @@ export interface AvoirLotDto {
   montantTVA: number | null;
   montantTTC: number | null;
   referenceBureauOrdre: string | null;
+  /** Même règle que le DELETE de l'avoir (R12, R13, R17). */
+  supprimable: boolean;
+}
+
+/** ReferenceType d'une pièce à payer créée depuis le lot (FEATURE-lot-pieces-a-payer.md §3). */
+export type NaturePieceLot = 'MARKET_ADVANCE' | 'WORKINGOUT_ADVANCE' | 'MARKET_WARRANTY' | 'MARKET_PROPORTION';
+
+export interface PieceLotSaisieDto {
+  /** Obligatoire à la création, ignorée en modification. */
+  nature: NaturePieceLot | null;
+  date: string | null;
+  /** Null = date + délai de paiement du lot. */
+  echeance: string | null;
+  /** Null à la création = montant par défaut du modèle. */
+  montantTTC: number | null;
+  notes: string | null;
+  /** MARKET_WARRANTY seulement. */
+  penaliteRg: number | null;
+}
+
+export interface PieceLotModeleDto {
+  nature: NaturePieceLot;
+  date: string;
+  echeance: string | null;
+  reference: string;
+  montantTTC: number;
+  notes: string;
+  fournisseur: string | null;
+  /** Reste calculé, indicatif ; null pour W.AVA et RCP. */
+  montantMaximum: number | null;
+}
+
+export interface PieceLotDetailDto {
+  id: UUID;
+  nature: NaturePieceLot;
+  code: string | null;
+  reference: string | null;
+  date: string | null;
+  echeance: string | null;
+  montantHT: number | null;
+  montantTVA: number | null;
+  montantTTC: number | null;
+  /** MARKET_WARRANTY seulement ; null sinon. */
+  penaliteRg: number | null;
+  notes: string | null;
+  fournisseur: string | null;
+  statut: string | null;
+  modifiable: boolean;
+  supprimable: boolean;
 }
 
 export interface AvenantLotDto {
@@ -566,6 +621,8 @@ export interface RemboursementsLotDto {
   totalPourcentageEcheances: number;
   typesReception: OptionReceptionDto[];
   genresReception: OptionGenreDto[];
+  /** Droit toolAdvance : active Ajouter d'une restitution de RG (le prorata n'en exige pas). */
+  droitPieces: boolean;
 }
 
 export interface OptionReceptionDto {

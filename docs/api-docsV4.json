@@ -2033,6 +2033,158 @@
         }
       }
     },
+    "/api/projet/lots/{id}/pieces-a-payer/{pieceId}": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Fiche d'une pièce à payer du lot",
+        "description": "Fiche d'une pièce à payer du lot ; **404** si la pièce n'est pas une des quatre natures de ce lot, payable, d'une société\nhabilitée. `modifiable` et `supprimable` = mêmes règles que le PUT et le DELETE.",
+        "operationId": "lire_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "description": "Identifiant de la pièce (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pièce, montants et actions permises.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceLotDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot invisible ou inconnu (LOT_INTROUVABLE), ou pièce inconnue / d'un autre lot / d'une autre nature."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Modifier une pièce à payer du lot",
+        "description": "Modifie date, échéance, montant TTC (lignes recalculées comme à la création), notes et pénalité de RG ; `nature` ignorée.\n**409** « Vous ne pouvez pas modifier cette pièce dans l'état actuel du lot ! » si le statut du lot n'a plus le drapeau de la\nnature ou si le statut de la pièce est en lecture seule. Pas de droit propre. Reste d'avance du décompte rattaché et prévisions\nrecalculés.",
+        "operationId": "modifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "description": "Identifiant de la pièce (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PieceLotSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Pièce relue après écriture.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceLotDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date absente, montant ou pénalité négatif, échéance avant la date, nature absente ou inconnue."
+          },
+          "404": {
+            "description": "Lot invisible ou inconnu (LOT_INTROUVABLE), ou pièce inconnue / d'un autre lot / d'une autre nature."
+          },
+          "409": {
+            "description": "Vous ne pouvez pas modifier cette pièce dans l'état actuel du lot !"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Supprimer une pièce à payer du lot",
+        "description": "Supprime la pièce, ses lignes, ventilations et historique de statut. **403** sans `toolAdvance` (sauf prorata) ; **409** statut\nen lecture seule (« Vous n'avez pas le droit de supprimer un Documents à régler avec un statut <statut> ») ou règlements liés.\nReste d'avance du décompte rattaché et prévisions recalculés.",
+        "operationId": "supprimer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "description": "Identifiant de la pièce (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Pièce, lignes, ventilations et historique supprimés."
+          },
+          "403": {
+            "description": "Droit MarketMonitoringList.toolAdvance absent (sauf remboursement de prorata)."
+          },
+          "404": {
+            "description": "Lot invisible ou inconnu (LOT_INTROUVABLE), ou pièce inconnue / d'un autre lot / d'une autre nature."
+          },
+          "409": {
+            "description": "Statut de la pièce en lecture seule, ou règlements liés."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}/echeances-rg": {
       "put": {
         "tags": [
@@ -2317,7 +2469,7 @@
           "Projet"
         ],
         "summary": "Modifier un avenant du lot (lignes envoyées entières)",
-        "operationId": "modifier",
+        "operationId": "modifier_1",
         "parameters": [
           {
             "name": "id",
@@ -2380,7 +2532,7 @@
           "Projet"
         ],
         "summary": "Supprimer un avenant du lot et ses lignes",
-        "operationId": "supprimer",
+        "operationId": "supprimer_1",
         "parameters": [
           {
             "name": "id",
@@ -2513,7 +2665,7 @@
           "Projet"
         ],
         "summary": "Supprimer un décompte, ses lignes, travaux supplémentaires, retenues et approvisionnements",
-        "operationId": "supprimer_1",
+        "operationId": "supprimer_2",
         "parameters": [
           {
             "name": "id",
@@ -2784,7 +2936,7 @@
           "Projet — configuration"
         ],
         "summary": "Fiche d'un projet",
-        "operationId": "lire_1",
+        "operationId": "lire_2",
         "parameters": [
           {
             "name": "id",
@@ -2826,7 +2978,7 @@
         ],
         "summary": "Remplace les champs saisissables d'un projet (statut et type d'objet inchangés)",
         "description": "Remplacement complet des champs obligatoires ; les champs facultatifs absents (booléens, taux, 4 dates, nivellement, projet référence, lot prorata) restent inchangés. Pour vider une date ou un lien, le nommer dans `champsAVider`. Le lot gestionnaire du compte prorata doit être un lot de ce projet ; le projet référence, un autre projet existant.",
-        "operationId": "modifier_1",
+        "operationId": "modifier_2",
         "parameters": [
           {
             "name": "id",
@@ -2898,7 +3050,7 @@
         ],
         "summary": "Supprime un projet que rien ne référence, avec ses habilitations",
         "description": "Refusée en 409 « Utilisé par … » dès qu'une des 22 tables qui référencent `PrjProject` (lots, pièces d'achat, tranches, tâches, prêts, ventilations, réunions, prévisions, projet de référence…) a une ligne pour lui, y compris celles qu'une suppression en cascade viderait en base. Seules les habilitations du projet partent avec lui.",
-        "operationId": "supprimer_2",
+        "operationId": "supprimer_3",
         "parameters": [
           {
             "name": "id",
@@ -3215,7 +3367,7 @@
         ],
         "summary": "Modifie un modèle ; un nouveau contenu crée une nouvelle version",
         "description": "Champs absents = inchangés. `contenu` ou `miseEnPage` présent = nouvelle version (le champ absent des deux est repris\nde la version courante). `libelle`, `ordre` et `actif` seuls ne créent pas de version. Une image citée qui n'a pas été\ndéposée → 400 « Image inconnue ».",
-        "operationId": "modifier_2",
+        "operationId": "modifier_3",
         "parameters": [
           {
             "name": "id",
@@ -3631,7 +3783,7 @@
         ],
         "summary": "Arbre du bilan de l'étude, totaux des racines et bilan",
         "description": "`lignes` : l'arbre à plat, parent avant enfants, frères par `Sorting` puis libellé. Montant d'une ligne par unité =\nquantité de la ligne d'unité × ratio ; en pourcentage = total HT (enfants compris) de la catégorie de référence × ratio ;\nTTC = HT × (1 + TVA), sauf quote-part du terrain (case de l'étude, unité surface à catégorie d'article) : HT + (HT −\ncoût du terrain / plancher vendable × quantité) × TVA. Total d'un nœud = propre + enfants ; `poids` = total TTC / total\nTTC de sa racine. Lignes liées aux relations « prix du terrain », « frais d'enregistrement », « autres frais » et\n« intérêts du crédit » (si une catégorie y est configurée) : ajoutées par le serveur, montant imposé, `verrouillee`.\n`totaux.terrainNonInclus` vrai quand la relation « prix du terrain » n'a pas de catégorie (cas de la production).",
-        "operationId": "lire_2",
+        "operationId": "lire_3",
         "parameters": [
           {
             "name": "id",
@@ -4099,7 +4251,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Modifie une demande de modification",
-        "operationId": "modifier_3",
+        "operationId": "modifier_4",
         "parameters": [
           {
             "name": "id",
@@ -4160,7 +4312,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Supprime une demande de modification",
-        "operationId": "supprimer_3",
+        "operationId": "supprimer_4",
         "parameters": [
           {
             "name": "id",
@@ -4213,7 +4365,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Modifie un cadeau (livraison, bon, notes ; la raison selon le droit)",
-        "operationId": "modifier_4",
+        "operationId": "modifier_5",
         "parameters": [
           {
             "name": "id",
@@ -4306,7 +4458,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Supprime un cadeau du dossier",
-        "operationId": "supprimer_4",
+        "operationId": "supprimer_5",
         "parameters": [
           {
             "name": "id",
@@ -4540,7 +4692,7 @@
         ],
         "summary": "Champs spécifiques d'un objet et leurs valeurs, triés par groupe puis ordre",
         "description": "Toutes les définitions du porteur, triées `CategorySorting`, `Category`, `Sorting`. `valeur` = valeur enregistrée pour\nl'objet, sinon la valeur par défaut de la définition.",
-        "operationId": "lire_3",
+        "operationId": "lire_4",
         "parameters": [
           {
             "name": "porteur",
@@ -4755,7 +4907,7 @@
           "Tiers (administration)"
         ],
         "summary": "Fiche d'un tiers",
-        "operationId": "lire_4",
+        "operationId": "lire_5",
         "parameters": [
           {
             "name": "famille",
@@ -4801,7 +4953,7 @@
         ],
         "summary": "Remplace les champs de la fiche (champ omis = vidé)",
         "description": "Mêmes contrôles qu'à la création. Le corps remplace la fiche : un champ omis est vidé. Le code ne change pas, sauf pour les banques et organismes, où il se modifie sous la même règle d'unicité ; leurs colonnes hors de la liste de `creer` restent telles quelles. Personnels : les champs ignorés à la création et les colonnes de paie restent tels quels.",
-        "operationId": "modifier_5",
+        "operationId": "modifier_6",
         "parameters": [
           {
             "name": "famille",
@@ -4863,7 +5015,7 @@
         ],
         "summary": "Supprime un tiers libre",
         "description": "Une clé étrangère restrictive (dossier, mouvement, contact lié à un autre tiers…) refuse la suppression en 409 sans rien modifier. Sinon les cascades de la base emportent les liens et les actions du tiers. Personnels : un employé lié à un compte (`AdmUser.CfgEmployeeId`) est refusé en 409.",
-        "operationId": "supprimer_5",
+        "operationId": "supprimer_6",
         "parameters": [
           {
             "name": "famille",
@@ -4998,7 +5150,7 @@
         ],
         "summary": "Modifie l'en-tête, les lignes et les ventilations d'une pièce d'achat",
         "description": "La nature, le numéro, la gestion, le statut, les liens et les retenues ne changent jamais. Les lignes du corps remplacent celles de la pièce (id connu = mise à jour, null = nouvelle, absente = supprimée) ; un `declencheurId` null efface le déclencheur. Ordre des refus : 404 → 409 gérée ailleurs → 403 → 409 lecture seule → 400 → 409 quantités du bon de commande.",
-        "operationId": "modifier_6",
+        "operationId": "modifier_7",
         "parameters": [
           {
             "name": "id",
@@ -5052,7 +5204,7 @@
         ],
         "summary": "Supprime une pièce d'achat avec ses lignes, ventilations et historique",
         "description": "Natures : devis, bon de commande, bon de livraison, facture, avoir. Ordre des refus : 404 → 403 → 409 (un document à régler, sans droit OMRAN de suppression, répond 409 dès après le 404). Supprime aussi les lignes, les ventilations catégorie et projet, l'historique des statuts et les liens `BuyOrderInvoice` côté facture ; vide `BuyQuoteId` des pièces issues d'un devis supprimé et `BuyInvoiceId` des pièces liées à une facture supprimée. Tout ou rien.",
-        "operationId": "supprimer_6",
+        "operationId": "supprimer_7",
         "parameters": [
           {
             "name": "id",
@@ -9667,6 +9819,62 @@
         }
       }
     },
+    "/api/projet/lots/{id}/pieces-a-payer": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Créer une pièce à payer du lot",
+        "description": "Crée une pièce `DOCUMENT_TO_PAY` (`ReferenceType` = `nature`) par le chemin commun d'écriture des pièces d'achat : gestion OMRAN\nde la nature, module PRJ, société du projet, lot, fournisseur du lot, devise du lot pour les avances (devise par défaut sinon),\nstatut « Nouveau » du workflow et une ligne d'historique, code par la séquence « Document à régler entrant ». Ordre des refus :\n**404**, **403**, **400** (`date` absente, `montantTTC` ou `penaliteRg` négatif, `echeance` avant `date`), **409** (comme le\nmodèle). `montantTTC` absent = montant par défaut du modèle. Une ligne par catégorie de\nventilation du lot (TTC = montant × taux, TVA du lot, unité U, quantité 1), une seule ligne sans catégorie si le lot n'a pas de\nventilation. Restitution de RG : `AmountRegul` = − `penaliteRg`. Avance sur décompte : rattachée au dernier décompte du lot s'il\nn'est ni final ni facturé, dont le reste d'avance sur décompte est recalculé. Les prévisions de paiement du lot sont recalculées.",
+        "operationId": "creer_8",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PieceLotSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Pièce relue après écriture.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceLotDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date absente, montant ou pénalité négatif, échéance avant la date, nature absente ou inconnue."
+          },
+          "403": {
+            "description": "Droit MarketMonitoringList.toolAdvance absent (sauf remboursement de prorata)."
+          },
+          "404": {
+            "description": "Lot invisible ou inconnu (LOT_INTROUVABLE), ou pièce inconnue / d'un autre lot / d'une autre nature."
+          },
+          "409": {
+            "description": "Lot mono-fournisseur sans fournisseur, ou statut du lot / blocage de la RG (message OMRAN)."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}/copie": {
       "post": {
         "tags": [
@@ -9751,7 +9959,7 @@
           "Projet"
         ],
         "summary": "Créer un avenant du lot",
-        "operationId": "creer_8",
+        "operationId": "creer_9",
         "parameters": [
           {
             "name": "id",
@@ -10079,7 +10287,7 @@
         ],
         "summary": "Crée un projet et habilite son créateur dans la même transaction",
         "description": "Le statut (premier statut de type « Nouveau » du workflow projet) et le type d'objet (`StrEntity` « PrjProject ») sont posés par le serveur, avec une ligne d'historique `StrHistory` « Création ». Défauts : non ventilé, taux 0, sans parties communes. Une habilitation (`AdmUserHabilitation`, portée projet seule) est créée pour l'utilisateur courant dans la même transaction : un échec de l'une annule l'autre.",
-        "operationId": "creer_9",
+        "operationId": "creer_10",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10708,7 +10916,7 @@
         ],
         "summary": "Crée une pré-prospection (lead brut)",
         "description": "Équivalent de l'écran « Pré-prospection » d'OMRAN, dont la trace d'audit fixe la séquence : code\ntiré du compteur `AdmSequence` « Prospection » (format `AA/NNNNN`, **le même compteur que les\nprospections**), type de document `ComPreProspection`, contact saisi en champs libres\n(`TempDescription`, `TempTel`, `TempEMail`) — **aucune fiche prospect n'est créée**.\n\nSeul `nom` est obligatoire. Posés par le serveur : code, date du document (maintenant), `IsClosed =\nfalse`, auteur (utilisateur connecté), vocation `VENTE` si aucune n'est fournie. Jamais de prospect\nni de commercial : c'est l'objet de `POST /api/pre-prospections/{id}/creer-prospect` puis `POST\n/api/prospections/{id}/transformer`.\n\n**Doublons signalés, jamais refusés.** La réponse liste les prospections existantes au même contact\n(même nom, même téléphone sur ses 9 derniers chiffres, même email — un champ absent des deux côtés\ncompte comme égal). OMRAN enregistre lui aussi une ligne par soumission ; à l'écran d'avertir. Seuls\nles doublons **visibles de l'appelant** (périmètre commercial) sont listés : un contact hors\npérimètre n'est jamais révélé.\n\nLa ligne créée apparaît aussitôt dans `GET /api/pre-prospections` et dans le logiciel de bureau.",
-        "operationId": "creer_10",
+        "operationId": "creer_11",
         "requestBody": {
           "content": {
             "application/json": {
@@ -11218,7 +11426,7 @@
           "Notes"
         ],
         "summary": "Ajoute une note en texte simple (échappée en HTML pour OMRAN)",
-        "operationId": "creer_11",
+        "operationId": "creer_12",
         "requestBody": {
           "content": {
             "application/json": {
@@ -11368,7 +11576,7 @@
           "Modèles de documents"
         ],
         "summary": "Crée un modèle et sa version 1",
-        "operationId": "creer_12",
+        "operationId": "creer_13",
         "requestBody": {
           "content": {
             "application/json": {
@@ -11712,7 +11920,7 @@
         ],
         "summary": "Crée un lot de terrain dans une tranche (nature TER, entité « article », sans statut de workflow)",
         "description": "Tranche obligatoire, visible et d'entité active (sinon 400, sans dire si elle existe). Code unique dans la tranche,\ntoutes natures confondues (409). Vocation obligatoire et jamais PROJET ; catégorie et type obligatoires, de nature TER\nou LOT DE TERRAIN (400 nommant le champ). Prix : un seul calcul, celui des articles (prix au m² HT ou TTC exclusifs).",
-        "operationId": "creer_13",
+        "operationId": "creer_14",
         "requestBody": {
           "content": {
             "application/json": {
@@ -12113,7 +12321,7 @@
         ],
         "summary": "Crée une étude au statut « En étude »",
         "description": "`code` (unique → 409), `description`, `dateDocument`, `societeId` (société active, sinon 400) obligatoires ;\n`terrainId` : article de nature TER (sinon 400). Statut initial « En étude », une ligne d'historique au nom de\nl'appelant ; `tauxTvaDefaut` 0,20 et `tauxTvaInterets` 0,10 si absents. Bloc A et phases calculés et stockés ;\n`unites` / `tranches` du corps sont ignorés (grilles par les PUT).",
-        "operationId": "creer_14",
+        "operationId": "creer_15",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13296,7 +13504,7 @@
           "Entités juridiques"
         ],
         "summary": "Crée une entité (habilitation du créateur et 4 compteurs AdmSequence dans la même transaction)",
-        "operationId": "creer_15",
+        "operationId": "creer_16",
         "requestBody": {
           "content": {
             "application/json": {
@@ -14202,7 +14410,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_16",
+        "operationId": "creer_17",
         "parameters": [
           {
             "name": "id",
@@ -15370,7 +15578,7 @@
         ],
         "summary": "Crée un désistement (brouillon) sur le dossier",
         "description": "Statut du dossier sans « Peut effectuer un désistement » (`StrStatus.BoolField010`) : 409. Un seul désistement non légalisé par dossier : 409. Les montants sont calculés comme la simulation et enregistrés ; le N° de demande vient de la séquence « Désistement ».",
-        "operationId": "creer_17",
+        "operationId": "creer_18",
         "parameters": [
           {
             "name": "id",
@@ -15598,7 +15806,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_18",
+        "operationId": "creer_19",
         "parameters": [
           {
             "name": "id",
@@ -16537,7 +16745,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_19",
+        "operationId": "creer_20",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17041,7 +17249,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_20",
+        "operationId": "creer_21",
         "requestBody": {
           "content": {
             "application/json": {
@@ -17478,7 +17686,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_21",
+        "operationId": "creer_22",
         "parameters": [
           {
             "name": "id",
@@ -17739,7 +17947,7 @@
         ],
         "summary": "Crée un tiers ; code au compteur partagé, saisi pour banques et organismes",
         "description": "Personne morale : `raisonSociale` requise. Personne physique : `prenom`, `nom`, `titreId` et `sexeId` requis, `raisonSociale` et `description` valent « prénom nom ». Toujours requis : `personneMorale`, `paysResidenceId`, `deviseId`, `formeSocialeId`, et `mobile` ou `email`. Un doublon n'est pas refusé.\n\nBanques et organismes : fiche réduite, `code`, `description` et `paysId` seuls requis, compteur jamais utilisé. La description passe en majuscules et la raison sociale la suit, le pays de résidence suit `paysId`, `matriculeFiscal` s'écrit aussi dans `IDNumber`. La forme sociale vient du paramètre OMRAN de la famille, la devise reste vide. Seuls comptent `code`, `description`, `paysId`, `natureId`, `matriculeFiscal`, `registreCommerce`, `ice`, `compteComptableId`, `journalId`, les téléphones et leurs indicatifs, `fax`, `email`, `siteWeb`, les adresses, `codePostal`, `villeId`, `ville`, `notes` ; tout autre champ est ignoré.\n\nPersonnels : personne physique seule, `personneMorale` vrai = 400 ; `formeSocialeId` et `deviseId` facultatifs, contrôlés s'ils sont fournis. `ice`, `matriculeFiscal`, `registreCommerce`, `douane`, `codeComptable`, `codeComptableCollectif`, `tauxRetenue`, `tauxTva`, `delaiPaiement`, `assujettissementId` et `estPrestataire` sont ignorés.",
-        "operationId": "creer_22",
+        "operationId": "creer_23",
         "parameters": [
           {
             "name": "famille",
@@ -17906,7 +18114,7 @@
           "Tâches (administration)"
         ],
         "summary": "Crée une tâche",
-        "operationId": "creer_23",
+        "operationId": "creer_24",
         "requestBody": {
           "content": {
             "application/json": {
@@ -18086,7 +18294,7 @@
           "Rôles (administration)"
         ],
         "summary": "Crée un rôle",
-        "operationId": "creer_24",
+        "operationId": "creer_25",
         "requestBody": {
           "content": {
             "application/json": {
@@ -18202,7 +18410,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Crée un rendez-vous, code issu de la séquence AdmTask",
-        "operationId": "creer_25",
+        "operationId": "creer_26",
         "requestBody": {
           "content": {
             "application/json": {
@@ -18656,7 +18864,7 @@
         ],
         "summary": "Crée une pièce d'achat (devis, bon de commande, bon de livraison, facture)",
         "description": "Ordre des refus : 400 nature non prise en charge → 404 société ou projet non habilité → 403 droit de création (code Achat « Nouveau » ; le code Projet › Lot compte pour une pièce à lot, jamais pour une facture) → 400 champs. Écrit la pièce, ses lignes, la ventilation des catégories (calculée depuis les lignes) et des projets, le numéro de la séquence de la nature, le statut de départ (null sans workflow) et, sauf pour un bon de livraison, une ligne d'historique. Montants sans arrondi : PU net = PU × (1 − remise), PU HT = PU net × (1 + FODEC), total HT = PU HT × quantité, TVA = total HT × taux. Une facture à lot reprend les taux de retenue du lot et le reste d'avance.",
-        "operationId": "creer_26",
+        "operationId": "creer_27",
         "requestBody": {
           "content": {
             "application/json": {
@@ -18876,7 +19084,7 @@
           "Utilisateurs (admin)"
         ],
         "summary": "Modifie un compte (null = inchangé, \"\" = vidé pour les textes, code ignoré)",
-        "operationId": "modifier_7",
+        "operationId": "modifier_8",
         "parameters": [
           {
             "name": "id",
@@ -18963,7 +19171,7 @@
           "Tranches"
         ],
         "summary": "Supprime une tranche sans article ni autre référence bloquante",
-        "operationId": "supprimer_7",
+        "operationId": "supprimer_8",
         "parameters": [
           {
             "name": "id",
@@ -18997,7 +19205,7 @@
         ],
         "summary": "Modifie une tranche (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé. Pour vider : `champsAVider: [\"dateOctroiTitresFonciers\", \"standingId\"]` — date\net référence → NULL, nombre → 0, case → faux, texte → `\"\"` (jamais NULL là où OMRAN écrit une valeur). Nom inconnu,\nchamp obligatoire (`code`, `description`, `projetId`) ou champ à la fois listé et renseigné → 400 dont le `detail`\nnomme `champsAVider`. Une référence inconnue (standing, niveau, rubrique, personnel, tiers, projet de facturation,\nplan comptable) → 400 nommant le champ. Crédit max > 100 % → 400.",
-        "operationId": "modifier_8",
+        "operationId": "modifier_9",
         "parameters": [
           {
             "name": "id",
@@ -19081,7 +19289,7 @@
         ],
         "summary": "Fiche terrain, coût total et coût unitaire final calculés à la lecture",
         "description": "`coutTotal` = Σ des montants de ses frais (validés ou non) et `coutUnitaireFinal` = `coutTotal` / surface définitive\n(0 si la surface est nulle) sont calculés à chaque lecture, jamais stockés. `sousTerrainsAutorises` reflète le statut\ndu terrain (case OMRAN « Créer un sous-terrain ») : aucun statut de production ne l'a aujourd'hui.",
-        "operationId": "lire_5",
+        "operationId": "lire_6",
         "parameters": [
           {
             "name": "id",
@@ -19116,7 +19324,7 @@
         ],
         "summary": "Supprime un terrain et ses frais non validés",
         "description": "Refus 409 : un frais validé (« Suppression impossible : frais <type> du <date> (<montant>) validé. ») ou porté par\nune facture, un terrain occupé, ou encore référencé (prospection, dossier, offre… ; une autre clé étrangère → 409\nnommant la contrainte) ; un sous-terrain ne se supprime que si le statut de son parent autorise les sous-terrains.\nSinon le terrain part avec ses sous-terrains, ses frais non validés, contenances, pièces jointes et notes.",
-        "operationId": "supprimer_8",
+        "operationId": "supprimer_9",
         "parameters": [
           {
             "name": "id",
@@ -19150,7 +19358,7 @@
         ],
         "summary": "Modifie un terrain (champ absent ou null = inchangé)",
         "description": "Mêmes contrôles qu'à la création. Terrain occupé (dossier de vente ou de location) : surfaces, prix au m² HT/TTC,\nTVA et titre foncier → 409, ligne inchangée. `estTermine` ne se modifie pas sur un sous-terrain ou un terrain issu\nd'une prospection foncière (400). `champsAVider` : `niveauId`, `vocationTerrainId`, `orientationId`,\n`categorieChargeId`, `fournisseurId`, les dates et les textes facultatifs.",
-        "operationId": "modifier_9",
+        "operationId": "modifier_10",
         "parameters": [
           {
             "name": "id",
@@ -19234,7 +19442,7 @@
         ],
         "summary": "Supprime un sous-article ; le prix de son article parent est recalculé",
         "description": "Refus 409 : sous-article affecté par défaut à son article (« Vous ne pouvez pas supprimer un sous article affecté\npar défaut à l'article en cours ! » — le désaffecter d'abord), dossier de vente, de location ou de syndic, ou encore\nréférencé (prospection, dossier, offre, historique… ; une autre clé étrangère → 409 nommant la contrainte). Sinon\nsuppression avec vues, contenances, tracés, pièces jointes et notes, audit `Deleted`, prix du parent recalculé.",
-        "operationId": "supprimer_9",
+        "operationId": "supprimer_10",
         "parameters": [
           {
             "name": "id",
@@ -19268,7 +19476,7 @@
         ],
         "summary": "Modifie un sous-article libre (champ absent ou null = inchangé), ou le rattache",
         "description": "Sous-article **libre** seulement : un rattaché → 409 (lecture seule, voir l'en-tête) ; un article principal → 404.\nMêmes champs que `PATCH /api/articles/{id}`, `vocationId` compris. `parentId` rattache le sous-article (mêmes règles\nqu'à la création, prix du parent recalculé) ; `toujoursAffecte` vrai exige `parentId` (400) ; `parentId` dans\n`champsAVider` → 400 (désaffecter par la route de la fiche parent).",
-        "operationId": "modifier_10",
+        "operationId": "modifier_11",
         "parameters": [
           {
             "name": "id",
@@ -19965,7 +20173,7 @@
         ],
         "summary": "Fiche d'une prospection terrain, zones et terrain issu compris",
         "description": "`peutTransformer` = Administrateur, aucun terrain issu, statut courant avec la case « Transformer en terrain »\n(`BoolField001`) et superficie > 0 ; sinon `motifNonTransformable` donne le refus. `terrainId` / `terrainCode` : terrain\n(`StkItem.LndLandId`) créé depuis la prospection.",
-        "operationId": "lire_6",
+        "operationId": "lire_7",
         "parameters": [
           {
             "name": "id",
@@ -20000,7 +20208,7 @@
         ],
         "summary": "Supprime une prospection terrain avec ses zones, son historique, ses pièces jointes et notes",
         "description": "409 : statut sans suppression (« Vous ne pouvez pas supprimer cette entité dans le statut : [X] ! »), terrain issu de la\nprospection (nommé), études de faisabilité liées (nombre), autre clé étrangère (nommée). Sinon part avec ses zones, son\nhistorique de statuts, ses pièces jointes et ses notes.",
-        "operationId": "supprimer_10",
+        "operationId": "supprimer_11",
         "parameters": [
           {
             "name": "id",
@@ -20034,7 +20242,7 @@
         ],
         "summary": "Modifie une prospection terrain (champ absent ou null = inchangé)",
         "description": "Mêmes contrôles sur la valeur résultante (corps sinon base), dont le total des zones ≤ superficie nette (« la\nsuperficies des zones ne doit pas dépasser la superficie nette du terrain ! »). Paire coefficient / montant : un montant\nenvoyé sans son coefficient en dérive le coefficient, sinon le montant suit le coefficient ; `coefEquipements`,\n`superficieNette`, `superficieHabitat` sont ignorés. Statut d'échec ou d'annulation : la prospection est réarchivée, sauf\n`estArchivee` explicite dans le corps. `champsAVider` : références facultatives, dates, textes facultatifs. 409 si le\nstatut courant est en lecture seule (« Cette prospection est en lecture seule dans le statut [X]. »).",
-        "operationId": "modifier_11",
+        "operationId": "modifier_12",
         "parameters": [
           {
             "name": "id",
@@ -20149,7 +20357,7 @@
         ],
         "summary": "Supprime un programme sans tranche ni article",
         "description": "Supprime le programme et, dans la même transaction, ses habilitations, ses zones, ses pièces jointes et ses\nnotes (`AdmAttachedFile` / `AdmMessage` dont `CategoryId` = id), comme OMRAN. 409 si une tranche ou un article\nle référence (le message les compte), ou si une autre table le référence encore (clé étrangère nommée).",
-        "operationId": "supprimer_11",
+        "operationId": "supprimer_12",
         "parameters": [
           {
             "name": "id",
@@ -20183,7 +20391,7 @@
         ],
         "summary": "Modifie un programme (champ absent ou null = inchangé)",
         "description": "Modifie un programme. Champ absent ou `null` = inchangé, `\"\"` = vidé (sauf code et description, obligatoires).\nPour vider une date, le pays, le signataire ou un responsable : `champsAVider: [\"dateDebutTravaux\", \"paysId\"]`\n(NULL en base ; un texte listé est écrit `\"\"`). Nom inconnu, champ obligatoire, ou champ à la fois listé et\nrenseigné → 400 dont le `detail` nomme `champsAVider`. Signataire et responsables : un tiers inconnu → 400 nommant\nle champ. La règle fin ≥ début porte sur la valeur résultante (corps, sinon base). Programme d'une entité inactive\n→ 404, comme toutes les routes `/api/projets/{id}…`.",
-        "operationId": "modifier_12",
+        "operationId": "modifier_13",
         "parameters": [
           {
             "name": "id",
@@ -20428,7 +20636,7 @@
         ],
         "summary": "Supprimer un lot",
         "description": "Supprime un lot visible qui n'est cité nulle part : son bordereau et ses autres enfants partent avec lui. Un lot cité par un\ndécompte, une pièce d'achat ou toute autre référence répond **409** et reste en place. Ordre des refus : 403, 404, 409.",
-        "operationId": "supprimer_12",
+        "operationId": "supprimer_13",
         "parameters": [
           {
             "name": "id",
@@ -20462,7 +20670,7 @@
         ],
         "summary": "Enregistrer la fiche d'un lot (champ absent = inchangé, null = vidé)",
         "description": "Enregistre la fiche (`FEATURE-lot-fiche-parite.md` E6). Le corps ne contient que les champs à changer : **absent =\ninchangé**, `null` explicite = vidé (400 pour `description`, `categorieId`, `typeId`). Taux et ratios en pourcentage 0–100\n(10 → 0,1 en base). Tout autre champ (code, genre, statut, projet, multi-fournisseur, dates prévisionnelles, montants\ncalculés) répond **400** et rien n'est écrit. Ordre des refus : **404** (lot invisible) → **403** (estimation manuelle\nchangée sans le droit `Yes.Prj.Front.Market.MarketMonitoring.ManualEstimationAdministrator` : `montantForfaitaireHT/TTC`,\n`dateDebutBase`, `delaiBaseJours`, `dateFinBase` ; renvoyer la valeur stockée n'est pas un changement) → **409** (statut\ndu lot à `StrStatus.IsReadOnly = 1`) → **400** (contrôles). Chaîne des 12 dates, dans l'ordre lancement AO, retrait du\ndossier, échéance de remise des offres, report AO, ouverture des plis, rapport de dépouillement, adjudication, signature du\nmarché, ordre de service, lancement des travaux, achèvement des travaux, recollement : chaque date renseignée (après\napplication du corps) doit être ≥ chaque date renseignée qui la précède, sinon 400 nommant les deux. Estimation\nconfidentielle comme OMRAN : `montantForfaitaireHT` recalcule TVA et TTC au taux `DefaultVat`, `montantForfaitaireTTC`\nrecalcule HT et TVA, `tvaDefautPct` changé recalcule TVA et TTC depuis le HT stocké ; une valeur renvoyée identique ne\nrecalcule rien. Écrit `UserUpdate` / `UserUpdateDateTime` et une ligne d'audit ; renvoie la fiche.",
-        "operationId": "modifier_13",
+        "operationId": "modifier_14",
         "parameters": [
           {
             "name": "id",
@@ -20560,7 +20768,7 @@
         ],
         "summary": "Fiche d'un lot de terrain",
         "description": "Un id qui n'est pas un lot (terrain sans tranche, terrain LandProject, article bâti, sous-article) répond 404. Pas de\nstatut de workflow : `estOccupe` dit si le lot est affecté à un dossier.",
-        "operationId": "lire_7",
+        "operationId": "lire_8",
         "parameters": [
           {
             "name": "id",
@@ -20595,7 +20803,7 @@
         ],
         "summary": "Supprime un lot avec ses contenances, tracés, notes et pièces jointes",
         "description": "Supprime le lot, ses contenances, tracés de plan, notes, pièces jointes et frais non validés. 409 si le lot est occupé,\nporte un frais validé ou est encore référencé (prospection, offre…), avec la cause dans le message.",
-        "operationId": "supprimer_13",
+        "operationId": "supprimer_14",
         "parameters": [
           {
             "name": "id",
@@ -20629,7 +20837,7 @@
         ],
         "summary": "Modifie un lot de terrain (champ absent ou null = inchangé)",
         "description": "Lot occupé : code, surfaces, prix, TVA, remises, classification, titre foncier et tranche → 409. Changer de tranche\nvide la présentation ; refusé (409) si le lot a des prospections. Une présentation d'une autre tranche → 400.",
-        "operationId": "modifier_14",
+        "operationId": "modifier_15",
         "parameters": [
           {
             "name": "id",
@@ -20911,7 +21119,7 @@
         ],
         "summary": "Supprime une étude sans prévision ni financement, avec ses grilles et son historique",
         "description": "409 si l'étude est bloquée, ou porte des prévisions (`FSPrevision`) ou des financements (`FSFunding`). Sinon ventilations,\ntranches, unités et historique sont supprimés avec elle, dans la transaction.",
-        "operationId": "supprimer_14",
+        "operationId": "supprimer_15",
         "parameters": [
           {
             "name": "id",
@@ -20945,7 +21153,7 @@
         ],
         "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
         "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel.\n`pourcentageConcretisation` et `tauxIs` : fractions entre 0 et 1 (400) ; écarts-types ≥ 0,5 (400, message OMRAN « la\nvaleur de l'écart type doit être supérieur ou égal à 0.5 ») ; `nombreArticlesAVendre` reçu est ignoré.",
-        "operationId": "modifier_15",
+        "operationId": "modifier_16",
         "parameters": [
           {
             "name": "id",
@@ -21059,7 +21267,7 @@
           "Entités juridiques"
         ],
         "summary": "Supprime une entité sans programme ni autre référence",
-        "operationId": "supprimer_15",
+        "operationId": "supprimer_16",
         "parameters": [
           {
             "name": "id",
@@ -21092,7 +21300,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_16",
+        "operationId": "modifier_17",
         "parameters": [
           {
             "name": "id",
@@ -21218,7 +21426,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_17",
+        "operationId": "modifier_18",
         "parameters": [
           {
             "name": "id",
@@ -21543,7 +21751,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_16",
+        "operationId": "supprimer_17",
         "parameters": [
           {
             "name": "id",
@@ -21696,7 +21904,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Compteurs de l'article principal du dossier",
-        "operationId": "lire_8",
+        "operationId": "lire_9",
         "parameters": [
           {
             "name": "id",
@@ -21747,7 +21955,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_18",
+        "operationId": "modifier_19",
         "parameters": [
           {
             "name": "id",
@@ -21856,7 +22064,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_17",
+        "operationId": "supprimer_18",
         "parameters": [
           {
             "name": "id",
@@ -21887,7 +22095,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_19",
+        "operationId": "modifier_20",
         "parameters": [
           {
             "name": "id",
@@ -21974,7 +22182,7 @@
           "Désistements"
         ],
         "summary": "Supprime un désistement non validé",
-        "operationId": "supprimer_18",
+        "operationId": "supprimer_19",
         "parameters": [
           {
             "name": "id",
@@ -22008,7 +22216,7 @@
         ],
         "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
         "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` (≥ 0) la conserve au centime et recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` (fraction entre 0 et 1) recalcule la pénalité ; les montants du dossier sont relus, et une pénalité saisie est gardée tant que la base (prix, réglé, taux) ne change pas. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
-        "operationId": "modifier_20",
+        "operationId": "modifier_21",
         "parameters": [
           {
             "name": "id",
@@ -22520,7 +22728,7 @@
         ],
         "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
         "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article ; s'il lui est affecté par défaut → 409 « Vous ne pouvez pas supprimer un sous article affecté par\ndéfaut à l'article en cours ! ».",
-        "operationId": "supprimer_19",
+        "operationId": "supprimer_20",
         "parameters": [
           {
             "name": "id",
@@ -22554,7 +22762,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_21",
+        "operationId": "modifier_22",
         "parameters": [
           {
             "name": "id",
@@ -22674,7 +22882,7 @@
           "Tâches (administration)"
         ],
         "summary": "Supprime une tâche (son historique de statuts est conservé)",
-        "operationId": "supprimer_20",
+        "operationId": "supprimer_21",
         "parameters": [
           {
             "name": "id",
@@ -22704,7 +22912,7 @@
           "Tâches (administration)"
         ],
         "summary": "Modifie une tâche (champ absent ou null = inchangé)",
-        "operationId": "modifier_22",
+        "operationId": "modifier_23",
         "parameters": [
           {
             "name": "id",
@@ -22794,7 +23002,7 @@
         ],
         "summary": "Supprime un rôle libre et ses droits",
         "description": "Refusée en 409 si le rôle est lié à un utilisateur (`AdmUserRole` ou rôle web), un intervenant, un rapport, un workflow ou un droit web : en base, ces liens partiraient en cascade sans prévenir.",
-        "operationId": "supprimer_21",
+        "operationId": "supprimer_22",
         "parameters": [
           {
             "name": "id",
@@ -22827,7 +23035,7 @@
           "Rôles (administration)"
         ],
         "summary": "Modifie description et restrictions (champ absent ou null = inchangé, code ignoré)",
-        "operationId": "modifier_23",
+        "operationId": "modifier_24",
         "parameters": [
           {
             "name": "id",
@@ -22919,7 +23127,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Supprime un rendez-vous",
-        "operationId": "supprimer_22",
+        "operationId": "supprimer_23",
         "parameters": [
           {
             "name": "id",
@@ -22950,7 +23158,7 @@
         ],
         "summary": "Modifie un rendez-vous (champ absent ou null = inchangé)",
         "description": "Les dates comparées sont les valeurs fusionnées : un champ absent vaut la date déjà en base. La source (`sourceId`, `sourceLibelle`, `sourceEntite`) ne bouge jamais.",
-        "operationId": "modifier_24",
+        "operationId": "modifier_25",
         "parameters": [
           {
             "name": "id",
@@ -30355,7 +30563,7 @@
           "Projet"
         ],
         "summary": "Remboursements du lot : échéances et réceptions de RG, remboursements RG et compte prorata",
-        "description": "Fenêtre « Remboursements » : échéances de remboursement de la retenue de garantie (`PrjMarketWarrantyLine`, pourcentage =\n`Ratio` × 100) et réceptions (`PrjMarketReception`), par ordre ; remboursements de retenue de garantie (`MARKET_WARRANTY`) et\ndu compte prorata (`MARKET_PROPORTION`) avec les mêmes champs, filtres et calculs que les avances.",
+        "description": "Fenêtre « Remboursements » : échéances de remboursement de la retenue de garantie (`PrjMarketWarrantyLine`, pourcentage =\n`Ratio` × 100) et réceptions (`PrjMarketReception`), par ordre ; remboursements de retenue de garantie (`MARKET_WARRANTY`) et\ndu compte prorata (`MARKET_PROPORTION`) avec les mêmes champs, filtres et calculs que les avances, `modifiable`,\n`supprimable` et `droitPieces` compris.",
         "operationId": "remboursements",
         "parameters": [
           {
@@ -30422,6 +30630,64 @@
           },
           "404": {
             "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/pieces-a-payer/modele": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Pré-remplissage d'une pièce à payer du lot",
+        "description": "Pré-remplissage de la fiche d'une pièce à payer du lot (FEATURE-lot-pieces-a-payer.md R1-R8). Mêmes contrôles que la création,\ndans le même ordre : **404** lot invisible, **403** sans `Yes.Prj.Front.Market.MarketMonitoringList.toolAdvance` (sauf\n`MARKET_PROPORTION`), **409** lot mono-fournisseur sans fournisseur (« Veuillez d'abord selectionnez un fournisseur »), puis statut\ndu lot sans le drapeau de la nature (`BoolField010` pour `MARKET_ADVANCE` et `MARKET_WARRANTY`, `BoolField008` pour\n`WORKINGOUT_ADVANCE`) ou restitution de RG bloquée. `reference` = AVA / W.AVA / RRG + (nombre de pièces de cette nature du lot,\ntout statut, + 1), RCP sans numéro. `montantTTC` = reste calculé, plancher 0 : avance sur marché = min(avance prévue − réglée,\navance prévue − validée) ; restitution de RG = RG des factures et avenants facturés − RG déjà validée (0 si bloquée) ; prorata =\nprorata facturé du projet − déjà remboursé ; avance sur décompte = 0. `montantMaximum` = ce reste, null pour W.AVA et RCP.",
+        "operationId": "modele",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "nature",
+            "in": "query",
+            "description": "Nature de la pièce à créer.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "MARKET_ADVANCE",
+                "WORKINGOUT_ADVANCE",
+                "MARKET_WARRANTY",
+                "MARKET_PROPORTION"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Date, échéance, référence, montant par défaut, notes et fournisseur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceLotModeleDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit MarketMonitoringList.toolAdvance absent (sauf remboursement de prorata)."
+          },
+          "404": {
+            "description": "Lot invisible ou inconnu (LOT_INTROUVABLE), ou pièce inconnue / d'un autre lot / d'une autre nature."
+          },
+          "409": {
+            "description": "Lot mono-fournisseur sans fournisseur, ou statut du lot / blocage de la RG (message OMRAN)."
           }
         }
       }
@@ -30512,7 +30778,7 @@
           "Projet"
         ],
         "summary": "Avoirs du lot, par date décroissante",
-        "description": "Fenêtre « Avoirs » : pièces `REFUND` rattachées au lot (`PrjMarketId`), payables, d'une société habilitée. Tri par date\ndécroissante puis code.",
+        "description": "Fenêtre « Avoirs » : pièces `REFUND` rattachées au lot (`PrjMarketId`), payables, d'une société habilitée. Tri par date\ndécroissante puis code. `supprimable` = même règle que `DELETE /api/projet/lots/{id}/avoirs/{avoirId}` (droit\n`Yes.Prj.Front.Market.RefundList.toolDelete`, statut non verrouillé, aucun règlement).",
         "operationId": "avoirs",
         "parameters": [
           {
@@ -30552,7 +30818,7 @@
           "Projet"
         ],
         "summary": "Avances du lot : sur marché et sur décompte",
-        "description": "Fenêtre « Avances » : pièces `DOCUMENT_TO_PAY` du lot, `surMarche` = `ReferenceType` `MARKET_ADVANCE`, `surDecompte` =\n`WORKINGOUT_ADVANCE`. Seules les pièces payables (`CanBePayed = 1`) d'une société habilitée de l'appelant ; une pièce d'une\nautre société est omise (jamais 404). Réglé = Σ des règlements non annulés, reste = net à payer − réglé : même calcul que la\nliste Achat. Tri par date décroissante puis code.",
+        "description": "Fenêtre « Avances » : pièces `DOCUMENT_TO_PAY` du lot, `surMarche` = `ReferenceType` `MARKET_ADVANCE`, `surDecompte` =\n`WORKINGOUT_ADVANCE`. Seules les pièces payables (`CanBePayed = 1`) d'une société habilitée de l'appelant ; une pièce d'une\nautre société est omise (jamais 404). Réglé = Σ des règlements non annulés, reste = net à payer − réglé : même calcul que la\nliste Achat. Tri par date décroissante puis code. `modifiable` / `supprimable` de chaque ligne et `droitPieces` (droit\n`Yes.Prj.Front.Market.MarketMonitoringList.toolAdvance`) viennent des mêmes règles que les écritures\n`/api/projet/lots/{id}/pieces-a-payer` (FEATURE-lot-pieces-a-payer.md R2, R10, R11, R17).",
         "operationId": "avances",
         "parameters": [
           {
@@ -33025,7 +33291,7 @@
         ],
         "summary": "Classeur modèle pré-rempli (lignes de la tranche, terrains visibles ou présentations)",
         "description": "En-têtes OMRAN exacts, une ligne par objet existant, puis une feuille d'aide par référentiel (Code, Libellé).\n`articles` / `sous-articles` : lignes de la tranche, nom `<code tranche>_STOCK_ARTICLES_<horodatage>.xlsx` ou\n`…_STOCK_SOUS_ARTICLES_…`. `presentations` : feuille `TYPES_PRESENTATION` (Tranche, Code, Description, une colonne par\ncontenance) des tranches visibles, feuille `PROJETS` ; sans `trancheId`. `terrains` : feuille `STOCK_TERRAINS`\npré-remplie avec les terrains visibles (au-delà de 1 000, en-têtes seuls), nom `STOCK_TERRAINS_<horodatage>.xlsx` ; sans\n`trancheId`. `previsions` : feuille `PREVISIONS` pré-remplie avec les lignes de la tranche (`trancheId` obligatoire).\nRéimporter le modèle tel quel donne des lignes INCHANGEE (prévisions : MISE_A_JOUR, les lignes étant toutes remplacées).\n`entites-juridiques`, `projets`, `tranches`, `prospections-terrain` : une ligne d'en-têtes (colonnes non ignorées du\ncatalogue `/colonnes`, sans « Active » pour les entités), aucune ligne pré-remplie, puis une feuille d'aide par\nréférentiel (entités actives seulement, programmes de ces entités) ; sans `trancheId`.",
-        "operationId": "modele",
+        "operationId": "modele_1",
         "parameters": [
           {
             "name": "type",
@@ -43285,7 +43551,7 @@
         ],
         "summary": "Formulaire vierge pré-rempli d'une nouvelle pièce d'achat",
         "description": "Valeurs proposées : date du jour, module Achat, type de marché `DefaultMarketType`, déclencheur = employé du compte, devise `DefaultCurrency`, statut de départ du workflow de la gestion de création (`BuyQuote`, `BuyOrder`, `BuyDelivery`, `BuyInvoiceDebit`), TVA par défaut `DefaultTva`. Aucune écriture, aucun numéro réservé.",
-        "operationId": "modele_1",
+        "operationId": "modele_2",
         "parameters": [
           {
             "name": "nature",
@@ -43736,7 +44002,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_23",
+        "operationId": "supprimer_24",
         "parameters": [
           {
             "name": "porteur",
@@ -43979,13 +44245,59 @@
         }
       }
     },
+    "/api/projet/lots/{id}/avoirs/{avoirId}": {
+      "delete": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Supprimer un avoir du lot",
+        "description": "Supprime un avoir (`REFUND`) du lot. **404** si ce n'est pas un avoir payable de ce lot ; **403** sans\n`Yes.Prj.Front.Market.RefundList.toolDelete` ; **409** statut en lecture seule (« Vous n'avez pas le droit de supprimer un avoir\navec un statut <statut> ») ou règlements liés. Prévisions de paiement du lot recalculées.",
+        "operationId": "supprimerAvoir",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "avoirId",
+            "in": "path",
+            "description": "Identifiant de l'avoir (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Avoir, lignes, ventilations et historique supprimés."
+          },
+          "403": {
+            "description": "Droit RefundList.toolDelete absent."
+          },
+          "404": {
+            "description": "Lot invisible ou inconnu, ou pièce qui n'est pas un avoir de ce lot."
+          },
+          "409": {
+            "description": "Statut de l'avoir en lecture seule, ou règlements liés."
+          }
+        }
+      }
+    },
     "/api/notes/{id}": {
       "delete": {
         "tags": [
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_24",
+        "operationId": "supprimer_25",
         "parameters": [
           {
             "name": "id",
@@ -44229,7 +44541,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_25",
+        "operationId": "supprimer_26",
         "parameters": [
           {
             "name": "id",
@@ -45695,6 +46007,120 @@
           }
         }
       },
+      "PieceLotSaisieDto": {
+        "type": "object",
+        "description": "Saisie d'une pièce à payer du lot (avance sur marché ou décompte, restitution de RG, remboursement de prorata).",
+        "properties": {
+          "nature": {
+            "type": "string",
+            "description": "Nature de la pièce (ReferenceType) ; obligatoire à la création, ignorée en modification.",
+            "enum": [
+              "MARKET_ADVANCE",
+              "WORKINGOUT_ADVANCE",
+              "MARKET_WARRANTY",
+              "MARKET_PROPORTION"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate), obligatoire."
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date",
+            "description": "Échéance (MaturityDate) ≥ date ; absente = date + délai de paiement du lot."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC ≥ 0 ; absent à la création = montant par défaut du modèle."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes de la pièce."
+          },
+          "penaliteRg": {
+            "type": "number",
+            "description": "Pénalité sur R.G. ≥ 0 (MARKET_WARRANTY seulement, ignorée sinon) ; écrite en AmountRegul négatif."
+          }
+        }
+      },
+      "PieceLotDetailDto": {
+        "type": "object",
+        "description": "Fiche d'une pièce à payer du lot (BuyDocument DOCUMENT_TO_PAY).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyDocument.PKey."
+          },
+          "nature": {
+            "type": "string",
+            "description": "Nature (ReferenceType).",
+            "enum": [
+              "MARKET_ADVANCE",
+              "WORKINGOUT_ADVANCE",
+              "MARKET_WARRANTY",
+              "MARKET_PROPORTION"
+            ]
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pièce (séquence « Document à régler entrant »)."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence (DocRef).",
+            "example": "AVA1"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date",
+            "description": "Échéance (MaturityDate)."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT (Σ des lignes)."
+          },
+          "montantTVA": {
+            "type": "number",
+            "description": "Montant de TVA."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC."
+          },
+          "penaliteRg": {
+            "type": "number",
+            "description": "Pénalité sur R.G. (− AmountRegul), MARKET_WARRANTY seulement ; null sinon."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "fournisseur": {
+            "type": "string",
+            "description": "Fournisseur de la pièce, null si aucun."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Libellé du statut de la pièce, null si aucun."
+          },
+          "modifiable": {
+            "type": "boolean",
+            "description": "Faux si le statut du lot n'a pas le drapeau de la nature ou si le statut de la pièce est en lecture seule."
+          },
+          "supprimable": {
+            "type": "boolean",
+            "description": "Vrai si la suppression passerait : droit, statut non verrouillé, aucun règlement."
+          }
+        }
+      },
       "EcheanceRgSaisieDto": {
         "type": "object",
         "description": "Échéance de remboursement de RG saisie (PrjMarketWarrantyLine), envoyée avec toute la grille.",
@@ -45782,6 +46208,14 @@
           "notes": {
             "type": "string",
             "description": "Notes de la pièce."
+          },
+          "modifiable": {
+            "type": "boolean",
+            "description": "Même règle que PUT …/pieces-a-payer/{pieceId} : drapeau de statut du lot, statut non verrouillé."
+          },
+          "supprimable": {
+            "type": "boolean",
+            "description": "Même règle que DELETE …/pieces-a-payer/{pieceId} : droit, statut non verrouillé, aucun règlement."
           }
         }
       },
@@ -45954,6 +46388,10 @@
             "items": {
               "$ref": "#/components/schemas/OptionGenreDto"
             }
+          },
+          "droitPieces": {
+            "type": "boolean",
+            "description": "Droit MarketMonitoringList.toolAdvance : active Ajouter d'une restitution de RG (le prorata n'en exige pas)."
           }
         }
       },
@@ -71273,6 +71711,53 @@
           }
         }
       },
+      "PieceLotModeleDto": {
+        "type": "object",
+        "description": "Pré-remplissage d'une pièce à payer du lot, calculé côté serveur.",
+        "properties": {
+          "nature": {
+            "type": "string",
+            "description": "Nature demandée.",
+            "enum": [
+              "MARKET_ADVANCE",
+              "WORKINGOUT_ADVANCE",
+              "MARKET_WARRANTY",
+              "MARKET_PROPORTION"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date proposée : aujourd'hui."
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date",
+            "description": "Échéance proposée : date + délai de paiement du lot (sinon du fournisseur)."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence (DocRef) qui sera donnée : AVA n, W.AVA n, RRG n ou RCP.",
+            "example": "AVA2"
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC proposé (reste calculé, plancher 0 ; 0 pour une avance sur décompte)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes proposées : libellé, lot et projet."
+          },
+          "fournisseur": {
+            "type": "string",
+            "description": "Fournisseur du lot, null si aucun."
+          },
+          "montantMaximum": {
+            "type": "number",
+            "description": "Reste calculé, indicatif (saisie non plafonnée) ; null pour W.AVA et RCP."
+          }
+        }
+      },
       "DemandeAchatLotDto": {
         "type": "object",
         "description": "Demande interne d'achat du lot (BuySelection), onglet « Demande interne d'achat » de la fiche lot.",
@@ -71368,6 +71853,10 @@
           "referenceBureauOrdre": {
             "type": "string",
             "description": "Référence bureau d'ordre (OfficeOrderRef)."
+          },
+          "supprimable": {
+            "type": "boolean",
+            "description": "Même règle que DELETE …/avoirs/{avoirId} : droit RefundList.toolDelete, statut non verrouillé."
           }
         }
       },
@@ -71437,6 +71926,10 @@
             "items": {
               "$ref": "#/components/schemas/AvanceLotDto"
             }
+          },
+          "droitPieces": {
+            "type": "boolean",
+            "description": "Droit MarketMonitoringList.toolAdvance : active Ajouter (avances et restitution de RG)."
           }
         }
       },
