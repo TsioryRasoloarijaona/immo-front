@@ -78416,7 +78416,7 @@
           },
           "gestion": {
             "type": "string",
-            "description": "Code de la gestion de création (StrEntity).",
+            "description": "Code de la gestion de création (StrEntity) ; gestion d'arrivée d'une génération.",
             "example": "BuyOrder"
           },
           "statutDepartId": {
