@@ -8,6 +8,10 @@ import type {
   AvenantSaisieDto,
   AvoirLotDto,
   EcheanceRgSaisieDto,
+  NaturePieceLot,
+  PieceLotDetailDto,
+  PieceLotModeleDto,
+  PieceLotSaisieDto,
   ReceptionDetailDto,
   ReceptionSaisieDto,
   BordereauDto,
@@ -144,6 +148,37 @@ export function modifierAvenantLot(id: UUID, avenantId: UUID, corps: AvenantSais
 
 export function supprimerAvenantLot(id: UUID, avenantId: UUID): Promise<void> {
   return request('DELETE', `${LOTS}/${id}/avenants/${avenantId}`);
+}
+
+// FEATURE-lot-pieces-a-payer.md : pièces à payer AVA / W.AVA / RRG / RCP et avoirs du lot (404 → 403 → 400 → 409).
+/** @public */
+export function getModelePieceLot(id: UUID, nature: NaturePieceLot): Promise<PieceLotModeleDto> {
+  return request('GET', `${LOTS}/${id}/pieces-a-payer/modele`, { query: { nature } });
+}
+
+/** @public */
+export function creerPieceLot(id: UUID, corps: PieceLotSaisieDto): Promise<PieceLotDetailDto> {
+  return request('POST', `${LOTS}/${id}/pieces-a-payer`, { body: corps });
+}
+
+/** @public */
+export function getPieceLot(id: UUID, pieceId: UUID): Promise<PieceLotDetailDto> {
+  return request('GET', `${LOTS}/${id}/pieces-a-payer/${pieceId}`);
+}
+
+/** @public */
+export function modifierPieceLot(id: UUID, pieceId: UUID, corps: PieceLotSaisieDto): Promise<PieceLotDetailDto> {
+  return request('PUT', `${LOTS}/${id}/pieces-a-payer/${pieceId}`, { body: corps });
+}
+
+/** @public */
+export function supprimerPieceLot(id: UUID, pieceId: UUID): Promise<void> {
+  return request('DELETE', `${LOTS}/${id}/pieces-a-payer/${pieceId}`);
+}
+
+/** @public */
+export function supprimerAvoirLot(id: UUID, avoirId: UUID): Promise<void> {
+  return request('DELETE', `${LOTS}/${id}/avoirs/${avoirId}`);
 }
 
 export function putEcheancesRgLot(id: UUID, corps: EcheanceRgSaisieDto[]): Promise<RemboursementsLotDto> {
