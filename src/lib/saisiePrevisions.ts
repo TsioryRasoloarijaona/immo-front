@@ -1,4 +1,4 @@
-import type { PointSaisiDto, PrevisionsSaisieLotDto, PrevisionsSaisieRequest } from '../types/projet';
+import type { PointSaisiDto, PrevisionsSaisieLotDto, PrevisionsSaisieRequest, PropositionPointsDto } from '../types/projet';
 
 const JOUR_MS = 86_400_000;
 
@@ -112,6 +112,17 @@ export function copierPoints(source: OngletPrevisions, cible: OngletPrevisions):
     return { ...p, cle: cleSuivante(), date, temps };
   });
   return { ...cible, points };
+}
+
+/** Une proposition (alignement, modèle) remplace toute la grille « Prévisions » ; fin et durée suivent. */
+export function appliquerProposition(etat: EtatSaisie, proposition: PropositionPointsDto): EtatSaisie {
+  const { debut } = etat.previsions;
+  const duree = proposition.duree ?? etat.previsions.duree;
+  const points = proposition.points.map((p) => {
+    const date = p.date.slice(0, 10);
+    return { cle: cleSuivante(), date, avancement: arrondi(p.avancement * 100, 6), temps: tempsDe(date, debut, duree), paiement: null };
+  });
+  return { ...etat, previsions: { debut, duree, points } };
 }
 
 export const montantPoint = (p: PointEdite, prix: number | null): number | null => (p.paiement !== null && prix !== null ? arrondi(p.paiement * prix) : null);

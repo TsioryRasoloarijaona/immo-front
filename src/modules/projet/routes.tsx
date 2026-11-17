@@ -13,6 +13,7 @@ const ReglementsProjetList = lazy(() => import('../../pages/projet/ReglementsPro
 const ProjetsConfigList = lazy(() => import('../../pages/projet/config/ProjetsConfigList'));
 const ReferentielTypesLotPage = lazy(() => import('../../pages/projet/config/ReferentielTypesLotPage'));
 const StatutsLotList = lazy(() => import('../../pages/projet/config/StatutsLotList'));
+const ModelesSimulationList = lazy(() => import('../../pages/projet/config/ModelesSimulationList'));
 
 const projet: ModuleApp = {
   slug: 'projet',
@@ -36,6 +37,7 @@ const projet: ModuleApp = {
     { path: '/projet/config/projets', element: <ProjetsConfigList /> },
     { path: '/projet/config/types-lot', element: <ReferentielTypesLotPage /> },
     { path: '/projet/config/statuts-lot', element: <StatutsLotList /> },
+    { path: '/projet/config/modeles-simulation', element: <ModelesSimulationList /> },
   ],
 };
 

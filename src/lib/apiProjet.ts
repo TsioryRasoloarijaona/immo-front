@@ -2,6 +2,12 @@
 import { request, withPageable } from './api';
 import type { PageDto, Pageable, UUID } from '../types';
 import type {
+  AlignementPrevisionsDto,
+  AlignementPrevisionsRequest,
+  ModeleSimulationDetailDto,
+  ModeleSimulationListItemDto,
+  ModeleSimulationSaisieDto,
+  PropositionPointsDto,
   AvancesLotDto,
   AvenantDetailDto,
   AvenantLotDto,
@@ -262,4 +268,43 @@ export function supprimerDecompte(id: UUID): Promise<void> {
 /** Aperçu sans écriture : à renvoyer tel quel dans `lignes` du PUT pour l'appliquer. */
 export function getLignesRechargeesDecompte(id: UUID, date?: string): Promise<LigneDecompteRechargee[]> {
   return request('GET', `${DECOMPTES}/${id}/lignes-rechargees`, { query: { date } });
+}
+
+// FEATURE-lot-previsions-reel.md : propositions sans écriture (404 → 403 → 400 → 409), puis PUT /previsions.
+export function getAlignementPrevisions(id: UUID): Promise<AlignementPrevisionsDto> {
+  return request('GET', `${LOTS}/${id}/previsions/alignement`);
+}
+
+export function proposerAlignement(id: UUID, corps: AlignementPrevisionsRequest): Promise<PropositionPointsDto> {
+  return request('POST', `${LOTS}/${id}/previsions/alignement`, { body: corps });
+}
+
+export function proposerApplicationModele(id: UUID, modeleId: UUID): Promise<PropositionPointsDto> {
+  return request('POST', `${LOTS}/${id}/previsions/appliquer-modele/${modeleId}`);
+}
+
+export function getModelePropose(id: UUID): Promise<ModeleSimulationSaisieDto> {
+  return request('GET', `${LOTS}/${id}/previsions/modele-propose`);
+}
+
+const MODELES = `${RACINE}/modeles-simulation`;
+
+export function listModelesSimulation(categorieId?: UUID): Promise<ModeleSimulationListItemDto[]> {
+  return request('GET', MODELES, { query: { categorieId } });
+}
+
+export function getModeleSimulation(id: UUID): Promise<ModeleSimulationDetailDto> {
+  return request('GET', `${MODELES}/${id}`);
+}
+
+export function createModeleSimulation(corps: ModeleSimulationSaisieDto): Promise<ModeleSimulationDetailDto> {
+  return request('POST', MODELES, { body: corps });
+}
+
+export function updateModeleSimulation(id: UUID, corps: ModeleSimulationSaisieDto): Promise<ModeleSimulationDetailDto> {
+  return request('PUT', `${MODELES}/${id}`, { body: corps });
+}
+
+export function deleteModeleSimulation(id: UUID): Promise<void> {
+  return request('DELETE', `${MODELES}/${id}`);
 }
