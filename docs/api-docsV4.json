@@ -10074,7 +10074,7 @@
           "Projet"
         ],
         "summary": "Écarts au réel de la modale « Aligner les prévisions au réel »",
-        "description": "Valeurs de la modale OMRAN « Alinger les prévisions au réel » (`FEATURE-lot-previsions-reel.md` §4 A2-A3), calculées sur\nl'**état enregistré** du lot : le front fait enregistrer la grille avant d'ouvrir la modale. Ordre : **404** lot invisible,\n**403** sans `ProjectPrevision.toolNew`. `ecartJours` = date de référence − dernier réel, où la date de référence est\ninterpolée entre les points « Prévisions » qui encadrent l'avancement réel du lot (début du lot sans réel) ; `finSysteme` =\ndernier réel (ou `finActuelle`) − `ecartJours`. `ecartAvancement` = avancement réel − avancement prévu à la date du dernier\nréel. `ecartMontant` = Σ des pièces à payer « Facture » (hors avances, RG et avoirs) − Σ des nets à payer des décomptes\nfacturés, ramené à 0 sous 0,1. Couleur à l'écran : vert si ≥ 0, rouge sinon.",
+        "description": "Valeurs de la modale OMRAN « Alinger les prévisions au réel » (`FEATURE-lot-previsions-reel.md` §4 A2-A3), calculées sur\nl'**état enregistré** du lot : le front fait enregistrer la grille avant d'ouvrir la modale. Ordre : **404** lot invisible,\n**403** sans `ProjectPrevision.toolNew`, **409** lot sans date début. `ecartJours` = date de référence − dernier réel, où la date de référence est\ninterpolée entre les points « Prévisions » qui encadrent l'avancement réel du lot (début du lot sans réel) ; `finSysteme` =\ndernier réel (ou `finActuelle`) − `ecartJours`. `ecartAvancement` = avancement réel − avancement prévu à la date du dernier\nréel. `ecartMontant` = Σ des pièces à payer « Facture » (hors avances, RG et avoirs) − Σ des nets à payer des décomptes\nfacturés, ramené à 0 sous 0,1. Couleur à l'écran : vert si ≥ 0, rouge sinon.",
         "operationId": "ecartsAlignement",
         "parameters": [
           {
@@ -10104,6 +10104,9 @@
           },
           "404": {
             "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          },
+          "409": {
+            "description": "Lot sans date début."
           }
         }
       },
