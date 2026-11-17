@@ -1805,6 +1805,123 @@
         }
       }
     },
+    "/api/projet/modeles-simulation/{id}": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Fiche d'un modèle de simulation lot",
+        "operationId": "modeleSimulation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PrjMarketPrevisionModel.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "En-tête et lignes du modèle, triées par temps.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleSimulationDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Ni le droit MarketPrevisionModelList ni le droit ProjectPrevision.toolNew."
+          },
+          "404": {
+            "description": "Modèle inconnu."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Modifie un modèle de simulation lot (lignes remplacées)",
+        "description": "Remplace l'en-tête et toutes les lignes du modèle. Mêmes contrôles que la création, précédés du **404** modèle inconnu ; le\nmodèle peut garder son propre code.",
+        "operationId": "modifierModeleSimulation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PrjMarketPrevisionModel.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeleSimulationSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Code ou description vide, ou lignes invalides (message OMRAN dans detail)."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Config.MarketPrevisionModelList."
+          },
+          "404": {
+            "description": "Modèle inconnu."
+          },
+          "409": {
+            "description": "Code déjà pris par un autre modèle."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Supprime un modèle de simulation lot et ses lignes",
+        "description": "Supprime le modèle et ses lignes. **409** si une prévision de faisabilité (`FSPrevision`) cite le modèle : la clé étrangère\nl'interdit. **404** modèle inconnu, **403** sans `MarketPrevisionModelList`.",
+        "operationId": "supprimerModeleSimulation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PrjMarketPrevisionModel.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Config.MarketPrevisionModelList."
+          },
+          "404": {
+            "description": "Modèle inconnu."
+          },
+          "409": {
+            "description": "Modèle cité par une prévision de faisabilité."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}/receptions/{receptionId}": {
       "get": {
         "tags": [
@@ -9527,6 +9644,85 @@
         }
       }
     },
+    "/api/projet/modeles-simulation": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Modèles de simulation lot, triés par code",
+        "description": "Liste OMRAN « Modèles de simulation lot » (`MarketPrevisionModelList`, `FEATURE-lot-previsions-reel.md` §4 M4) et liste de la\nmodale « Choix du modèle de suivi du lot » (M5 : le front passe la catégorie de dépense du lot si elle est renseignée).\nLecture ouverte au droit `Yes.Prj.Front.Config.MarketPrevisionModelList` **ou** au droit d'édition des prévisions\n`Yes.Prj.Front.Tdb.ProjectPrevision.toolNew`, sinon **403**. Liste vide s'il n'existe aucun modèle.",
+        "operationId": "listeModelesSimulation",
+        "parameters": [
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Catégorie de dépense (StlCategory.PKey) ; absent = tous les modèles.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Modèles (id, code, description, libellé de catégorie).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModeleSimulationListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Ni le droit MarketPrevisionModelList ni le droit ProjectPrevision.toolNew."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Crée un modèle de simulation lot",
+        "description": "Crée un modèle et ses lignes (§4 M1-M2, M7). Ordre : **403** sans `MarketPrevisionModelList`, **400** code ou description\nvide, moins de deux lignes ou temps maximal différent de 1 (« Vous devez saisir au moins deux ligne de prévision avec\nobligatoirement un pourcentage d'avancement du temps égale à 0% et 100% »), somme des paiements hors [0,99 ; 1,01] (« le\ntotal des % de paiement doit être égale à 100% »), catégorie inconnue ; **409** code déjà pris (sans tenir compte de la\ncasse). Une ligne d'historique `AdmWebHistorics` (`Yes.Prj.Config.MarketPrevisionModel`).",
+        "operationId": "creerModeleSimulation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeleSimulationSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleSimulationDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code ou description vide, ou lignes invalides (message OMRAN dans detail)."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Config.MarketPrevisionModelList."
+          },
+          "409": {
+            "description": "Code déjà pris par un autre modèle."
+          }
+        }
+      }
+    },
     "/api/projet/lots": {
       "get": {
         "tags": [
@@ -9815,6 +10011,153 @@
           },
           "404": {
             "description": "Lot invisible ou inconnu (LOT_INTROUVABLE), ou fiche inconnue / d'un autre lot."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/previsions/appliquer-modele/{modeleId}": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Propose les points « Prévisions » d'un modèle de simulation (n'écrit rien)",
+        "description": "Proposition de la grille « Prévisions » tirée d'un modèle de simulation (§4 M5). **N'écrit rien**. Ordre : **404** lot,\n**404** modèle inconnu, **403** (droit du PUT), **409** lot sans date début. Un point par ligne du modèle, triée par temps :\ndate = début + durée × temps (jours tronqués ; durée 0 = tous les points au début), avancement = avancement du modèle. Le\npaiement du modèle est ignoré (recalculé à l'enregistrement). Le front demande « remplacer » ou « annuler » si la grille\nn'est pas vide.",
+        "operationId": "proposerApplicationModele",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "modeleId",
+            "in": "path",
+            "description": "PrjMarketPrevisionModel.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Un point par ligne du modèle : début + durée × temps, avancement du modèle.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropositionPointsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit ProjectPrevision.toolNew absent."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible. Ou modèle inconnu."
+          },
+          "409": {
+            "description": "Lot sans date début."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{id}/previsions/alignement": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Écarts au réel de la modale « Aligner les prévisions au réel »",
+        "description": "Valeurs de la modale OMRAN « Alinger les prévisions au réel » (`FEATURE-lot-previsions-reel.md` §4 A2-A3), calculées sur\nl'**état enregistré** du lot : le front fait enregistrer la grille avant d'ouvrir la modale. Ordre : **404** lot invisible,\n**403** sans `ProjectPrevision.toolNew`. `ecartJours` = date de référence − dernier réel, où la date de référence est\ninterpolée entre les points « Prévisions » qui encadrent l'avancement réel du lot (début du lot sans réel) ; `finSysteme` =\ndernier réel (ou `finActuelle`) − `ecartJours`. `ecartAvancement` = avancement réel − avancement prévu à la date du dernier\nréel. `ecartMontant` = Σ des pièces à payer « Facture » (hors avances, RG et avoirs) − Σ des nets à payer des décomptes\nfacturés, ramené à 0 sous 0,1. Couleur à l'écran : vert si ≥ 0, rouge sinon.",
+        "operationId": "ecartsAlignement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Écarts de montant, d'avancement et de temps, date fin proposée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlignementPrevisionsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit ProjectPrevision.toolNew absent."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Propose les points « Prévisions » alignés sur le réel (n'écrit rien)",
+        "description": "Proposition de la grille « Prévisions » alignée sur le réel (OMRAN `Market.cs:AlignPrevisionToReal`, §4 A4-A6). **N'écrit\nrien** : le front remplace toute la grille puis enregistre par `PUT /api/projet/lots/{id}/previsions`. Ordre : **404**,\n**403** (droit du PUT), **400** `mode` inconnu ou `FIXEE` sans `dateFin`, **409** lot multi-fournisseur, lot sans date\ndébut, ou `FIXEE` avant la date du dernier décompte / facture (message OMRAN dans `detail`). Points = les décomptes réels\n(date, avancement réel) puis les points prévus d'avancement supérieur à l'avancement réel, redatés vers la date fin choisie\n(`INCHANGEE` : date fin actuelle), le plus avancé de chaque mois. `fin` et `duree` (fin − début) seulement si le mode n'est\npas `INCHANGEE`.",
+        "operationId": "proposerAlignement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AlignementPrevisionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Points proposés ; fin et durée si la date fin change.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PropositionPointsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mode inconnu, ou FIXEE sans dateFin."
+          },
+          "403": {
+            "description": "Droit ProjectPrevision.toolNew absent."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          },
+          "409": {
+            "description": "Lot multi-fournisseur, sans date début, ou date fixée avant le dernier réel."
           }
         }
       }
@@ -30634,6 +30977,46 @@
         }
       }
     },
+    "/api/projet/lots/{id}/previsions/modele-propose": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Modèle de simulation pré-rempli depuis les points de base du lot (n'écrit rien)",
+        "description": "Fiche de modèle de simulation pré-remplie pour « Exporter vers modèle de simulation » (§4 M6). **N'écrit rien** :\nl'enregistrement passe par `POST /api/projet/modeles-simulation`. Lignes = points **de base** (`PrjMarketUserPrevision`)\ntriés par date, temps / avancement / paiement recopiés ; liste vide sans point de base. Ordre : **404**, **403** (droit du\nPUT).",
+        "operationId": "modelePropose",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes = points de base triés par date ; code et description vides.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleSimulationSaisieDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit ProjectPrevision.toolNew absent."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}/pieces-a-payer/modele": {
       "get": {
         "tags": [
@@ -45658,6 +46041,50 @@
           }
         }
       },
+      "LigneModeleDto": {
+        "type": "object",
+        "description": "Ligne d'un modèle de simulation (PrjMarketPrevisionModelLine), fractions 0–1.",
+        "properties": {
+          "temps": {
+            "type": "number",
+            "description": "Avancement du temps (PointTime), fraction de la durée du lot."
+          },
+          "avancement": {
+            "type": "number",
+            "description": "Avancement des travaux cumulé (PointAchivement)."
+          },
+          "paiement": {
+            "type": "number",
+            "description": "Part du paiement de la ligne (PointPayment) ; la somme des lignes vaut 1."
+          }
+        }
+      },
+      "ModeleSimulationSaisieDto": {
+        "type": "object",
+        "description": "Fiche d'un modèle de simulation lot, envoyée ou proposée depuis les points de base d'un lot.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code, obligatoire et unique."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description, obligatoire."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de dépense (StlCategory.PKey) ; null = tous les lots."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes : au moins deux, temps maximal 1, somme des paiements entre 0,99 et 1,01.",
+            "items": {
+              "$ref": "#/components/schemas/LigneModeleDto"
+            }
+          }
+        }
+      },
       "ReceptionSaisieDto": {
         "type": "object",
         "description": "Fiche réception envoyée entière, avec ses réserves et ses tiers invités.",
@@ -58503,6 +58930,41 @@
           }
         }
       },
+      "ModeleSimulationDetailDto": {
+        "type": "object",
+        "description": "Fiche d'un modèle de simulation lot.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjMarketPrevisionModel.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du modèle."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description du modèle."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de dépense (StlCategory.PKey) ; null sans catégorie."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Libellé de la catégorie de dépense ; null sans catégorie."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes triées par temps croissant.",
+            "items": {
+              "$ref": "#/components/schemas/LigneModeleDto"
+            }
+          }
+        }
+      },
       "CreerLotRequest": {
         "type": "object",
         "description": "Création d'un lot (fiche minimale) ; le code vient de la séquence OMRAN 'Market'.",
@@ -59374,6 +59836,49 @@
         "required": [
           "transitionId"
         ]
+      },
+      "PropositionPointsDto": {
+        "type": "object",
+        "description": "Proposition de points « Prévisions » à recopier dans la grille ; rien n'est enregistré.",
+        "properties": {
+          "fin": {
+            "type": "string",
+            "format": "date",
+            "description": "Nouvelle date fin ; null si la date fin ne change pas."
+          },
+          "duree": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nouvelle durée en jours (fin − début) ; null si la date fin ne change pas."
+          },
+          "points": {
+            "type": "array",
+            "description": "Points proposés, triés par date ; remplacent toute la grille « Prévisions ».",
+            "items": {
+              "$ref": "#/components/schemas/PointSaisieDto"
+            }
+          }
+        }
+      },
+      "AlignementPrevisionsRequest": {
+        "type": "object",
+        "description": "Choix de la modale « Aligner les prévisions au réel ».",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "description": "INCHANGEE (date fin inchangée), FIXEE (date saisie) ou SYSTEME (date fin proposée).",
+            "enum": [
+              "INCHANGEE",
+              "FIXEE",
+              "SYSTEME"
+            ]
+          },
+          "dateFin": {
+            "type": "string",
+            "format": "date",
+            "description": "Date fin choisie, obligatoire avec FIXEE, ignorée sinon."
+          }
+        }
       },
       "ExecutionTransitionProjetDto": {
         "type": "object",
@@ -71206,6 +71711,29 @@
           }
         }
       },
+      "ModeleSimulationListItemDto": {
+        "type": "object",
+        "description": "Ligne de la liste « Modèles de simulation lot ».",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjMarketPrevisionModel.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du modèle."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description du modèle."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Libellé de la catégorie de dépense ; null sans catégorie."
+          }
+        }
+      },
       "PageDtoLotListItemDto": {
         "type": "object",
         "properties": {
@@ -71708,6 +72236,39 @@
             "items": {
               "$ref": "#/components/schemas/PointSaisiDto"
             }
+          }
+        }
+      },
+      "AlignementPrevisionsDto": {
+        "type": "object",
+        "description": "Valeurs de la modale « Aligner les prévisions au réel », calculées sur l'état enregistré du lot.",
+        "properties": {
+          "finActuelle": {
+            "type": "string",
+            "format": "date",
+            "description": "Date fin actuelle des prévisions (EndDate)."
+          },
+          "finSysteme": {
+            "type": "string",
+            "format": "date",
+            "description": "Date fin proposée par le système : dernier réel (ou fin actuelle) + écart de temps."
+          },
+          "dateDernierDocumentReel": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du dernier décompte facturé (multi-fournisseur : facture) ; null sans réel."
+          },
+          "ecartMontant": {
+            "type": "number",
+            "description": "Différence du montant : factures réelles − nets des décomptes réels ; 0 si |écart| < 0,1."
+          },
+          "ecartAvancement": {
+            "type": "number",
+            "description": "Différence d'avancement : réel − prévu à la date du dernier réel (fraction) ; 0 sans réel."
+          },
+          "ecartJours": {
+            "type": "number",
+            "description": "Différence du temps en jours : date de référence − dernier réel (négatif = retard)."
           }
         }
       },

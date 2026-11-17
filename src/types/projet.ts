@@ -1115,3 +1115,61 @@ export interface FiltresDecomptes {
   /** Société (« Entité ») du projet du lot. */
   societeId?: UUID;
 }
+
+// FEATURE-lot-previsions-reel.md : alignement sur le réel (A2-A6) et modèles de simulation (M1-M7).
+/** `GET /lots/{id}/previsions/alignement`, sur l'état enregistré du lot. */
+export interface AlignementPrevisionsDto {
+  finActuelle: string | null;
+  finSysteme: string | null;
+  /** Date du dernier décompte / facture ; null sans réel. */
+  dateDernierDocumentReel: string | null;
+  ecartMontant: number;
+  /** Fraction (avancement réel − prévu). */
+  ecartAvancement: number;
+  ecartJours: number;
+}
+
+export type ModeAlignement = 'INCHANGEE' | 'FIXEE' | 'SYSTEME';
+
+export interface AlignementPrevisionsRequest {
+  mode: ModeAlignement;
+  /** Obligatoire avec FIXEE. */
+  dateFin?: string | null;
+}
+
+/** Proposition sans écriture : remplace la grille « Prévisions », puis PUT /previsions. */
+export interface PropositionPointsDto {
+  fin: string | null;
+  duree: number | null;
+  points: PointSaisieDto[];
+}
+
+/** Fractions 0–1. */
+export interface LigneModeleDto {
+  temps: number;
+  avancement: number;
+  paiement: number;
+}
+
+export interface ModeleSimulationSaisieDto {
+  code: string | null;
+  description: string | null;
+  categorieId: UUID | null;
+  lignes: LigneModeleDto[];
+}
+
+export interface ModeleSimulationListItemDto {
+  id: UUID;
+  code: string;
+  description: string;
+  categorie: string | null;
+}
+
+export interface ModeleSimulationDetailDto {
+  id: UUID;
+  code: string;
+  description: string;
+  categorieId: UUID | null;
+  categorie: string | null;
+  lignes: LigneModeleDto[];
+}
