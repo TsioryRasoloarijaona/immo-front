@@ -15,6 +15,8 @@ export interface LigneBrouillon {
   tva: number | null;
   categorieId: UUID | null;
   notes: string;
+  /** Ligne de bordereau recopiée d'une source ; null = ligne libre. */
+  ligneBordereauId: UUID | null;
 }
 
 export interface PartBrouillon {
@@ -45,6 +47,8 @@ export interface BrouillonPiece {
   categorieId: UUID | null;
   lignes: LigneBrouillon[];
   parts: PartBrouillon[];
+  /** Pièces sources d'une génération ; vide = création libre. */
+  sources: UUID[];
 }
 
 let compteur = 0;
@@ -57,6 +61,7 @@ export function ligneVide(tvaPourcent: number | null): LigneBrouillon {
   return {
     cle: prochaineCle(), id: null, code: '', description: '', unite: '', quantite: null, prixUnitaireHT: null,
     remise: null, fodec: null, tva: tvaPourcent, categorieId: null, notes: '',
+    ligneBordereauId: null,
   };
 }
 
@@ -92,9 +97,11 @@ export function depuisModele(m: ModelePieceAchatDto): BrouillonPiece {
           cle: prochaineCle(), id: null, code: l.code ?? '', description: l.description, unite: l.unite ?? '',
           quantite: l.quantite, prixUnitaireHT: l.prixUnitaireHT, remise: enPourcent(l.remise), fodec: enPourcent(l.fodec),
           tva: enPourcent(l.tva), categorieId: l.categorieId, notes: l.notes ?? '',
+          ligneBordereauId: l.ligneBordereauId ?? null,
         }))
       : [ligneVide(tva)],
     parts: m.ventilationProjets.map((p) => ({ cle: prochaineCle(), projetId: p.cleId, taux: enPourcent(p.taux) })),
+    sources: m.sources ?? [],
   };
 }
 
@@ -122,9 +129,10 @@ export function depuisDetail(d: DocumentAchatDetailDto): BrouillonPiece {
     lignes: d.lignes.map((l) => ({
       cle: prochaineCle(), id: l.id, code: l.code ?? '', description: l.designation ?? '', unite: l.unite ?? '',
       quantite: l.quantite, prixUnitaireHT: l.prixUnitaireHT, remise: l.remisePourcent, fodec: l.fodecPourcent,
-      tva: l.tauxTVA, categorieId: l.categorieId, notes: l.notes ?? '',
+      tva: l.tauxTVA, categorieId: l.categorieId, notes: l.notes ?? '', ligneBordereauId: null,
     })),
     parts: d.ventilationProjets.map((p) => ({ cle: prochaineCle(), projetId: p.projetId, taux: enPourcent(p.taux) })),
+    sources: [],
   };
 }
 
@@ -209,8 +217,10 @@ export function versRequete(b: BrouillonPiece): SaisiePieceAchatRequest {
       tva: enFraction(l.tva) ?? 0,
       categorieId: l.categorieId ?? '',
       notes: vide(l.notes),
+      ligneBordereauId: l.ligneBordereauId,
     })),
     ventilationProjets: b.parts.map((p) => ({ cleId: p.projetId ?? '', taux: enFraction(p.taux) ?? 0 })),
+    sources: b.sources,
   };
 }
 
