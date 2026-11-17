@@ -96,7 +96,7 @@ function CorpsDocument({ d, onOuvrir, onChange, onFermer, onModifier }: Readonly
   return (
     <>
       <BarreIcones className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
-        <BarreActionsPieceAchat piece={d} onChange={onChange} onFermer={onFermer} onModifier={onModifier} />
+        <BarreActionsPieceAchat piece={d} onChange={onChange} onFermer={onFermer} onModifier={onModifier} onOuvrir={onOuvrir} />
         <Button type="button" variant="ghost" size="sm" disabled>
           <Printer /> Imprimer
         </Button>

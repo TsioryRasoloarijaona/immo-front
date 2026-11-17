@@ -393,6 +393,14 @@ export interface ActionsPieceAchatDto {
   transitions: TransitionPermiseAchatDto[];
   /** Même règle que le PUT de la fiche (FEATURE-achat-fiche-creation.md E-C6). */
   peutModifier: boolean;
+  /** Pièces générables depuis celle-ci (FEATURE-achat-generation.md G7), filtrées par le droit de créer la cible. */
+  generations: GenerationPieceAchatDto[];
+}
+
+export interface GenerationPieceAchatDto {
+  /** ORDER | DELIVRY | INVOICE */
+  natureCible: string;
+  libelle: string;
 }
 
 // FEATURE-achat-fiche-creation.md : création / modification d'une pièce. Taux en fraction (0,2 = 20 %).
@@ -409,6 +417,8 @@ export interface LigneSaisieAchat {
   tva: number;
   categorieId: UUID;
   notes: string | null;
+  /** PrjMarketLineId recopié d'une source ; null = ligne libre ; ignoré au PUT. */
+  ligneBordereauId?: UUID | null;
 }
 
 export interface PartVentilationAchat {
@@ -439,6 +449,8 @@ export interface SaisiePieceAchatRequest {
   categorieId: UUID | null;
   lignes: LigneSaisieAchat[];
   ventilationProjets: PartVentilationAchat[];
+  /** Pièces sources d'une génération, dans l'ordre ; absent ou vide = création libre ; ignoré au PUT. */
+  sources?: UUID[] | null;
 }
 
 /** Formulaire vierge : champs de la saisie pré-remplis (certains null), puis les valeurs lues. */
@@ -450,7 +462,6 @@ export interface ModelePieceAchatDto extends Omit<SaisiePieceAchatRequest, 'soci
   statutDepartLibelle: string | null;
   deviseId: UUID | null;
   tvaParDefaut: number | null;
-  sources: UUID[];
 }
 
 export interface TransitionPieceAchatRequest {
