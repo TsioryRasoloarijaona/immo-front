@@ -50,8 +50,9 @@ export function affecterBonCommandeAchat(id: UUID, body: AffecterBonCommandeRequ
 
 // FEATURE-achat-fiche-creation.md : 400 champ / nature, 403 droit, 404 société, projet ou pièce, 409 gérée ailleurs,
 // lecture seule ou quantités du BC (detail).
-export function getModelePieceAchat(nature: string): Promise<ModelePieceAchatDto> {
-  return request('GET', `${DOCUMENTS}/modele`, { query: { nature } });
+// FEATURE-achat-generation.md : avec sources, modèle prérempli ; 404 source, 409 génération refusée (detail).
+export function getModelePieceAchat(nature: string, sources?: UUID[]): Promise<ModelePieceAchatDto> {
+  return request('GET', `${DOCUMENTS}/modele`, { query: { nature, sources: sources?.join(',') } });
 }
 
 export function creerPieceAchat(body: SaisiePieceAchatRequest): Promise<DocumentAchatDetailDto> {
