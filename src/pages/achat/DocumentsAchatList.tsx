@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Plus, RotateCcw } from 'lucide-react';
+import { FilePlus2, Plus, RotateCcw } from 'lucide-react';
 import ColumnSelector from '../../components/ColumnSelector';
 import DataGrid from '../../components/DataGrid';
 import Pagination from '../../components/Pagination';
@@ -71,12 +71,25 @@ export default function DocumentsAchatList({ vue }: Readonly<{ vue: VueAchat }>)
   const totaux = useApi(() => getTotauxDocumentsAchat(filtres), [cle], `achat-${vue.cle}-totaux`);
   const exportListe = useExportListe(cheminExportDocumentsAchat(), { ...filtres }, 'pieces-achat');
 
-  const [creation, setCreation] = useState<string | null>(null);
+  const [creation, setCreation] = useState<{ nature: string; sources?: string[] } | null>(null);
   const [menuNatures, setMenuNatures] = useState(false);
+  const [cochees, setCochees] = useState<Set<string>>(new Set());
+  const genereFacture = vue.natures?.length === 1 && vue.natures[0] === 'DELIVRY';
   const creables = (referentiels.data?.naturesCreables ?? []).filter((n) => !vue.natures || vue.natures.some((v) => v === n));
   const libelleNature = (n: string) => referentiels.data?.natures.find((x) => x.code === n)?.libelle ?? n;
-  const nouveau = creables.length === 1 ? { libelle: `Nouveau : ${libelleNature(creables[0])}`, onClick: () => setCreation(creables[0]) } : undefined;
+  const nouveau = creables.length === 1 ? { libelle: `Nouveau : ${libelleNature(creables[0])}`, onClick: () => setCreation({ nature: creables[0] }) } : undefined;
   const ajouter: OutilPropre[] = creables.length > 1 ? [{ id: 'ajouter', libelle: 'Ajouter', icone: Plus, onClick: () => setMenuNatures(true) }] : [];
+  if (genereFacture) {
+    ajouter.push({
+      id: 'generer-facture', libelle: 'Générer Facture', icone: FilePlus2, disabled: cochees.size === 0,
+      onClick: () => setCreation({ nature: 'INVOICE', sources: [...cochees] }),
+    });
+  }
+  const basculer = (id: string) => setCochees((prec) => {
+    const suivant = new Set(prec);
+    if (!suivant.delete(id)) suivant.add(id);
+    return suivant;
+  });
 
   const lignes = liste.data?.content ?? [];
   const decompte = liste.data ? pluriel(liste.data.totalElements, 'pièce') : undefined;
@@ -122,6 +135,7 @@ export default function DocumentsAchatList({ vue }: Readonly<{ vue: VueAchat }>)
                   onOuvrir={ouvrir}
                   libelleLigne={(d) => `Ouvrir la pièce ${d.code ?? d.id}`}
                   bandeauRegroupement={false}
+                  selection={genereFacture ? { ids: cochees, onToggle: basculer, onToggleAll: (tous) => setCochees(new Set(tous)) } : undefined}
                 />
               )}
             </div>
@@ -145,17 +159,19 @@ export default function DocumentsAchatList({ vue }: Readonly<{ vue: VueAchat }>)
       {menuNatures && (
         <MenuNaturesAchat
           natures={creables.map((n) => ({ code: n, libelle: libelleNature(n) }))}
-          onChoisir={(n) => { setMenuNatures(false); setCreation(n); }}
+          onChoisir={(n) => { setMenuNatures(false); setCreation({ nature: n }); }}
           onFermer={() => setMenuNatures(false)}
         />
       )}
       {creation && (
         <FormulairePieceAchatFenetre
-          key={creation}
-          nature={creation}
+          key={`${creation.nature}-${creation.sources?.join(',')}`}
+          nature={creation.nature}
+          sources={creation.sources}
           onFermer={() => setCreation(null)}
           onEnregistre={(p, fermer) => {
             setCreation(null);
+            setCochees(new Set());
             if (!fermer) void navigate(`${vue.chemin}/${p.id}${requeteUrl}`);
           }}
         />

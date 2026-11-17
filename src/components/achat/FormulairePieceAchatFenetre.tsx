@@ -220,15 +220,18 @@ function Saisie({ titre, creer, tvaDefaut, listes, statut, piece, onFermer, onEn
  * Saisie d'une pièce d'achat : création depuis le modèle d'une nature, ou modification de `piece`.
  * `onEnregistre(p, fermer)` : « Enregistrer » ouvre la fiche de `p`, « Enregistrer et fermer » ferme tout.
  */
-export default function FormulairePieceAchatFenetre({ nature, piece, onFermer, onEnregistre }: Readonly<{
+export default function FormulairePieceAchatFenetre({ nature, sources, piece, onFermer, onEnregistre }: Readonly<{
   nature?: string;
+  /** Pièces dont on génère `nature` ; absent = création libre. */
+  sources?: UUID[];
   piece?: DocumentAchatDetailDto;
   onFermer: () => void;
   onEnregistre: Enregistre;
 }>) {
+  const cleSources = sources?.join(',');
   const modele = useApi<ModelePieceAchatDto | null>(
-    () => (piece || !nature ? Promise.resolve(null) : getModelePieceAchat(nature)),
-    [nature, piece?.id],
+    () => (piece || !nature ? Promise.resolve(null) : getModelePieceAchat(nature, sources)),
+    [nature, cleSources, piece?.id],
   );
   const referentiels = useApi(() => getReferentielsAchat(), [], 'achat-referentiels');
   const projet = useApi(() => getReferentielsProjet(), [], 'projet-referentiels');
@@ -265,7 +268,7 @@ export default function FormulairePieceAchatFenetre({ nature, piece, onFermer, o
   }
   const listes = listesDe(referentiels.data, projet.data.categories, personnels.data ?? []);
   return (
-    <Saisie key={piece?.id ?? nature} titre={titre} creer={creer} tvaDefaut={tvaDefaut} listes={listes} statut={statut}
+    <Saisie key={piece?.id ?? `${nature}-${cleSources}`} titre={titre} creer={creer} tvaDefaut={tvaDefaut} listes={listes} statut={statut}
       piece={piece} onFermer={onFermer} onEnregistre={onEnregistre} />
   );
 }
