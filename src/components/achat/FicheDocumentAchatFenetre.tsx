@@ -57,6 +57,7 @@ function EnteteDocument({ d, onOuvrir }: Readonly<{ d: DocumentAchatDetailDto; o
       {d.devisOrigineCode && <ChampFiche libelle="Devis d'origine" valeur={lien(d.devisOrigineId, d.devisOrigineCode)} />}
       {d.bonCommandeCode && <ChampFiche libelle="Bon de commande" valeur={lien(d.bonCommandeId, d.bonCommandeCode)} />}
       {d.factureSourceCode && <ChampFiche libelle="Facture source" valeur={lien(d.factureSourceId, d.factureSourceCode)} />}
+      {d.nature === 'REFUND' && <ChampFiche libelle="Avoir financier" valeur={d.avoirFinancier} type="case" />}
       <ChampFiche libelle="Catégories" valeur={d.categories} large />
       <ChampFiche libelle="Désignation" valeur={d.description} large />
       <ChampFiche libelle="Note" valeur={d.notes} large />

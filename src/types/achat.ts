@@ -378,6 +378,8 @@ export interface DocumentAchatDetailDto extends DocumentAchatListItemDto {
   moduleId: UUID | null;
   /** Catégorie d'en-tête : celle de la ventilation si elle n'a qu'une part, sinon null. */
   categorieId: UUID | null;
+  /** Avoir financier (IsFinancialRefund) : vrai = ne réduit pas la facture source ; null si non renseigné. */
+  avoirFinancier: boolean | null;
 }
 
 export interface TransitionPermiseAchatDto {
@@ -398,7 +400,7 @@ export interface ActionsPieceAchatDto {
 }
 
 export interface GenerationPieceAchatDto {
-  /** ORDER | DELIVRY | INVOICE */
+  /** ORDER | DELIVRY | INVOICE | REFUND (avoir, sur une facture seulement) */
   natureCible: string;
   libelle: string;
 }
@@ -427,7 +429,7 @@ export interface PartVentilationAchat {
 }
 
 export interface SaisiePieceAchatRequest {
-  /** QUOTE | ORDER | DELIVRY | INVOICE ; ignorée en modification. */
+  /** QUOTE | ORDER | DELIVRY | INVOICE, ou REFUND avec sources ; ignorée en modification. */
   nature: string;
   dateDocument: string;
   dateEcheance: string | null;
@@ -451,6 +453,11 @@ export interface SaisiePieceAchatRequest {
   ventilationProjets: PartVentilationAchat[];
   /** Pièces sources d'une génération, dans l'ordre ; absent ou vide = création libre ; ignoré au PUT. */
   sources?: UUID[] | null;
+  /** Avoir sans ligne : totaux saisis (TTC = HT + TVA) ; ignorés avec des lignes ou hors avoir. */
+  montantHT?: number | null;
+  montantTVA?: number | null;
+  /** Avoir financier ; null = inchangé (PUT), paramètre DefaultRefundIsFinancial (POST) ; ignoré hors avoir. */
+  avoirFinancier?: boolean | null;
 }
 
 /** Formulaire vierge : champs de la saisie pré-remplis (certains null), puis les valeurs lues. */

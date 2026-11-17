@@ -17,7 +17,9 @@ function Ligne({ libelle, valeur, fort }: Readonly<{ libelle: string; valeur: nu
  */
 export default function TotauxSaisieAchat({ b, piece }: Readonly<{ b: BrouillonPiece; piece: DocumentAchatDetailDto | null }>) {
   const recap = recapParTaux(b.lignes);
-  const apercu = apercuTotaux(b.lignes);
+  const apercu = b.lignes.length === 0 && b.nature === 'REFUND'
+    ? { ht: b.montantHT ?? 0, tva: b.montantTVA ?? 0, ttc: (b.montantHT ?? 0) + (b.montantTVA ?? 0) }
+    : apercuTotaux(b.lignes);
   const montants = piece
     ? { ht: piece.montantHT, tva: piece.montantTVA, ttc: piece.montantTTC, regul: piece.regularisation, timbre: piece.timbreFiscal, net: piece.montantAPayer }
     : { ...apercu, regul: b.montantRegul, timbre: b.timbreFiscal, net: apercu.ttc + (b.montantRegul ?? 0) + (b.timbreFiscal ?? 0) };

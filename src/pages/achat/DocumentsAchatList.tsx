@@ -85,6 +85,13 @@ export default function DocumentsAchatList({ vue }: Readonly<{ vue: VueAchat }>)
       onClick: () => setCreation({ nature: 'INVOICE', sources: [...cochees] }),
     });
   }
+  const vueFactures = vue.natures?.length === 1 && vue.natures[0] === 'INVOICE';
+  if (vueFactures) {
+    ajouter.push({
+      id: 'generer-avoir', libelle: 'Générer Avoir', icone: FilePlus2, disabled: cochees.size !== 1,
+      onClick: () => setCreation({ nature: 'REFUND', sources: [...cochees] }),
+    });
+  }
   const basculer = (id: string) => setCochees((prec) => {
     const suivant = new Set(prec);
     if (!suivant.delete(id)) suivant.add(id);
@@ -135,7 +142,7 @@ export default function DocumentsAchatList({ vue }: Readonly<{ vue: VueAchat }>)
                   onOuvrir={ouvrir}
                   libelleLigne={(d) => `Ouvrir la pièce ${d.code ?? d.id}`}
                   bandeauRegroupement={false}
-                  selection={genereFacture ? { ids: cochees, onToggle: basculer, onToggleAll: (tous) => setCochees(new Set(tous)) } : undefined}
+                  selection={genereFacture || vueFactures ?{ ids: cochees, onToggle: basculer, onToggleAll: (tous) => setCochees(new Set(tous)) } : undefined}
                 />
               )}
             </div>
