@@ -42,11 +42,20 @@ function Champ({ libelle, children }: Readonly<{ libelle: string; children: Reac
 
 const nombre = (v: string) => (v === '' ? null : Number(v));
 
-function Lecture({ libelle, valeur }: Readonly<{ libelle: string; valeur: string }>) {
+function Lecture({ libelle, valeur }: Readonly<{ libelle: string; valeur: string | string[] }>) {
   return (
     <div>
       <dt className="text-micro text-muted-foreground">{libelle}</dt>
-      <dd className="text-body">{valeur}</dd>
+      <dd className="text-body tabular-nums">
+        {typeof valeur === 'string'
+          ? valeur
+          : valeur.map((m, i) => (
+              <span key={m + String(i)}>
+                {i > 0 && ' / '}
+                <span className="whitespace-nowrap">{m}</span>
+              </span>
+            ))}
+      </dd>
     </div>
   );
 }
@@ -136,11 +145,11 @@ function Saisie({ saisie, onModifie, onEnregistre, onAnnuler }: Readonly<{ saisi
 
   return (
     <div className="flex flex-col gap-3">
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 lg:grid-cols-[auto_auto_auto_1fr]">
         <Lecture libelle="Description" valeur={saisie.description ?? '—'} />
         <Lecture libelle="Avancement réel" valeur={formatPercent(saisie.avancementReel)} />
-        <Lecture libelle="Estimation confidentielle HT / TTC" valeur={`${formatCurrency(saisie.estimationConfidentielleHT)} / ${formatCurrency(saisie.estimationConfidentielleTTC)}`} />
-        <Lecture libelle="Marché HT / TVA / TTC" valeur={`${formatCurrency(saisie.marcheHT)} / ${formatCurrency(saisie.marcheTVA)} / ${formatCurrency(saisie.marcheTTC)}`} />
+        <Lecture libelle="Estimation confidentielle HT / TTC" valeur={[formatCurrency(saisie.estimationConfidentielleHT), formatCurrency(saisie.estimationConfidentielleTTC)]} />
+        <Lecture libelle="Marché HT / TVA / TTC" valeur={[formatCurrency(saisie.marcheHT), formatCurrency(saisie.marcheTVA), formatCurrency(saisie.marcheTTC)]} />
       </dl>
       <BarreIcones className="flex items-center gap-1">
         <Button type="button" variant="ghost" size="sm" disabled={ongletEdite} onClick={ajouter}>
@@ -217,7 +226,7 @@ export default function ModalePrevisionsLot({ lotId, onFermer, onEnregistre }: R
 
   return (
     <Dialog open onOpenChange={(ouvert) => !ouvert && void demanderFermeture()}>
-      <DialogContent className="max-h-[85vh] overflow-auto sm:max-w-4xl">
+      <DialogContent className="max-h-[85vh] overflow-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Modifier les prévisions</DialogTitle>
           <DialogDescription>Dates, durées et avancements prévus du lot.</DialogDescription>

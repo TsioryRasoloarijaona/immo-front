@@ -50,7 +50,7 @@ function MontantsGeneral({ general }: Readonly<{ general: GeneralLotDto }>) {
   const couts = COUTS.map(([cle, label]) => ({ label, valeurs: [...trio(prev[cle] as TrioDto), ...trio(reel[cle] as TrioDto)] }));
   const soldes = SOLDES.map(([cle, label]) => ({ label, valeurs: [prev[cle] as number | null, reel[cle] as number | null] }));
   return (
-    <div className="grid gap-3 xl:grid-cols-2">
+    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto]">
       <Card title="Marché et estimations">
         <TableauMontants colonnes={TRIO_COLONNES} lignes={marche.map(([label, t]) => ({ label, valeurs: trio(t) }))} />
       </Card>

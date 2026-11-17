@@ -51,7 +51,7 @@ export default function SearchableSelect({
       isItemEqualToValue={(a: SearchableSelectOption | null, b: SearchableSelectOption | null) => a?.value === b?.value}
     >
       <ComboboxTrigger id={id} size={size} placeholder={placeholder} disabled={disabled} className={className} label={label} />
-      <ComboboxContent emptyMessage={emptyMessage}>
+      <ComboboxContent emptyMessage={emptyMessage} className="w-max min-w-(--anchor-width) max-w-[90vw] sm:max-w-lg">
         {(item: unknown) => {
           const option = item as SearchableSelectOption;
           return (

@@ -54,7 +54,7 @@ export function ChampListe({ id, libelle, items, valeur, onChange, erreur, requi
   return (
     <Field data-invalid={!!erreur}>
       <FieldLabel htmlFor={id}>{libelle}{requis && ' *'}</FieldLabel>
-      <SearchableSelect id={id} label={libelle} items={items} value={valeur} onValueChange={onChange} placeholder="Choisir…" disabled={disabled} />
+      <SearchableSelect id={id} items={items} value={valeur} onValueChange={onChange} placeholder="Choisir…" disabled={disabled} className="w-full min-w-0" />
       <FieldError>{erreur}</FieldError>
     </Field>
   );
