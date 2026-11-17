@@ -5,13 +5,12 @@ import type {
   AvanceLotDto,
   AvenantLotDto,
   AvoirLotDto,
-  EcheanceRgLotDto,
   GroupeBordereauDto,
   LigneBordereauDto,
   PointPrevisionDto,
   ReceptionLotDto,
 } from '../types/projet';
-import { formatPercent, formatPercentValue } from './format';
+import { formatPercent } from './format';
 
 export type SousFenetre = 'previsions' | 'avances' | 'bordereau' | 'avenants' | 'remboursements' | 'avoirs';
 
@@ -76,19 +75,6 @@ export const COLONNES_AVENANTS: ColonneGrille<AvenantLotDto>[] = [
   { nom: 'montantTTC', libelle: 'TTC', type: 'MONTANT', largeur: 9, classe: MONTANT },
   { nom: 'netAPayer', libelle: 'Net à payer', type: 'MONTANT', largeur: 9, classe: MONTANT },
   { nom: 'factureCode', libelle: 'Code facture', largeur: 10 },
-];
-
-export const COLONNES_ECHEANCES_RG: ColonneGrille<EcheanceRgLotDto>[] = [
-  { nom: 'description', libelle: 'Description', largeur: 20 },
-  { nom: 'delaiJours', libelle: 'Délai (j)', type: 'NOMBRE', largeur: 6 },
-  { nom: 'echeance', libelle: 'Échéance', type: 'DATE', largeur: 8 },
-  {
-    nom: 'pourcentage',
-    libelle: '% de remboursement',
-    type: 'NOMBRE',
-    largeur: 8,
-    rendu: (r) => formatPercentValue(r.pourcentage),
-  },
 ];
 
 export const COLONNES_RECEPTIONS_RG: ColonneGrille<ReceptionLotDto>[] = [
