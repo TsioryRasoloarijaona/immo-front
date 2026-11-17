@@ -7,7 +7,7 @@ import { ErrorState, LoadingState } from '../../ui';
 import { creerAvenantLot, getAvenantLot, getBordereauLot, getLot, modifierAvenantLot, supprimerAvenantLot } from '../../../lib/apiProjet';
 import { getReferentielsProjetConfig } from '../../../lib/apiProjetConfig';
 import { useConfirm } from '../../../lib/confirmContext';
-import { formatCurrency } from '../../../lib/format';
+import { formatCurrency, todayISO } from '../../../lib/format';
 import {
   depuisBordereau,
   etatDepuisDetail,
@@ -69,7 +69,7 @@ function EditeurAvenant({
   onModifie?: (modifie: boolean) => void;
 }>) {
   const confirm = useConfirm();
-  const [etat, setEtat] = useState<EtatAvenant>(() => (detail ? etatDepuisDetail(detail) : etatNeuf(defauts, new Date().toISOString().slice(0, 10))));
+  const [etat, setEtat] = useState<EtatAvenant>(() => (detail ? etatDepuisDetail(detail) : etatNeuf(defauts, todayISO())));
   const [modifie, setModifie] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -110,7 +110,7 @@ function EditeurAvenant({
     }
   }
 
-  const enregistrer = () => ecrire(() => (detail ? modifierAvenantLot(lotId, detail.id, versSaisie(etat)) : creerAvenantLot(lotId, versSaisie(etat))));
+  const enregistrer = () => ecrire(() => (detail ? modifierAvenantLot(lotId, detail.id, versSaisie(etat, lectureSeule)) : creerAvenantLot(lotId, versSaisie(etat))));
 
   async function supprimer() {
     if (detail && (await confirm('Êtes-vous sûr de vouloir supprimer cet avenant ?'))) await ecrire(() => supprimerAvenantLot(lotId, detail.id));

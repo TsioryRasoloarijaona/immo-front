@@ -50,10 +50,10 @@ export default function RemboursementsLot({ lotId, onModifie }: Readonly<{ lotId
             <TabsTrigger value="rg">Remboursements retenue de garantie</TabsTrigger>
             <TabsTrigger value="prorata">Remboursements compte prorata</TabsTrigger>
           </TabsList>
-          <TabsContent value="echeances">
-            <GrilleEcheancesRg lotId={lotId} echeances={d.echeances} dateReceptionDefinitive={d.dateReceptionDefinitive} />
+          <TabsContent value="echeances" keepMounted>
+            <GrilleEcheancesRg lotId={lotId} echeances={d.echeances} dateReceptionDefinitive={d.dateReceptionDefinitive} onModifie={onModifie} />
           </TabsContent>
-          <TabsContent value="receptions">
+          <TabsContent value="receptions" keepMounted>
             <OngletReceptions lotId={lotId} d={d} onModifie={onModifie} />
           </TabsContent>
           <Onglet valeur="rg" rows={d.remboursementsRg} colonnes={COLONNES_AVANCES} texteVide="Aucun remboursement de retenue de garantie" />

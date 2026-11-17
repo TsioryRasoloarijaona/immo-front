@@ -124,11 +124,12 @@ export function totauxAvenant(etat: EtatAvenant): TotauxAvenant {
   return { ht, tva: ttc - ht, ttc, net: ttc - retenues };
 }
 
-export function versSaisie(etat: EtatAvenant): AvenantSaisieDto {
+/** `fige` : avenant facturé, lignes et retenues repartent telles que lues (sinon 409 « Avenant facturé »). */
+export function versSaisie(etat: EtatAvenant, fige = false): AvenantSaisieDto {
   const { ttc } = totauxAvenant(etat);
   const retenue = (cle: CleRetenue): RetenueAvenantDto => {
     const r = etat.retenues[cle];
-    return { parMontant: r.parMontant, taux: tauxRetenue(r, ttc), montant: montantRetenue(r, ttc) };
+    return fige ? r : { parMontant: r.parMontant, taux: tauxRetenue(r, ttc), montant: montantRetenue(r, ttc) };
   };
   return {
     date: etat.date || null,
@@ -138,6 +139,6 @@ export function versSaisie(etat: EtatAvenant): AvenantSaisieDto {
     prorata: retenue('prorata'),
     assuranceDEC: retenue('assuranceDEC'),
     assuranceTRC: retenue('assuranceTRC'),
-    lignes: etat.lignes.map((l, i) => ({ ...l, ordre: i + 1 })),
+    lignes: fige ? etat.lignes : etat.lignes.map((l, i) => ({ ...l, ordre: i + 1 })),
   };
 }

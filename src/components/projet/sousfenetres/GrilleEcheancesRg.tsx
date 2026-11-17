@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Save, Trash2 } from 'lucide-react';
 import BarreIcones from '../../BarreIcones';
 import { Button } from '../../ui/button';
 import { putEcheancesRgLot } from '../../../lib/apiProjet';
-import { formatDate, formatPercentValue } from '../../../lib/format';
+import { formatDate, formatPercentValue, jourISO } from '../../../lib/format';
 import { useConfirmationSortie } from '../../../lib/useConfirmationSortie';
 import { errorMessage, refetchAllApis } from '../../../lib/useApi';
 import type { EcheanceRgLotDto, EcheanceRgSaisieDto } from '../../../types/projet';
@@ -22,13 +22,15 @@ export default function GrilleEcheancesRg({
   lotId,
   echeances,
   dateReceptionDefinitive,
-}: Readonly<{ lotId: string; echeances: EcheanceRgLotDto[]; dateReceptionDefinitive: string | null }>) {
+  onModifie,
+}: Readonly<{ lotId: string; echeances: EcheanceRgLotDto[]; dateReceptionDefinitive: string | null; onModifie?: (modifie: boolean) => void }>) {
   const [lignes, setLignes] = useState<Ligne[]>(() => depuis(echeances));
   const [modifie, setModifie] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
   const total = lignes.reduce((s, l) => s + (l.pourcentage ?? 0), 0);
   useConfirmationSortie(modifie);
+  useEffect(() => onModifie?.(modifie), [modifie, onModifie]);
 
   function muter(fn: (l: Ligne[]) => Ligne[]) {
     setLignes(fn);
@@ -38,11 +40,18 @@ export default function GrilleEcheancesRg({
   const changer = (id: string, patch: Partial<Ligne>) => muter((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   const nombre = (v: string) => (v === '' ? null : Number(v));
 
+  function echeanceDepuisDelai(delai: number | null): string | null {
+    if (delai === null || !dateReceptionDefinitive) return null;
+    const [a, m, j] = dateReceptionDefinitive.slice(0, 10).split('-').map(Number);
+    return jourISO(new Date(a, m - 1, j + delai));
+  }
+
   async function enregistrer() {
     setEnCours(true);
     setErreur(null);
     try {
-      await putEcheancesRgLot(lotId, lignes.map((l, i) => ({ ...l, ordre: i + 1 })));
+      const reponse = await putEcheancesRgLot(lotId, lignes.map((l, i) => ({ ...l, ordre: i + 1 })));
+      setLignes(depuis(reponse.echeances));
       setModifie(false);
       refetchAllApis();
     } catch (err: unknown) {
@@ -73,7 +82,7 @@ export default function GrilleEcheancesRg({
         </div>
       )}
       <p className="text-body text-muted-foreground">Date de réception définitive : {formatDate(dateReceptionDefinitive)}</p>
-      {lignes.length > 0 && total !== 100 && (
+      {lignes.length > 0 && Math.abs(total - 100) > 1e-6 && (
         <p role="status" className="text-body text-muted-foreground">
           Attention : le total des pourcentages est de {formatPercentValue(total)} (100 % attendus).
         </p>
@@ -96,10 +105,14 @@ export default function GrilleEcheancesRg({
                   <input type="text" aria-label="Description" className={CHAMP} value={l.description ?? ''} onChange={(e) => changer(l.id, { description: e.target.value })} />
                 </td>
                 <td>
-                  <input type="number" aria-label="Délai en jours" className={CHAMP} value={l.delaiJours ?? ''} onChange={(e) => changer(l.id, { delaiJours: nombre(e.target.value) })} />
+                  <input type="number" aria-label="Délai en jours" className={CHAMP} value={l.delaiJours ?? ''} onChange={(e) => {
+                      const delai = nombre(e.target.value);
+                      changer(l.id, { delaiJours: delai, echeance: echeanceDepuisDelai(delai) });
+                    }}
+                  />
                 </td>
                 <td>
-                  <input type="date" aria-label="Échéance" className={CHAMP} value={l.echeance ?? ''} onChange={(e) => changer(l.id, { echeance: e.target.value || null })} />
+                  <input type="date" aria-label="Échéance" className={CHAMP} value={l.echeance ?? ''} onChange={(e) => changer(l.id, { echeance: e.target.value || null, delaiJours: null })} />
                 </td>
                 <td>
                   <input type="number" step="any" aria-label="Pourcentage" className={CHAMP} value={l.pourcentage ?? ''} onChange={(e) => changer(l.id, { pourcentage: nombre(e.target.value) })} />

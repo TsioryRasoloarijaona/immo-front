@@ -7,6 +7,7 @@ import { ErrorState, LoadingState } from '../../ui';
 import { creerReceptionLot, getReceptionLot, modifierReceptionLot, supprimerReceptionLot } from '../../../lib/apiProjet';
 import { listTiers } from '../../../lib/apiAdministration';
 import { useConfirm } from '../../../lib/confirmContext';
+import { todayISO } from '../../../lib/format';
 import { useConfirmationSortie } from '../../../lib/useConfirmationSortie';
 import { errorMessage, refetchAllApis, useApi, useDebouncedValue } from '../../../lib/useApi';
 import type { FamilleTiers } from '../../../types/administration';
@@ -38,7 +39,7 @@ function etatDepuis(d: ReceptionDetailDto | null): Etat {
   return {
     code: d?.code ?? '',
     description: d?.description ?? '',
-    dateReception: d?.dateReception ?? new Date().toISOString().slice(0, 10),
+    dateReception: d?.dateReception ?? todayISO(),
     lieu: d?.lieu ?? '',
     demandeeParFournisseur: d?.demandeeParFournisseur ?? false,
     typeId: d?.typeId ?? '',
@@ -58,8 +59,8 @@ function versSaisie(e: Etat, ordre: number | null): ReceptionSaisieDto {
     demandeeParFournisseur: e.demandeeParFournisseur,
     typeId: e.typeId || null,
     genreId: e.genreId || null,
-    reserves: e.reserves.map((r, i) => ({ id: r.id, ordre: i + 1, description: r.description || null, levee: r.levee })),
-    tiersInvites: e.invites.map((t, i) => ({ id: t.id, ordre: i + 1, tiersId: t.tiersId })),
+    reserves: e.reserves.map((r, i) => ({ id: r.cle, ordre: i + 1, description: r.description || null, levee: r.levee })),
+    tiersInvites: e.invites.map((t, i) => ({ id: t.cle, ordre: i + 1, tiersId: t.tiersId })),
   };
 }
 
