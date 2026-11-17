@@ -560,6 +560,170 @@ export interface RemboursementsLotDto {
   receptions: ReceptionLotDto[];
   remboursementsRg: AvanceLotDto[];
   remboursementsProrata: AvanceLotDto[];
+  /** R10 : dernière réception définitive, sinon fin du lot, sinon null. */
+  dateReceptionDefinitive: string | null;
+  /** Σ des pourcentages des échéances (avertissement si ≠ 100). */
+  totalPourcentageEcheances: number;
+  typesReception: OptionReceptionDto[];
+  genresReception: OptionGenreDto[];
+}
+
+export interface OptionReceptionDto {
+  id: UUID;
+  libelle: string | null;
+}
+
+export interface OptionGenreDto {
+  id: UUID;
+  libelle: string | null;
+  definitive: boolean;
+}
+
+// FEATURE-lot-avenants-avances.md : avenants, échéances RG, réceptions. Taux en pourcentage 0–100.
+export interface RetenueAvenantDto {
+  parMontant: boolean;
+  taux: number | null;
+  montant: number | null;
+}
+
+export interface LigneAvenantSaisieDto {
+  /** Absent ou inconnu = insertion ; UUID v4 généré par le front. */
+  id: UUID | null;
+  ordre: number | null;
+  code: string | null;
+  designation: string | null;
+  unite: string | null;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  tauxTVA: number | null;
+  tauxFODEC: number | null;
+  categorieId: UUID | null;
+  ligneBordereauId: UUID | null;
+  notes: string | null;
+}
+
+export interface AvenantSaisieDto {
+  date: string | null;
+  referenceInterne: string | null;
+  notes: string | null;
+  garantie: RetenueAvenantDto | null;
+  prorata: RetenueAvenantDto | null;
+  assuranceDEC: RetenueAvenantDto | null;
+  assuranceTRC: RetenueAvenantDto | null;
+  lignes: LigneAvenantSaisieDto[];
+}
+
+export interface LigneAvenantDto {
+  id: UUID;
+  ordre: number | null;
+  code: string | null;
+  designation: string | null;
+  unite: string | null;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  tauxTVA: number | null;
+  tauxFODEC: number | null;
+  prixUnitaireTTC: number | null;
+  totalHT: number | null;
+  totalTTC: number | null;
+  categorieId: UUID | null;
+  categorie: string | null;
+  ligneBordereauId: UUID | null;
+  notes: string | null;
+}
+
+export interface AvenantDetailDto {
+  id: UUID;
+  lotId: UUID;
+  ordre: number | null;
+  code: string | null;
+  description: string | null;
+  date: string | null;
+  referenceInterne: string | null;
+  notes: string | null;
+  fournisseur: string | null;
+  garantie: RetenueAvenantDto;
+  prorata: RetenueAvenantDto;
+  assuranceDEC: RetenueAvenantDto;
+  assuranceTRC: RetenueAvenantDto;
+  montantHT: number | null;
+  montantTVA: number | null;
+  montantTTC: number | null;
+  netAPayer: number | null;
+  facture: boolean;
+  factureCode: string | null;
+  /** Faux = lignes et retenues figées (avenant facturé). */
+  modifiable: boolean;
+  supprimable: boolean;
+  retenuesParMontantAutorisees: boolean;
+  lignes: LigneAvenantDto[];
+}
+
+export interface EcheanceRgSaisieDto {
+  id: UUID | null;
+  ordre: number | null;
+  description: string | null;
+  delaiJours: number | null;
+  echeance: string | null;
+  pourcentage: number | null;
+}
+
+export interface ReserveSaisieDto {
+  id: UUID | null;
+  ordre: number | null;
+  description: string | null;
+  levee: boolean;
+}
+
+export interface TiersInviteSaisieDto {
+  id: UUID | null;
+  ordre: number | null;
+  tiersId: UUID | null;
+}
+
+export interface ReceptionSaisieDto {
+  ordre: number | null;
+  code: string | null;
+  description: string | null;
+  dateReception: string | null;
+  lieu: string | null;
+  demandeeParFournisseur: boolean;
+  typeId: UUID | null;
+  genreId: UUID | null;
+  reserves: ReserveSaisieDto[];
+  tiersInvites: TiersInviteSaisieDto[];
+}
+
+export interface ReserveDto {
+  id: UUID;
+  ordre: number | null;
+  description: string | null;
+  levee: boolean;
+}
+
+export interface TiersInviteDto {
+  id: UUID;
+  ordre: number | null;
+  tiersId: UUID | null;
+  tiers: string | null;
+}
+
+export interface ReceptionDetailDto {
+  id: UUID;
+  lotId: UUID;
+  ordre: number | null;
+  code: string | null;
+  description: string | null;
+  dateReception: string | null;
+  lieu: string | null;
+  demandeeParFournisseur: boolean;
+  typeId: UUID | null;
+  typeDescription: string | null;
+  genreId: UUID | null;
+  genreDescription: string | null;
+  definitive: boolean;
+  reserves: ReserveDto[];
+  tiersInvites: TiersInviteDto[];
 }
 
 /** Montants à 0 et avancements (fraction 0–1) null pour un mois sans donnée. */

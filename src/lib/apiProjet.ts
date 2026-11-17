@@ -3,8 +3,13 @@ import { request, withPageable } from './api';
 import type { PageDto, Pageable, UUID } from '../types';
 import type {
   AvancesLotDto,
+  AvenantDetailDto,
   AvenantLotDto,
+  AvenantSaisieDto,
   AvoirLotDto,
+  EcheanceRgSaisieDto,
+  ReceptionDetailDto,
+  ReceptionSaisieDto,
   BordereauDto,
   BordereauEstimatifDto,
   BordereauSaisieDto,
@@ -124,6 +129,53 @@ export function getAvenantsLot(id: UUID): Promise<AvenantLotDto[]> {
 
 export function getRemboursementsLot(id: UUID): Promise<RemboursementsLotDto> {
   return request('GET', `${LOTS}/${id}/remboursements`);
+}
+
+// FEATURE-lot-avenants-avances.md : avenants, échéances RG, réceptions (404 → 403 → 400 → 409), relus après écriture.
+// @public tant que les écrans du lot front ne les appellent pas (knip) : à retirer avec eux.
+/** @public */
+export function getAvenantLot(id: UUID, avenantId: UUID): Promise<AvenantDetailDto> {
+  return request('GET', `${LOTS}/${id}/avenants/${avenantId}`);
+}
+
+/** @public */
+export function creerAvenantLot(id: UUID, corps: AvenantSaisieDto): Promise<AvenantDetailDto> {
+  return request('POST', `${LOTS}/${id}/avenants`, { body: corps });
+}
+
+/** @public */
+export function modifierAvenantLot(id: UUID, avenantId: UUID, corps: AvenantSaisieDto): Promise<AvenantDetailDto> {
+  return request('PUT', `${LOTS}/${id}/avenants/${avenantId}`, { body: corps });
+}
+
+/** @public */
+export function supprimerAvenantLot(id: UUID, avenantId: UUID): Promise<void> {
+  return request('DELETE', `${LOTS}/${id}/avenants/${avenantId}`);
+}
+
+/** @public */
+export function putEcheancesRgLot(id: UUID, corps: EcheanceRgSaisieDto[]): Promise<RemboursementsLotDto> {
+  return request('PUT', `${LOTS}/${id}/echeances-rg`, { body: corps });
+}
+
+/** @public */
+export function getReceptionLot(id: UUID, receptionId: UUID): Promise<ReceptionDetailDto> {
+  return request('GET', `${LOTS}/${id}/receptions/${receptionId}`);
+}
+
+/** @public */
+export function creerReceptionLot(id: UUID, corps: ReceptionSaisieDto): Promise<ReceptionDetailDto> {
+  return request('POST', `${LOTS}/${id}/receptions`, { body: corps });
+}
+
+/** @public */
+export function modifierReceptionLot(id: UUID, receptionId: UUID, corps: ReceptionSaisieDto): Promise<ReceptionDetailDto> {
+  return request('PUT', `${LOTS}/${id}/receptions/${receptionId}`, { body: corps });
+}
+
+/** @public */
+export function supprimerReceptionLot(id: UUID, receptionId: UUID): Promise<void> {
+  return request('DELETE', `${LOTS}/${id}/receptions/${receptionId}`);
 }
 
 export function getPrevisionsLot(id: UUID): Promise<PrevisionsLotDto> {
