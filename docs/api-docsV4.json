@@ -45570,7 +45570,7 @@
           },
           "tiers": {
             "type": "string",
-            "description": "Libellé du tiers (CfgTier.Description)."
+            "description": "Nom du tiers : raison sociale, sinon description, sinon prénom et nom."
           }
         }
       },
@@ -46464,7 +46464,7 @@
           },
           "fournisseur": {
             "type": "string",
-            "description": "Fournisseur de l'avenant (CfgTier.Description), null sans fournisseur."
+            "description": "Nom du fournisseur de l'avenant (raison sociale, sinon description), null sans fournisseur."
           },
           "garantie": {
             "$ref": "#/components/schemas/RetenueAvenantDto",
