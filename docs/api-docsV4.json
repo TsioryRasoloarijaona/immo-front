@@ -45723,6 +45723,135 @@
         }
       }
     },
+    "/api/achat/etats/{etat}/export": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Export Excel d'un état : mêmes filtres et mêmes lignes, ligne Total",
+        "operationId": "exporterEtat",
+        "parameters": [
+          {
+            "name": "etat",
+            "in": "path",
+            "description": "État exporté.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tva-deductible",
+                "avances",
+                "retenues-garantie"
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Début de période, date de pièce incluse, obligatoire.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Fin de période, date de pièce incluse jusqu'à minuit, obligatoire.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.id) ; une société non habilitée ne rend rien.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; hors périmètre ignoré ; exclut les pièces sans projet.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "tiers",
+            "in": "query",
+            "description": "Fournisseur : texte contenu dans son nom (CfgTier.Description).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "description": "Projet : texte contenu dans son code ou sa description.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lot",
+            "in": "query",
+            "description": "Lot : texte contenu dans son code ou sa description (PrjMarket).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille DONNEES (+ PAR_MOIS pour la TVA).",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "du ou au absent ou mal formé, du après au, filtre mal formé. Format autre que xlsx."
+          },
+          "403": {
+            "description": "Droit de l'écran absent (et .toolExport pour les suivis)."
+          },
+          "404": {
+            "description": "État inconnu."
+          }
+        }
+      }
+    },
     "/api/achat/etats/tva-deductible": {
       "get": {
         "tags": [
@@ -45818,118 +45947,6 @@
           },
           "400": {
             "description": "du ou au absent ou mal formé, du après au, filtre mal formé."
-          },
-          "403": {
-            "description": "Droit OMRAN Yes.Buy.Front.Tdb.VatStatement absent."
-          }
-        }
-      }
-    },
-    "/api/achat/etats/tva-deductible/export": {
-      "get": {
-        "tags": [
-          "Achat"
-        ],
-        "summary": "Export Excel de l'état de la TVA déductible : feuilles DONNEES (avec Total) et PAR_MOIS",
-        "operationId": "exporterTvaDeductible",
-        "parameters": [
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "xlsx"
-            },
-            "example": "xlsx"
-          },
-          {
-            "name": "du",
-            "in": "query",
-            "description": "Début de période, date de pièce incluse, obligatoire.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "example": "2026-01-01"
-          },
-          {
-            "name": "au",
-            "in": "query",
-            "description": "Fin de période, date de pièce incluse jusqu'à minuit, obligatoire.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "example": "2026-12-31"
-          },
-          {
-            "name": "societeId",
-            "in": "query",
-            "description": "Société (CfgCompany.id) ; une société non habilitée ne rend rien.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "projetIds",
-            "in": "query",
-            "description": "Projets (PrjProject.id), paramètre répété ; hors périmètre ignoré ; exclut les pièces sans projet.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "tiers",
-            "in": "query",
-            "description": "Fournisseur : texte contenu dans son nom (CfgTier.Description).",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "projet",
-            "in": "query",
-            "description": "Projet : texte contenu dans son code ou sa description.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lot",
-            "in": "query",
-            "description": "Lot : texte contenu dans son code ou sa description (PrjMarket).",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Classeur .xlsx.",
-            "content": {
-              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "du ou au absent ou mal formé, du après au, filtre mal formé. Format autre que xlsx."
           },
           "403": {
             "description": "Droit OMRAN Yes.Buy.Front.Tdb.VatStatement absent."
@@ -46039,118 +46056,6 @@
         }
       }
     },
-    "/api/achat/etats/retenues-garantie/export": {
-      "get": {
-        "tags": [
-          "Achat"
-        ],
-        "summary": "Export Excel du suivi des retenues de garantie : mêmes lignes, ligne Total",
-        "operationId": "exporterRetenuesGarantie",
-        "parameters": [
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "xlsx"
-            },
-            "example": "xlsx"
-          },
-          {
-            "name": "du",
-            "in": "query",
-            "description": "Début de période, date de pièce incluse, obligatoire.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "example": "2026-01-01"
-          },
-          {
-            "name": "au",
-            "in": "query",
-            "description": "Fin de période, date de pièce incluse jusqu'à minuit, obligatoire.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "example": "2026-12-31"
-          },
-          {
-            "name": "societeId",
-            "in": "query",
-            "description": "Société (CfgCompany.id) ; une société non habilitée ne rend rien.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "projetIds",
-            "in": "query",
-            "description": "Projets (PrjProject.id), paramètre répété ; hors périmètre ignoré ; exclut les pièces sans projet.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "tiers",
-            "in": "query",
-            "description": "Fournisseur : texte contenu dans son nom (CfgTier.Description).",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "projet",
-            "in": "query",
-            "description": "Projet : texte contenu dans son code ou sa description.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lot",
-            "in": "query",
-            "description": "Lot : texte contenu dans son code ou sa description (PrjMarket).",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Classeur .xlsx, feuille DONNEES.",
-            "content": {
-              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "du ou au absent ou mal formé, du après au, filtre mal formé. Format autre que xlsx."
-          },
-          "403": {
-            "description": "Droit de l'écran ou son .toolExport absent."
-          }
-        }
-      }
-    },
     "/api/achat/etats/avances": {
       "get": {
         "tags": [
@@ -46249,118 +46154,6 @@
           },
           "403": {
             "description": "Droit OMRAN Yes.Buy.Front.Tdb.BuyMonitoringAdvanceView absent."
-          }
-        }
-      }
-    },
-    "/api/achat/etats/avances/export": {
-      "get": {
-        "tags": [
-          "Achat"
-        ],
-        "summary": "Export Excel du suivi des avances : mêmes lignes, ligne Total",
-        "operationId": "exporterAvances",
-        "parameters": [
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "xlsx"
-            },
-            "example": "xlsx"
-          },
-          {
-            "name": "du",
-            "in": "query",
-            "description": "Début de période, date de pièce incluse, obligatoire.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "example": "2026-01-01"
-          },
-          {
-            "name": "au",
-            "in": "query",
-            "description": "Fin de période, date de pièce incluse jusqu'à minuit, obligatoire.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "example": "2026-12-31"
-          },
-          {
-            "name": "societeId",
-            "in": "query",
-            "description": "Société (CfgCompany.id) ; une société non habilitée ne rend rien.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "projetIds",
-            "in": "query",
-            "description": "Projets (PrjProject.id), paramètre répété ; hors périmètre ignoré ; exclut les pièces sans projet.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "tiers",
-            "in": "query",
-            "description": "Fournisseur : texte contenu dans son nom (CfgTier.Description).",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "projet",
-            "in": "query",
-            "description": "Projet : texte contenu dans son code ou sa description.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lot",
-            "in": "query",
-            "description": "Lot : texte contenu dans son code ou sa description (PrjMarket).",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Classeur .xlsx, feuille DONNEES.",
-            "content": {
-              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "du ou au absent ou mal formé, du après au, filtre mal formé. Format autre que xlsx."
-          },
-          "403": {
-            "description": "Droit de l'écran ou son .toolExport absent."
           }
         }
       }
