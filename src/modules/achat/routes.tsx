@@ -15,6 +15,8 @@ const SoldesFournisseursList = lazy(() => import('../../pages/achat/SoldesFourni
 const TvaDeductible = lazy(() => import('../../pages/achat/etats/TvaDeductible'));
 const SuiviAvances = lazy(() => import('../../pages/achat/etats/SuiviAvances'));
 const SuiviRetenues = lazy(() => import('../../pages/achat/etats/SuiviRetenues'));
+const ListeRapports = lazy(() => import('../../pages/rapports/ListeRapports'));
+const Rapport = lazy(() => import('../../pages/rapports/Rapport'));
 const DecaissementsList =lazy(() => import('../../pages/tresorerie/DecaissementsList'));
 const AffectationsList = lazy(() => import('../../pages/tresorerie/AffectationsList'));
 const RecettesList = lazy(() => import('../../pages/tresorerie/RecettesList'));
@@ -40,6 +42,8 @@ const achat: ModuleApp = {
     { path: '/achat/etats/tva', element: <TvaDeductible /> },
     { path: '/achat/etats/avances', element: <SuiviAvances /> },
     { path: '/achat/etats/retenues-garantie', element: <SuiviRetenues /> },
+    { path: '/achat/rapports', element: <ListeRapports module="achat" /> },
+    { path: '/achat/rapports/:code', element: <Rapport module="achat" /> },
     { path: '/achat/config/statuts', element: <StatutsAchatList /> },
     { path: '/achat/config/transitions', element: <TransitionsAchatList /> },
     { path: '/achat/config/familles', element: <ReferentielAchatPage slug="familles-achat" titre="Familles" icone={<Layers />} /> },

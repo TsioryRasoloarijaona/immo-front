@@ -1,5 +1,5 @@
 import {
-  BadgeCheck, Banknote, Building2, Coins, FileMinus, FileText, HandCoins, Layers, Link2, ListTree, Package, Percent, Receipt,
+  BadgeCheck, Banknote, Building2, Coins, FileBarChart, FileMinus, FileText, HandCoins, Layers, Link2, ListTree, Package, Percent, Receipt,
   ShieldCheck, Tags, Truck, Users, Wallet, Workflow,
 } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
@@ -60,6 +60,7 @@ export const arbreAchat: ArbreModule = () => [
       { to: '/achat/etats/tva', libelle: 'État de la TVA déductible', Icone: Percent },
       { to: '/achat/etats/avances', libelle: 'Suivi des avances', Icone: HandCoins },
       { to: '/achat/etats/retenues-garantie', libelle: 'Suivi des retenues de garantie', Icone: ShieldCheck },
+      { to: '/achat/rapports', libelle: 'Rapports', Icone: FileBarChart },
     ],
   },
   {
