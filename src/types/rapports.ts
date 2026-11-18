@@ -1,7 +1,7 @@
 // Miroir des DTO de FEATURE-tdb-vente-rapports-socle.md §4 (hub « Rapports »). Noms du fil exacts.
 
 /** Slug du module dans l'URL `/api/rapports/{module}`. */
-export type ModuleRapport = 'vente' | 'patrimoine' | 'administration';
+export type ModuleRapport = 'vente' | 'patrimoine' | 'achat' | 'administration';
 
 export type TypeParametre = 'TRANCHES' | 'COMMERCIAUX' | 'DATE' | 'ANNEE' | 'ENTIER' | 'TEXTE' | 'CHOIX' | 'BOOLEEN';
 

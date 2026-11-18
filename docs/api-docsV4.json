@@ -31062,7 +31062,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
+            "description": "Module : vente, patrimoine, achat ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -31105,7 +31105,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
+            "description": "Module : vente, patrimoine, achat ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -31155,7 +31155,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
+            "description": "Module : vente, patrimoine, achat ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -31286,7 +31286,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
+            "description": "Module : vente, patrimoine, achat ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -45719,6 +45719,441 @@
           },
           "400": {
             "description": "Filtre mal formé ou format autre que xlsx."
+          }
+        }
+      }
+    },
+    "/api/achat/etats/{etat}/export": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Export Excel d'un état : mêmes filtres et mêmes lignes, ligne Total",
+        "operationId": "exporterEtat",
+        "parameters": [
+          {
+            "name": "etat",
+            "in": "path",
+            "description": "État exporté.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tva-deductible",
+                "avances",
+                "retenues-garantie"
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Début de période, date de pièce incluse, obligatoire.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Fin de période, date de pièce incluse jusqu'à minuit, obligatoire.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.id) ; une société non habilitée ne rend rien.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; hors périmètre ignoré ; exclut les pièces sans projet.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "tiers",
+            "in": "query",
+            "description": "Fournisseur : texte contenu dans son nom (CfgTier.Description).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "description": "Projet : texte contenu dans son code ou sa description.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lot",
+            "in": "query",
+            "description": "Lot : texte contenu dans son code ou sa description (PrjMarket).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille DONNEES (+ PAR_MOIS pour la TVA).",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "du ou au absent ou mal formé, du après au, filtre mal formé. Format autre que xlsx."
+          },
+          "403": {
+            "description": "Droit de l'écran absent (et .toolExport pour les suivis)."
+          },
+          "404": {
+            "description": "État inconnu."
+          }
+        }
+      }
+    },
+    "/api/achat/etats/tva-deductible": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "État de la TVA déductible : lignes des factures de la période, cumul par mois, totaux",
+        "description": "Écran OMRAN « Etat de la TVA déductible » (FEATURE-n7-etats-achat.md R1-R4). Factures (`DocType = 'INVOICE'`) **visibles** (même règle que la liste : société habilitée et projet habilité ou sans projet, aucune exemption de rôle ; OMRAN n'en applique aucune) datées de `du` à `au` inclus (`DocDate < au + 1 jour`) ; avoirs non déduits. Une ligne par ligne de facture : montant HT = (PU − PU × remise) × quantité, montant TVA = HT × taux, non arrondis ; `parMois` et les totaux somment ces valeurs exactes puis arrondissent à 2 décimales (comme OMRAN). Une facture **sans ligne** (invisible d'OMRAN) donne une ligne `sansLignes = true` lue sur l'en-tête (`AmountHT`, `AmountVat`, taux = TVA / HT). Une facture dont le statut est de type « Annulation » est listée (`annulee = true`) mais exclue de `parMois` et des totaux. `montantTvaValidee` = TVA des factures dont le statut est validé en comptabilité (`IsValidatedOnAccounting`), `montantTvaEnAttente` = le reste. `tiers`, `projet`, `lot` filtrent comme pour les suivis.",
+        "operationId": "tvaDeductible",
+        "parameters": [
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Début de période, date de pièce incluse, obligatoire.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Fin de période, date de pièce incluse jusqu'à minuit, obligatoire.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.id) ; une société non habilitée ne rend rien.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; hors périmètre ignoré ; exclut les pièces sans projet.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "tiers",
+            "in": "query",
+            "description": "Fournisseur : texte contenu dans son nom (CfgTier.Description).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "description": "Projet : texte contenu dans son code ou sa description.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lot",
+            "in": "query",
+            "description": "Lot : texte contenu dans son code ou sa description (PrjMarket).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État ; vide et totaux à zéro si aucune facture visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtatTvaDeductibleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "du ou au absent ou mal formé, du après au, filtre mal formé."
+          },
+          "403": {
+            "description": "Droit OMRAN Yes.Buy.Front.Tdb.VatStatement absent."
+          }
+        }
+      }
+    },
+    "/api/achat/etats/retenues-garantie": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Suivi des retenues de garantie de la période : lignes et totaux hors pièces annulées",
+        "description": "Écran OMRAN « Suivi des retenues de garantie » (`BuyMonitoringWarrantyView` recalculée, FEATURE-n7-etats-achat.md R6). Mêmes pièces, filtres et tri que `GET /api/achat/etats/avances`. Si `WarrantyAmount` est non nul, une ligne `retenue` = ce montant (négatif pour un avoir) ; si la nature est une restitution de retenue de garantie, une ligne `penalite` = `AmountRegul`, `rembourse` = `AmountToPay` (la pénalité n'entre pas dans le cumul de retenue). Pièces annulées listées, exclues des totaux.",
+        "operationId": "retenuesGarantie",
+        "parameters": [
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Début de période, date de pièce incluse, obligatoire.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Fin de période, date de pièce incluse jusqu'à minuit, obligatoire.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.id) ; une société non habilitée ne rend rien.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; hors périmètre ignoré ; exclut les pièces sans projet.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "tiers",
+            "in": "query",
+            "description": "Fournisseur : texte contenu dans son nom (CfgTier.Description).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "description": "Projet : texte contenu dans son code ou sa description.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lot",
+            "in": "query",
+            "description": "Lot : texte contenu dans son code ou sa description (PrjMarket).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suivi ; vide et totaux à zéro si aucune pièce visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuiviRetenuesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "du ou au absent ou mal formé, du après au, filtre mal formé."
+          },
+          "403": {
+            "description": "Droit OMRAN Yes.Buy.Front.Tdb.BuyMonitoringWarrantyView absent."
+          }
+        }
+      }
+    },
+    "/api/achat/etats/avances": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Suivi des avances de la période : lignes et totaux hors pièces annulées",
+        "description": "Écran OMRAN « Suivi des avances » (`BuyMonitoringAdvanceView` recalculée sur les tables, FEATURE-n7-etats-achat.md R5). Pièces visibles (règle de la liste) datées de `du` à `au` inclus. Une pièce peut donner deux lignes : si `AdvanceAmount` ou `WorkingOutAdvanceAmount` est non nul, une ligne `amortissement` = leur somme (négative pour un avoir) ; si sa nature (`StrEntityId`) est une avance (sur marché, sur décompte, sur commande, sur commande multi-fournisseur), une ligne `avance` = `AmountToPay`, `ajustement` = `AmountRegul`. Pièces annulées listées (`annulee = true`), exclues des totaux. `tiers`, `projet`, `lot` : texte contenu dans le nom du fournisseur, le code ou la description du projet, du lot. Pièce sans fournisseur gardée (colonne vide). Tri par date puis code.",
+        "operationId": "avances_1",
+        "parameters": [
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Début de période, date de pièce incluse, obligatoire.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Fin de période, date de pièce incluse jusqu'à minuit, obligatoire.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.id) ; une société non habilitée ne rend rien.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.id), paramètre répété ; hors périmètre ignoré ; exclut les pièces sans projet.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "tiers",
+            "in": "query",
+            "description": "Fournisseur : texte contenu dans son nom (CfgTier.Description).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "description": "Projet : texte contenu dans son code ou sa description.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lot",
+            "in": "query",
+            "description": "Lot : texte contenu dans son code ou sa description (PrjMarket).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suivi ; vide et totaux à zéro si aucune pièce visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuiviAvancesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "du ou au absent ou mal formé, du après au, filtre mal formé."
+          },
+          "403": {
+            "description": "Droit OMRAN Yes.Buy.Front.Tdb.BuyMonitoringAdvanceView absent."
           }
         }
       }
@@ -82067,6 +82502,357 @@
           "total": {
             "$ref": "#/components/schemas/PositionFournisseurDto",
             "description": "Somme des lignes rendues ; fournisseurId, societeId et societeCode nuls."
+          }
+        }
+      },
+      "EtatTvaDeductibleDto": {
+        "type": "object",
+        "description": "État de la TVA déductible : lignes des factures de la période, cumul par mois et totaux hors annulées.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Une ligne par ligne de facture, une seule pour une facture sans ligne ; par date, code, ordre.",
+            "items": {
+              "$ref": "#/components/schemas/LigneTvaDeductibleDto"
+            }
+          },
+          "parMois": {
+            "type": "array",
+            "description": "Un élément par mois ayant au moins une facture non annulée, par mois croissant.",
+            "items": {
+              "$ref": "#/components/schemas/MoisTvaDeductibleDto"
+            }
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxTvaDeductibleDto"
+          }
+        }
+      },
+      "LigneTvaDeductibleDto": {
+        "type": "object",
+        "description": "Ligne de l'état de la TVA déductible.",
+        "properties": {
+          "factureId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Facture (BuyDocument.PKey)."
+          },
+          "factureCode": {
+            "type": "string",
+            "description": "Code de la facture."
+          },
+          "dateFacture": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la facture (DocDate)."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Libellé du statut de la facture, null sans statut."
+          },
+          "annulee": {
+            "type": "boolean",
+            "description": "Vrai si le statut est de type Annulation : ligne listée, exclue des totaux."
+          },
+          "fournisseur": {
+            "type": "string",
+            "description": "Nom du fournisseur (CfgTier.Description), null sans fournisseur."
+          },
+          "projet": {
+            "type": "string",
+            "description": "Description du projet, null sans projet."
+          },
+          "societe": {
+            "type": "string",
+            "description": "Description de la société."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de la ligne ; celle de la facture si sansLignes."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité de la ligne, null si sansLignes."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT de la ligne, null si sansLignes."
+          },
+          "remisePct": {
+            "type": "number",
+            "description": "Remise en pourcentage (DiscountRatio × 100), null si sansLignes."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT exact, non arrondi."
+          },
+          "tauxTvaPct": {
+            "type": "number",
+            "description": "Taux de TVA en pourcentage (VatRatio × 100)."
+          },
+          "montantTva": {
+            "type": "number",
+            "description": "Montant TVA = montant HT × taux, exact, non arrondi."
+          },
+          "sansLignes": {
+            "type": "boolean",
+            "description": "Vrai pour une facture sans ligne : montants lus sur l'en-tête (AmountHT, AmountVat)."
+          }
+        }
+      },
+      "MoisTvaDeductibleDto": {
+        "type": "object",
+        "description": "Cumul d'un mois, factures annulées exclues.",
+        "properties": {
+          "mois": {
+            "type": "string",
+            "format": "date",
+            "description": "Premier jour du mois.",
+            "example": "2026-01-01"
+          },
+          "factures": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de factures distinctes."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Σ des montants HT."
+          },
+          "montantTva": {
+            "type": "number",
+            "description": "Σ des montants TVA."
+          }
+        }
+      },
+      "TotauxTvaDeductibleDto": {
+        "type": "object",
+        "description": "Totaux de l'état, factures annulées exclues.",
+        "properties": {
+          "factures": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de factures distinctes."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Σ des montants HT."
+          },
+          "montantTva": {
+            "type": "number",
+            "description": "Σ des montants TVA (TVA déductible)."
+          },
+          "montantTvaValidee": {
+            "type": "number",
+            "description": "Σ TVA des factures dont le statut est validé en comptabilité."
+          },
+          "montantTvaEnAttente": {
+            "type": "number",
+            "description": "Σ TVA des autres factures (en attente de validation)."
+          }
+        }
+      },
+      "LigneSuiviRetenueDto": {
+        "type": "object",
+        "description": "Ligne du suivi des retenues de garantie : colonnes de la pièce et trois montants.",
+        "properties": {
+          "pieceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pièce (BuyDocument.PKey) : lien vers la fiche."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pièce."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de la pièce."
+          },
+          "nature": {
+            "type": "string",
+            "description": "Entité fonctionnelle (StrEntity.Description), null sans entité."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Libellé du statut, null sans statut."
+          },
+          "annulee": {
+            "type": "boolean",
+            "description": "Vrai si le statut est de type Annulation : ligne listée, exclue des totaux."
+          },
+          "fournisseur": {
+            "type": "string",
+            "description": "Nom du fournisseur (CfgTier.Description), null sans fournisseur."
+          },
+          "projet": {
+            "type": "string",
+            "description": "Description du projet, null sans projet."
+          },
+          "societe": {
+            "type": "string",
+            "description": "Description de la société."
+          },
+          "lot": {
+            "type": "string",
+            "description": "Description du lot (PrjMarket), null sans lot."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey), null sans lot."
+          },
+          "retenue": {
+            "type": "number",
+            "description": "Retenue de garantie (WarrantyAmount) de la pièce, négative pour un avoir."
+          },
+          "penalite": {
+            "type": "number",
+            "description": "Pénalité : régularisation (AmountRegul) d'une restitution, hors cumul de retenue."
+          },
+          "rembourse": {
+            "type": "number",
+            "description": "Remboursé : à payer (AmountToPay) d'une pièce de restitution, 0 sinon."
+          }
+        }
+      },
+      "SuiviRetenuesDto": {
+        "type": "object",
+        "description": "Suivi des retenues de garantie : lignes de la période et totaux hors annulées.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneSuiviRetenueDto"
+            }
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxSuiviRetenuesDto"
+          }
+        }
+      },
+      "TotauxSuiviRetenuesDto": {
+        "type": "object",
+        "description": "Totaux du suivi des retenues de garantie, pièces annulées exclues.",
+        "properties": {
+          "retenue": {
+            "type": "number",
+            "description": "Σ des retenues."
+          },
+          "penalite": {
+            "type": "number",
+            "description": "Σ des pénalités."
+          },
+          "rembourse": {
+            "type": "number",
+            "description": "Σ des remboursements."
+          }
+        }
+      },
+      "LigneSuiviAvanceDto": {
+        "type": "object",
+        "description": "Ligne du suivi des avances : colonnes de la pièce et trois montants.",
+        "properties": {
+          "pieceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pièce (BuyDocument.PKey) : lien vers la fiche."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pièce."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de la pièce."
+          },
+          "nature": {
+            "type": "string",
+            "description": "Entité fonctionnelle (StrEntity.Description), null sans entité."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Libellé du statut, null sans statut."
+          },
+          "annulee": {
+            "type": "boolean",
+            "description": "Vrai si le statut est de type Annulation : ligne listée, exclue des totaux."
+          },
+          "fournisseur": {
+            "type": "string",
+            "description": "Nom du fournisseur (CfgTier.Description), null sans fournisseur."
+          },
+          "projet": {
+            "type": "string",
+            "description": "Description du projet, null sans projet."
+          },
+          "societe": {
+            "type": "string",
+            "description": "Description de la société."
+          },
+          "lot": {
+            "type": "string",
+            "description": "Description du lot (PrjMarket), null sans lot."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey), null sans lot."
+          },
+          "avance": {
+            "type": "number",
+            "description": "Avance : à payer (AmountToPay) d'une pièce de nature avance, 0 sinon."
+          },
+          "ajustement": {
+            "type": "number",
+            "description": "Ajustement : régularisation (AmountRegul) d'une pièce de nature avance, 0 sinon."
+          },
+          "amortissement": {
+            "type": "number",
+            "description": "Amortissement : avance + avance sur décompte retenues sur la pièce, négatif pour un avoir."
+          }
+        }
+      },
+      "SuiviAvancesDto": {
+        "type": "object",
+        "description": "Suivi des avances : lignes de la période (une pièce peut en donner deux) et totaux hors annulées.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneSuiviAvanceDto"
+            }
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxSuiviAvancesDto"
+          }
+        }
+      },
+      "TotauxSuiviAvancesDto": {
+        "type": "object",
+        "description": "Totaux du suivi des avances, pièces annulées exclues.",
+        "properties": {
+          "avance": {
+            "type": "number",
+            "description": "Σ des avances."
+          },
+          "ajustement": {
+            "type": "number",
+            "description": "Σ des ajustements."
+          },
+          "amortissement": {
+            "type": "number",
+            "description": "Σ des amortissements."
           }
         }
       },

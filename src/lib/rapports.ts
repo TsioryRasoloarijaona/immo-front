@@ -8,6 +8,7 @@ import type { ColonneRapportDto, ModuleRapport, ParametreRapportDto, ValeurRappo
 const CHEMINS_RAPPORTS: Record<ModuleRapport, string> = {
   vente: '/rapports',
   patrimoine: '/patrimoine-rapports',
+  achat: '/achat/rapports',
   administration: '/administration/rapports',
 };
 
