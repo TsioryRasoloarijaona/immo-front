@@ -8,11 +8,9 @@ import { Input } from '../ui/input';
 import DialogueReferentiel from './DialogueReferentiel';
 import FiltreSeuils from './FiltreSeuils';
 import { listLignesReferentiel, supprimerLigneReferentiel } from '../../lib/apiReferentielsAdmin';
-import { useAuth } from '../../lib/auth';
 import { texteBrut } from '../../lib/format';
 import { colonnesReferentiel } from '../../lib/colonnesReferentiel';
 import { useConfirm } from '../../lib/confirmContext';
-import { estAdministrateur } from '../../lib/roles';
 import { estProtegee, filtresTranche, TOUTES, useChoixReferentiel, type LigneAvecId } from '../../lib/referentielsAdmin';
 import { useToast } from '../../lib/toastContext';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
@@ -20,8 +18,6 @@ import type { DescripteurReferentielDto } from '../../types/referentielsAdmin';
 
 /** Lignes d'un référentiel : lecture pour tous, création / modification / suppression pour l'Administrateur. */
 export default function TableReferentiel({ descripteur }: Readonly<{ descripteur: DescripteurReferentielDto }>) {
-  const { user } = useAuth();
-  const admin = estAdministrateur(user);
   const confirm = useConfirm();
   const toast = useToast();
   const [recherche, setRecherche] = useState('');
@@ -55,7 +51,7 @@ export default function TableReferentiel({ descripteur }: Readonly<{ descripteur
 
   const colonnes = useMemo<ColonneGrille<LigneAvecId>[]>(() => {
     const base = colonnesReferentiel(descripteur.champs, choix);
-    if (!admin || descripteur.lectureSeule) return base;
+    if (!descripteur.peutEcrire && !descripteur.peutSupprimer) return base;
     return [...base, {
       nom: 'actions', libelle: 'Actions', largeur: 10, sansSomme: true,
       rendu: (l) => {
@@ -63,18 +59,22 @@ export default function TableReferentiel({ descripteur }: Readonly<{ descripteur
         return (
           <div className="flex items-center justify-end gap-1">
             {protegee && <Badge tone="neutral">Protégé</Badge>}
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier la ligne" onClick={() => setDialogue(l)}><Pencil /></Button>
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer la ligne" disabled={protegee}
-              title={protegee ? `Code protégé (${texteBrut(l.code)}) : suppression impossible.` : undefined}
-              onClick={() => void supprimer(l)}>
-              <Trash2 />
-            </Button>
+            {descripteur.peutEcrire && (
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier la ligne" onClick={() => setDialogue(l)}><Pencil /></Button>
+            )}
+            {descripteur.peutSupprimer && (
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer la ligne" disabled={protegee}
+                title={protegee ? `Code protégé (${texteBrut(l.code)}) : suppression impossible.` : undefined}
+                onClick={() => void supprimer(l)}>
+                <Trash2 />
+              </Button>
+            )}
           </div>
         );
       },
     }];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- supprimer ne dépend que de descripteur
-  }, [descripteur, choix, admin]);
+  }, [descripteur, choix]);
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
@@ -86,8 +86,10 @@ export default function TableReferentiel({ descripteur }: Readonly<{ descripteur
           {descripteur.slug === 'types-presentation' && (
             <ActionAdmin to="/articles/import?type=presentations" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />
           )}
-          {!descripteur.lectureSeule && (
-            <ActionAdmin libelle="Nouvelle ligne" icone={<Plus data-icon="inline-start" />} onClick={() => setDialogue('creation')} />
+          {descripteur.peutEcrire && (
+            <Button type="button" size="sm" onClick={() => setDialogue('creation')}>
+              <Plus data-icon="inline-start" /> Nouvelle ligne
+            </Button>
           )}
         </div>
       </div>
