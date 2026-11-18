@@ -99,6 +99,10 @@ export const COLONNES_BORDEREAU_LIGNES: ColonneGrille<LigneBordereauDto>[] = [
 
 export type LignePrevision = PointPrevisionDto & { id: string };
 
+/** Séries du graphe des prévisions (lot et projet) ; le libellé de chacune dépend de l'écran. */
+export const COULEURS_PREVISIONS = { estimation: '#16a34a', prevision: '#2563eb', reel: '#dc2626' };
+export type SeriePrevision = keyof typeof COULEURS_PREVISIONS;
+
 export const COLONNES_PREVISIONS: ColonneGrille<LignePrevision>[] = [
   { nom: 'mois', libelle: 'Mois', rendu: (r) => moisCourt(r.mois) },
   { nom: 'estimation', libelle: 'Estimation de base', type: 'MONTANT', classe: MONTANT },

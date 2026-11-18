@@ -15,6 +15,7 @@ export const arbreProjet: ArbreModule = ({ user }) => [
       { to: '/projet/lots', libelle: 'Lots', Icone: ListChecks, couleur: COULEUR },
       { to: '/projet/decomptes', libelle: 'Décomptes', Icone: FileText, couleur: COULEUR },
       { to: '/projet/reunions', libelle: 'Réunions chantier', Icone: CalendarClock, couleur: COULEUR },
+      { to: '/projet/previsions', libelle: 'Prévisions', Icone: LineChart, couleur: COULEUR },
     ],
   },
   {

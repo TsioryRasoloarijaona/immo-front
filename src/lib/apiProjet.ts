@@ -1,5 +1,5 @@
 // Endpoints de FEATURE-projet-lots-decomptes.md §2.1 : lots et décomptes (lecture). Hors périmètre = 404 comme un id inconnu.
-import { request, withPageable } from './api';
+import { API_BASE_URL, fetchByteEndpointBlob, request, triggerBlobDownload, withPageable } from './api';
 import type { PageDto, Pageable, UUID } from '../types';
 import type {
   AlignementPrevisionsDto,
@@ -24,6 +24,10 @@ import type {
   BordereauEstimatifDto,
   BordereauSaisieDto,
   PrevisionsLotDto,
+  PrevisionsChantierDto,
+  PrevisionsChantierRequest,
+  PrevisionsProjetDto,
+  ProjetPrevisionOptionDto,
   PrevisionsSaisieLotDto,
   PrevisionsSaisieRequest,
   RemboursementsLotDto,
@@ -47,6 +51,7 @@ import type {
 } from '../types/projet';
 
 const RACINE = '/api/projet';
+const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const LOTS = `${RACINE}/lots`;
 const DECOMPTES = `${RACINE}/decomptes`;
 
@@ -307,4 +312,31 @@ export function updateModeleSimulation(id: UUID, corps: ModeleSimulationSaisieDt
 
 export function deleteModeleSimulation(id: UUID): Promise<void> {
   return request('DELETE', `${MODELES}/${id}`);
+}
+
+// Prévisions des lots d'un projet (FEATURE-n4-previsions-chantier.md N4a) : 403 sans droit d'écran, 404 projet non habilité.
+const PREVISIONS = `${RACINE}/previsions`;
+
+export function getProjetsPrevisions(): Promise<ProjetPrevisionOptionDto[]> {
+  return request('GET', `${PREVISIONS}/projets`);
+}
+
+export function getPrevisionsProjet(projetId: UUID): Promise<PrevisionsProjetDto> {
+  return request('GET', PREVISIONS, { query: { projetId } });
+}
+
+export async function exporterPrevisionsProjet(projetId: UUID, nomFichier: string): Promise<void> {
+  const url = `${API_BASE_URL}${PREVISIONS}/export?projetId=${encodeURIComponent(projetId)}`;
+  triggerBlobDownload(await fetchByteEndpointBlob(url, XLSX), nomFichier);
+}
+
+// Prévisions chantier (N4b) : 404 → 403 (droit BuildingPrevision) ; PUT 409 sans nivellement, 400 grille invalide.
+const previsionsChantier = (id: UUID) => `${RACINE}/config/projets/${id}/previsions-chantier`;
+
+export function getPrevisionsChantier(id: UUID): Promise<PrevisionsChantierDto> {
+  return request('GET', previsionsChantier(id));
+}
+
+export function putPrevisionsChantier(id: UUID, corps: PrevisionsChantierRequest): Promise<PrevisionsChantierDto> {
+  return request('PUT', previsionsChantier(id), { body: corps });
 }

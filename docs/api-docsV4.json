@@ -372,6 +372,10 @@
       "description": "Compteurs eau, électricité et gaz de l'article du dossier (bouton « Compteurs »)."
     },
     {
+      "name": "Projet — configuration, prévisions chantier",
+      "description": "Bouton « Prévisions chantier » de la fiche projet de configuration : prévisions de main-d'œuvre du projet par type de travaux (`PrjProjectBuildingPrevision` × `GrhWorkedDayType`). Administrateur seul (règle d'URL de la configuration projet) **et** droit OMRAN `Yes.Prj.Front.Definition.Project.ProjectList.BuildingPrevision`. Ordre des refus : 404 projet inconnu, puis 403. Voir `instructions/FEATURE-n4-previsions-chantier.md` (N4b)."
+    },
+    {
       "name": "Sessions (administration)",
       "description": "Sessions OMRAN (`AdmWebSessions`) : l'écran « Sessions » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). L'identifiant de session (`WebSession`) n'est jamais exposé. Voir `instructions/FEATURE-admin-sessions.md`."
     },
@@ -3887,6 +3891,122 @@
         }
       }
     },
+    "/api/projet/config/projets/{id}/previsions-chantier": {
+      "get": {
+        "tags": [
+          "Projet — configuration, prévisions chantier"
+        ],
+        "summary": "Grille des prévisions chantier du projet et types de travaux",
+        "description": "`actif` = le projet a un nivellement (`StkLevelingId`) ; sans lui la grille se lit mais ne s'enregistre pas (OMRAN grise le bouton). `totalHT` = PU HT × quantité, `totalTTC` = `totalHT` × (1 + TVA), calculés à la lecture (valeur absente comptée 0). TVA en pourcentage 0–100 sur le fil, en ratio en base.",
+        "operationId": "lire_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Rôle Administrateur ou droit OMRAN ProjectList.BuildingPrevision absent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsChantierDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsChantierDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projet — configuration, prévisions chantier"
+        ],
+        "summary": "Remplace la grille des prévisions chantier ; réponse = grille relue",
+        "description": "Remplace la grille entière : une ligne existante du même type de travaux est mise à jour en place (même `id`), un type nouveau crée une ligne, une ligne dont le type n'est plus envoyé est supprimée. Tout est validé avant la première écriture : 409 sans nivellement ; 400 si `lignes` est absente, si un type est absent, inconnu ou présent deux fois, si quantité, PU HT ou TVA est négatif ou dépasse `decimal(26,6)`, si les notes dépassent 1000 caractères. Trace `UserCreate*` / `UserUpdate*` remplie.",
+        "operationId": "modifier_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrevisionsChantierRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Type absent, inconnu ou en double ; valeur négative ou trop grande.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsChantierDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle Administrateur ou droit OMRAN ProjectList.BuildingPrevision absent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsChantierDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsChantierDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Le projet n'a pas de nivellement.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsChantierDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projet/config/projets/{id}/criteres/{ligneId}": {
       "put": {
         "tags": [
@@ -4061,7 +4181,7 @@
         ],
         "summary": "Modifie un modèle ; un nouveau contenu crée une nouvelle version",
         "description": "Champs absents = inchangés. `contenu` ou `miseEnPage` présent = nouvelle version (le champ absent des deux est repris\nde la version courante). `libelle`, `ordre` et `actif` seuls ne créent pas de version. Une image citée qui n'a pas été\ndéposée → 400 « Image inconnue ».",
-        "operationId": "modifier_4",
+        "operationId": "modifier_5",
         "parameters": [
           {
             "name": "id",
@@ -4477,7 +4597,7 @@
         ],
         "summary": "Arbre du bilan de l'étude, totaux des racines et bilan",
         "description": "`lignes` : l'arbre à plat, parent avant enfants, frères par `Sorting` puis libellé. Montant d'une ligne par unité =\nquantité de la ligne d'unité × ratio ; en pourcentage = total HT (enfants compris) de la catégorie de référence × ratio ;\nTTC = HT × (1 + TVA), sauf quote-part du terrain (case de l'étude, unité surface à catégorie d'article) : HT + (HT −\ncoût du terrain / plancher vendable × quantité) × TVA. Total d'un nœud = propre + enfants ; `poids` = total TTC / total\nTTC de sa racine. Lignes liées aux relations « prix du terrain », « frais d'enregistrement », « autres frais » et\n« intérêts du crédit » (si une catégorie y est configurée) : ajoutées par le serveur, montant imposé, `verrouillee`.\n`totaux.terrainNonInclus` vrai quand la relation « prix du terrain » n'a pas de catégorie (cas de la production).",
-        "operationId": "lire_3",
+        "operationId": "lire_4",
         "parameters": [
           {
             "name": "id",
@@ -4945,7 +5065,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Modifie une demande de modification",
-        "operationId": "modifier_5",
+        "operationId": "modifier_6",
         "parameters": [
           {
             "name": "id",
@@ -5059,7 +5179,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Modifie un cadeau (livraison, bon, notes ; la raison selon le droit)",
-        "operationId": "modifier_6",
+        "operationId": "modifier_7",
         "parameters": [
           {
             "name": "id",
@@ -5386,7 +5506,7 @@
         ],
         "summary": "Champs spécifiques d'un objet et leurs valeurs, triés par groupe puis ordre",
         "description": "Toutes les définitions du porteur, triées `CategorySorting`, `Category`, `Sorting`. `valeur` = valeur enregistrée pour\nl'objet, sinon la valeur par défaut de la définition.",
-        "operationId": "lire_4",
+        "operationId": "lire_5",
         "parameters": [
           {
             "name": "porteur",
@@ -5601,7 +5721,7 @@
           "Tiers (administration)"
         ],
         "summary": "Fiche d'un tiers",
-        "operationId": "lire_5",
+        "operationId": "lire_6",
         "parameters": [
           {
             "name": "famille",
@@ -5647,7 +5767,7 @@
         ],
         "summary": "Remplace les champs de la fiche (champ omis = vidé)",
         "description": "Mêmes contrôles qu'à la création. Le corps remplace la fiche : un champ omis est vidé. Le code ne change pas, sauf pour les banques et organismes, où il se modifie sous la même règle d'unicité ; leurs colonnes hors de la liste de `creer` restent telles quelles. Personnels : les champs ignorés à la création et les colonnes de paie restent tels quels.",
-        "operationId": "modifier_7",
+        "operationId": "modifier_8",
         "parameters": [
           {
             "name": "famille",
@@ -5844,7 +5964,7 @@
         ],
         "summary": "Modifie l'en-tête, les lignes et les ventilations d'une pièce d'achat",
         "description": "La nature, le numéro, la gestion, le statut, les liens (dont `ligneBordereauId`) et les retenues ne changent jamais ; `sources` est ignoré. Les lignes du corps remplacent celles de la pièce (id connu = mise à jour, null = nouvelle, absente = supprimée) ; un `declencheurId` null efface le déclencheur. Ordre des refus : 404 → 409 gérée ailleurs → 403 → 409 lecture seule → 400 → 409 quantités du bon de commande.\n\nAvoir : la facture source, le lot et le numéro ne changent jamais (`lotId` du corps ignoré) ; `avoirFinancier` null garde la valeur stockée ; sans ligne, `montantHT` + `montantTVA` fixent les totaux ; le net à payer de la facture source est recalculé.",
-        "operationId": "modifier_8",
+        "operationId": "modifier_9",
         "parameters": [
           {
             "name": "id",
@@ -20510,7 +20630,7 @@
           "Utilisateurs (admin)"
         ],
         "summary": "Modifie un compte (null = inchangé, \"\" = vidé pour les textes, code ignoré)",
-        "operationId": "modifier_9",
+        "operationId": "modifier_10",
         "parameters": [
           {
             "name": "id",
@@ -20631,7 +20751,7 @@
         ],
         "summary": "Modifie une tranche (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé. Pour vider : `champsAVider: [\"dateOctroiTitresFonciers\", \"standingId\"]` — date\net référence → NULL, nombre → 0, case → faux, texte → `\"\"` (jamais NULL là où OMRAN écrit une valeur). Nom inconnu,\nchamp obligatoire (`code`, `description`, `projetId`) ou champ à la fois listé et renseigné → 400 dont le `detail`\nnomme `champsAVider`. Une référence inconnue (standing, niveau, rubrique, personnel, tiers, projet de facturation,\nplan comptable) → 400 nommant le champ. Crédit max > 100 % → 400.",
-        "operationId": "modifier_10",
+        "operationId": "modifier_11",
         "parameters": [
           {
             "name": "id",
@@ -20715,7 +20835,7 @@
         ],
         "summary": "Fiche terrain, coût total et coût unitaire final calculés à la lecture",
         "description": "`coutTotal` = Σ des montants de ses frais (validés ou non) et `coutUnitaireFinal` = `coutTotal` / surface définitive\n(0 si la surface est nulle) sont calculés à chaque lecture, jamais stockés. `sousTerrainsAutorises` reflète le statut\ndu terrain (case OMRAN « Créer un sous-terrain ») : aucun statut de production ne l'a aujourd'hui.",
-        "operationId": "lire_6",
+        "operationId": "lire_7",
         "parameters": [
           {
             "name": "id",
@@ -20784,7 +20904,7 @@
         ],
         "summary": "Modifie un terrain (champ absent ou null = inchangé)",
         "description": "Mêmes contrôles qu'à la création. Terrain occupé (dossier de vente ou de location) : surfaces, prix au m² HT/TTC,\nTVA et titre foncier → 409, ligne inchangée. `estTermine` ne se modifie pas sur un sous-terrain ou un terrain issu\nd'une prospection foncière (400). `champsAVider` : `niveauId`, `vocationTerrainId`, `orientationId`,\n`categorieChargeId`, `fournisseurId`, les dates et les textes facultatifs.",
-        "operationId": "modifier_11",
+        "operationId": "modifier_12",
         "parameters": [
           {
             "name": "id",
@@ -20902,7 +21022,7 @@
         ],
         "summary": "Modifie un sous-article libre (champ absent ou null = inchangé), ou le rattache",
         "description": "Sous-article **libre** seulement : un rattaché → 409 (lecture seule, voir l'en-tête) ; un article principal → 404.\nMêmes champs que `PATCH /api/articles/{id}`, `vocationId` compris. `parentId` rattache le sous-article (mêmes règles\nqu'à la création, prix du parent recalculé) ; `toujoursAffecte` vrai exige `parentId` (400) ; `parentId` dans\n`champsAVider` → 400 (désaffecter par la route de la fiche parent).",
-        "operationId": "modifier_12",
+        "operationId": "modifier_13",
         "parameters": [
           {
             "name": "id",
@@ -21602,7 +21722,7 @@
         ],
         "summary": "Fiche d'une prospection terrain, zones et terrain issu compris",
         "description": "`peutTransformer` = Administrateur, aucun terrain issu, statut courant avec la case « Transformer en terrain »\n(`BoolField001`) et superficie > 0 ; sinon `motifNonTransformable` donne le refus. `terrainId` / `terrainCode` : terrain\n(`StkItem.LndLandId`) créé depuis la prospection.",
-        "operationId": "lire_7",
+        "operationId": "lire_8",
         "parameters": [
           {
             "name": "id",
@@ -21671,7 +21791,7 @@
         ],
         "summary": "Modifie une prospection terrain (champ absent ou null = inchangé)",
         "description": "Mêmes contrôles sur la valeur résultante (corps sinon base), dont le total des zones ≤ superficie nette (« la\nsuperficies des zones ne doit pas dépasser la superficie nette du terrain ! »). Paire coefficient / montant : un montant\nenvoyé sans son coefficient en dérive le coefficient, sinon le montant suit le coefficient ; `coefEquipements`,\n`superficieNette`, `superficieHabitat` sont ignorés. Statut d'échec ou d'annulation : la prospection est réarchivée, sauf\n`estArchivee` explicite dans le corps. `champsAVider` : références facultatives, dates, textes facultatifs. 409 si le\nstatut courant est en lecture seule (« Cette prospection est en lecture seule dans le statut [X]. »).",
-        "operationId": "modifier_13",
+        "operationId": "modifier_14",
         "parameters": [
           {
             "name": "id",
@@ -21820,7 +21940,7 @@
         ],
         "summary": "Modifie un programme (champ absent ou null = inchangé)",
         "description": "Modifie un programme. Champ absent ou `null` = inchangé, `\"\"` = vidé (sauf code et description, obligatoires).\nPour vider une date, le pays, le signataire ou un responsable : `champsAVider: [\"dateDebutTravaux\", \"paysId\"]`\n(NULL en base ; un texte listé est écrit `\"\"`). Nom inconnu, champ obligatoire, ou champ à la fois listé et\nrenseigné → 400 dont le `detail` nomme `champsAVider`. Signataire et responsables : un tiers inconnu → 400 nommant\nle champ. La règle fin ≥ début porte sur la valeur résultante (corps, sinon base). Programme d'une entité inactive\n→ 404, comme toutes les routes `/api/projets/{id}…`.",
-        "operationId": "modifier_14",
+        "operationId": "modifier_15",
         "parameters": [
           {
             "name": "id",
@@ -22185,7 +22305,7 @@
         ],
         "summary": "Enregistrer la fiche d'un lot (champ absent = inchangé, null = vidé)",
         "description": "Enregistre la fiche (`FEATURE-lot-fiche-parite.md` E6). Le corps ne contient que les champs à changer : **absent =\ninchangé**, `null` explicite = vidé (400 pour `description`, `categorieId`, `typeId`). Taux et ratios en pourcentage 0–100\n(10 → 0,1 en base). Tout autre champ (code, genre, statut, projet, multi-fournisseur, dates prévisionnelles, montants\ncalculés) répond **400** et rien n'est écrit. Ordre des refus : **404** (lot invisible) → **403** (estimation manuelle\nchangée sans le droit `Yes.Prj.Front.Market.MarketMonitoring.ManualEstimationAdministrator` : `montantForfaitaireHT/TTC`,\n`dateDebutBase`, `delaiBaseJours`, `dateFinBase` ; renvoyer la valeur stockée n'est pas un changement) → **409** (statut\ndu lot à `StrStatus.IsReadOnly = 1`) → **400** (contrôles). Chaîne des 12 dates, dans l'ordre lancement AO, retrait du\ndossier, échéance de remise des offres, report AO, ouverture des plis, rapport de dépouillement, adjudication, signature du\nmarché, ordre de service, lancement des travaux, achèvement des travaux, recollement : chaque date renseignée (après\napplication du corps) doit être ≥ chaque date renseignée qui la précède, sinon 400 nommant les deux. Estimation\nconfidentielle comme OMRAN : `montantForfaitaireHT` recalcule TVA et TTC au taux `DefaultVat`, `montantForfaitaireTTC`\nrecalcule HT et TVA, `tvaDefautPct` changé recalcule TVA et TTC depuis le HT stocké ; une valeur renvoyée identique ne\nrecalcule rien. Écrit `UserUpdate` / `UserUpdateDateTime` et une ligne d'audit ; renvoie la fiche.",
-        "operationId": "modifier_15",
+        "operationId": "modifier_16",
         "parameters": [
           {
             "name": "id",
@@ -22283,7 +22403,7 @@
         ],
         "summary": "Fiche d'un lot de terrain",
         "description": "Un id qui n'est pas un lot (terrain sans tranche, terrain LandProject, article bâti, sous-article) répond 404. Pas de\nstatut de workflow : `estOccupe` dit si le lot est affecté à un dossier.",
-        "operationId": "lire_8",
+        "operationId": "lire_9",
         "parameters": [
           {
             "name": "id",
@@ -22352,7 +22472,7 @@
         ],
         "summary": "Modifie un lot de terrain (champ absent ou null = inchangé)",
         "description": "Lot occupé : code, surfaces, prix, TVA, remises, classification, titre foncier et tranche → 409. Changer de tranche\nvide la présentation ; refusé (409) si le lot a des prospections. Une présentation d'une autre tranche → 400.",
-        "operationId": "modifier_16",
+        "operationId": "modifier_17",
         "parameters": [
           {
             "name": "id",
@@ -22668,7 +22788,7 @@
         ],
         "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
         "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel.\n`pourcentageConcretisation` et `tauxIs` : fractions entre 0 et 1 (400) ; écarts-types ≥ 0,5 (400, message OMRAN « la\nvaleur de l'écart type doit être supérieur ou égal à 0.5 ») ; `nombreArticlesAVendre` reçu est ignoré.",
-        "operationId": "modifier_17",
+        "operationId": "modifier_18",
         "parameters": [
           {
             "name": "id",
@@ -22815,7 +22935,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_18",
+        "operationId": "modifier_19",
         "parameters": [
           {
             "name": "id",
@@ -22941,7 +23061,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_19",
+        "operationId": "modifier_20",
         "parameters": [
           {
             "name": "id",
@@ -23419,7 +23539,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Compteurs de l'article principal du dossier",
-        "operationId": "lire_9",
+        "operationId": "lire_10",
         "parameters": [
           {
             "name": "id",
@@ -23470,7 +23590,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_20",
+        "operationId": "modifier_21",
         "parameters": [
           {
             "name": "id",
@@ -23610,7 +23730,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_21",
+        "operationId": "modifier_22",
         "parameters": [
           {
             "name": "id",
@@ -23731,7 +23851,7 @@
         ],
         "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
         "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` (≥ 0) la conserve au centime et recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` (fraction entre 0 et 1) recalcule la pénalité ; les montants du dossier sont relus, et une pénalité saisie est gardée tant que la base (prix, réglé, taux) ne change pas. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
-        "operationId": "modifier_22",
+        "operationId": "modifier_23",
         "parameters": [
           {
             "name": "id",
@@ -24277,7 +24397,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_23",
+        "operationId": "modifier_24",
         "parameters": [
           {
             "name": "id",
@@ -24427,7 +24547,7 @@
           "Tâches (administration)"
         ],
         "summary": "Modifie une tâche (champ absent ou null = inchangé)",
-        "operationId": "modifier_24",
+        "operationId": "modifier_25",
         "parameters": [
           {
             "name": "id",
@@ -24550,7 +24670,7 @@
           "Rôles (administration)"
         ],
         "summary": "Modifie description et restrictions (champ absent ou null = inchangé, code ignoré)",
-        "operationId": "modifier_25",
+        "operationId": "modifier_26",
         "parameters": [
           {
             "name": "id",
@@ -24673,7 +24793,7 @@
         ],
         "summary": "Modifie un rendez-vous (champ absent ou null = inchangé)",
         "description": "Les dates comparées sont les valeurs fusionnées : un champ absent vaut la date déjà en base. La source (`sourceId`, `sourceLibelle`, `sourceEntite`) ne bouge jamais.",
-        "operationId": "modifier_26",
+        "operationId": "modifier_27",
         "parameters": [
           {
             "name": "id",
@@ -24928,7 +25048,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Fiche d'un article d'achat",
-        "operationId": "lire_10",
+        "operationId": "lire_11",
         "parameters": [
           {
             "name": "id",
@@ -24998,7 +25118,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Modifie un article d'achat (champ absent ou null = inchangé)",
-        "operationId": "modifier_27",
+        "operationId": "modifier_28",
         "parameters": [
           {
             "name": "id",
@@ -32872,6 +32992,121 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/projet/previsions": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Prévisions des lots d'un projet (lecture seule)",
+        "description": "Écran OMRAN **Projet › Prévisions** (`FEATURE-n4-previsions-chantier.md` R1-R10). Lots retenus : lots du projet avec\n`IncludedInPaymentPrevision = 1` (NULL exclu) **et** visibles du compte (statut visible d'un compte restreint) ; un lot\ninvisible n'apparaît ni dans les lignes ni dans les montants. Séries par lot identiques à\n`GET /api/projet/lots/{id}/previsions` : estimation de base simulée (Prévision), prévisions de paiement datées\n`PrjMarketPaymentPrevision` (P), pièces payables hors avoirs par échéance (R).\n\n- Prévision : `total` = Σ estimation, `due` = Σ des lignes datées avant `aujourdhui`, `reste` = `total` − `due`.\n- Prévision ajustée : `total` = ΣP + ΣR, `due` = ΣP échues + ΣR, `reste` = ΣP non échues.\n- Réel : `total` null, `due` = ΣR, `reste` = ΣP (comme OMRAN, `ProjectPrevision.cs` l.220).\n- Avancements : lots non multi-fournisseurs, poids = HT prévisionnel du lot / Σ ; mois sans point = dernière valeur\n  connue. Total = valeur du mois du jour, 0 avant le début du projet, 1 après sa fin (1ᵉʳ du mois suivant la dernière fin\n  de lot). Les listes `avancements.*` ne gardent que les mois où la valeur change.\n\nAucun arrondi côté serveur. Projet sans lot retenu : **200**, zéros et listes vides. **404** projet inconnu ou non habilité\n(même message), **403** sans droit `Yes.Prj.Front.Tdb.ProjectPrevision`, **400** `projetId` absent ou mal formé.",
+        "operationId": "previsionsProjet",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Projet (PrjProject.PKey) habilité.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Totaux, graphe, lots, décaissements et avancements ; zéros sans lot.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsProjetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "projetId absent ou mal formé."
+          },
+          "403": {
+            "description": "Droit Yes.Prj.Front.Tdb.ProjectPrevision absent."
+          },
+          "404": {
+            "description": "Projet inconnu ou non habilité (même message)."
+          }
+        }
+      }
+    },
+    "/api/projet/previsions/projets": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Projets habilités de la liste de l'écran Prévisions, triés par description",
+        "description": "Liste « Projet » de l'écran OMRAN « Prévisions des lôts » (`FEATURE-n4-previsions-chantier.md` R1) : projets de\nl'habilitation du compte (`AdmUserHabilitation.PrjProjectId`), triés par description. **403** sans le droit d'écran.",
+        "operationId": "projetsPrevisions",
+        "responses": {
+          "200": {
+            "description": "Projets de l'habilitation du compte ; vide sans habilitation.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjetPrevisionOptionDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit Yes.Prj.Front.Tdb.ProjectPrevision absent."
+          }
+        }
+      }
+    },
+    "/api/projet/previsions/export": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Export xlsx des prévisions d'un projet (8 feuilles)",
+        "description": "Classeur des mêmes chiffres que `GET /api/projet/previsions` (R11) : feuilles « GENERAL » (bloc Net à payer), « Lots »,\npuis Décaissement et Avancement de Prévision, Prévision ajustée et Réel (noms coupés à 31 caractères). Pas d'image du\ngraphe. Mêmes codes d'erreur que la lecture.",
+        "operationId": "exporterPrevisionsProjet",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Projet (PrjProject.PKey) habilité.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx : mêmes chiffres que la lecture.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "projetId absent ou mal formé."
+          },
+          "403": {
+            "description": "Droit Yes.Prj.Front.Tdb.ProjectPrevision absent."
+          },
+          "404": {
+            "description": "Projet inconnu ou non habilité (même message)."
           }
         }
       }
@@ -51676,6 +51911,173 @@
             "type": "number",
             "description": "Taux (VentilationRate), fraction : 0,25 = 25 %.",
             "example": 0.25
+          }
+        }
+      },
+      "LignePrevisionChantierSaisie": {
+        "type": "object",
+        "description": "Ligne saisie de la grille.",
+        "properties": {
+          "typeTravauxId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de travaux (GrhWorkedDayType.PKey), obligatoire et unique dans la grille."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité ≥ 0."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT ≥ 0."
+          },
+          "tva": {
+            "type": "number",
+            "description": "TVA en pourcentage ≥ 0 (stockée en ratio).",
+            "example": 20
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (≤ 1000 caractères)."
+          }
+        }
+      },
+      "PrevisionsChantierRequest": {
+        "type": "object",
+        "description": "Grille entière des prévisions chantier : remplace les lignes du projet.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes, une par type de travaux au plus ; liste vide = tout supprimer.",
+            "items": {
+              "$ref": "#/components/schemas/LignePrevisionChantierSaisie"
+            }
+          }
+        }
+      },
+      "LignePrevisionChantierDto": {
+        "type": "object",
+        "description": "Ligne de prévision chantier ; totaux calculés, jamais stockés.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjProjectBuildingPrevision.PKey."
+          },
+          "typeTravauxId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de travaux (GrhWorkedDayType.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du type de travaux."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description du type de travaux."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité du type de travaux (Unity)."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT de la ligne."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "PU HT × quantité (null compté 0)."
+          },
+          "tva": {
+            "type": "number",
+            "description": "TVA en pourcentage 0–100 (ratio en base).",
+            "example": 20
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "PU HT × quantité × (1 + TVA)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (≤ 1000 caractères)."
+          }
+        }
+      },
+      "PrevisionsChantierDto": {
+        "type": "object",
+        "description": "Prévisions chantier d'un projet : grille de main-d'œuvre par type de travaux (PrjProjectBuildingPrevision).",
+        "properties": {
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjProject.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description du projet."
+          },
+          "actif": {
+            "type": "boolean",
+            "description": "Vrai si le projet a un nivellement (StkLevelingId) ; faux = bouton grisé, PUT refusé en 409."
+          },
+          "modifiable": {
+            "type": "boolean",
+            "description": "Grille modifiable : projet actif et droit BuildingPrevision (exigé pour lire)."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la grille, par code du type de travaux.",
+            "items": {
+              "$ref": "#/components/schemas/LignePrevisionChantierDto"
+            }
+          },
+          "typesTravaux": {
+            "type": "array",
+            "description": "Tous les types de travaux (GrhWorkedDayType), par code : « Copier » et ajout de ligne.",
+            "items": {
+              "$ref": "#/components/schemas/TypeTravauxDto"
+            }
+          }
+        }
+      },
+      "TypeTravauxDto": {
+        "type": "object",
+        "description": "Type de travaux (GrhWorkedDayType) avec ses valeurs par défaut.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "GrhWorkedDayType.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité (Unity)."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT par défaut."
+          },
+          "tva": {
+            "type": "number",
+            "description": "TVA par défaut en pourcentage 0–100.",
+            "example": 20
           }
         }
       },
@@ -75485,6 +75887,287 @@
             "type": "string",
             "description": "Genre de lot, comme LotListItemDto.genre ; null si genre inconnu.",
             "example": "ENTREPRENEURS"
+          }
+        }
+      },
+      "AvancementsPrevisionDto": {
+        "type": "object",
+        "description": "Avancements du projet des trois onglets : seulement les mois où la valeur change.",
+        "properties": {
+          "prevision": {
+            "type": "array",
+            "description": "Avancement de l'estimation de base.",
+            "items": {
+              "$ref": "#/components/schemas/PointAvancementDto"
+            }
+          },
+          "previsionAjustee": {
+            "type": "array",
+            "description": "Avancement des prévisions de paiement.",
+            "items": {
+              "$ref": "#/components/schemas/PointAvancementDto"
+            }
+          },
+          "reel": {
+            "type": "array",
+            "description": "Avancement des décomptes facturés.",
+            "items": {
+              "$ref": "#/components/schemas/PointAvancementDto"
+            }
+          }
+        }
+      },
+      "DecaissementPrevisionDto": {
+        "type": "object",
+        "description": "Ligne de décaissement d'un lot.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de paiement prévue ou d'échéance."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey)."
+          },
+          "lot": {
+            "type": "string",
+            "description": "Description du lot."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé : ligne simulée, description de la prévision ou code de la pièce."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant net à payer."
+          },
+          "nature": {
+            "type": "string",
+            "description": "PREVISION ou REEL dans la Prévision ajustée ; null ailleurs."
+          }
+        }
+      },
+      "DecaissementsPrevisionDto": {
+        "type": "object",
+        "description": "Lignes de décaissement des trois onglets, triées par date.",
+        "properties": {
+          "prevision": {
+            "type": "array",
+            "description": "Estimation de base simulée des lots.",
+            "items": {
+              "$ref": "#/components/schemas/DecaissementPrevisionDto"
+            }
+          },
+          "previsionAjustee": {
+            "type": "array",
+            "description": "Prévisions de paiement datées puis réel.",
+            "items": {
+              "$ref": "#/components/schemas/DecaissementPrevisionDto"
+            }
+          },
+          "reel": {
+            "type": "array",
+            "description": "Pièces payables hors avoirs, par échéance.",
+            "items": {
+              "$ref": "#/components/schemas/DecaissementPrevisionDto"
+            }
+          }
+        }
+      },
+      "LotPrevisionProjetDto": {
+        "type": "object",
+        "description": "Ligne de l'onglet Lots : montants de base du lot, Σ de sa série générée (« calculée »), différence.",
+        "properties": {
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du lot."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description du lot."
+          },
+          "fournisseur": {
+            "type": "string",
+            "description": "Nom du fournisseur ; null sans fournisseur."
+          },
+          "multiFournisseur": {
+            "type": "boolean",
+            "description": "Lot multi-fournisseurs (exclu des poids d'avancement)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes du lot."
+          },
+          "cloture": {
+            "type": "boolean",
+            "description": "Lot clôturé (IsClosed)."
+          },
+          "resilie": {
+            "type": "boolean",
+            "description": "Lot résilié ou annulé (statut)."
+          },
+          "previsionNetAPayer": {
+            "type": "number",
+            "description": "Prévision net à payer (PrevisionAmountToPay)."
+          },
+          "previsionNetAPayerCalculee": {
+            "type": "number",
+            "description": "Σ de l'estimation de base simulée du lot."
+          },
+          "previsionNetAPayerDifference": {
+            "type": "number",
+            "description": "previsionNetAPayer − previsionNetAPayerCalculee."
+          },
+          "coutPrevisionnelNetAPayer": {
+            "type": "number",
+            "description": "Coût prévisionnel net à payer (CostToPay, même valeur que la liste des lots)."
+          },
+          "coutPrevisionnelNetAPayerCalcule": {
+            "type": "number",
+            "description": "Σ prévisions de paiement datées + Σ réel du lot."
+          },
+          "coutPrevisionnelNetAPayerDifference": {
+            "type": "number",
+            "description": "coutPrevisionnelNetAPayer − coutPrevisionnelNetAPayerCalcule."
+          },
+          "positionNetAPayer": {
+            "type": "number",
+            "description": "Coût réel net à payer (PositionAmountToPay)."
+          },
+          "positionNetAPayerCalculee": {
+            "type": "number",
+            "description": "Σ réel du lot (pièces payables hors avoirs)."
+          },
+          "positionNetAPayerDifference": {
+            "type": "number",
+            "description": "positionNetAPayer − positionNetAPayerCalculee."
+          }
+        }
+      },
+      "PointAvancementDto": {
+        "type": "object",
+        "description": "Avancement du projet à un mois.",
+        "properties": {
+          "mois": {
+            "type": "string",
+            "format": "date",
+            "description": "Premier jour du mois."
+          },
+          "avancement": {
+            "type": "number",
+            "description": "Σ poids × avancement des lots non multi-fournisseurs (fraction 0–1)."
+          }
+        }
+      },
+      "PrevisionsProjetDto": {
+        "type": "object",
+        "description": "Prévisions des lots d'un projet (OMRAN « Prévisions des lôts ») : totaux, graphe, lots, décaissements, avancements.",
+        "properties": {
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet (PrjProject.PKey)."
+          },
+          "projetDescription": {
+            "type": "string",
+            "description": "Description du projet."
+          },
+          "aujourdhui": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du jour servant au « dû » (échéances strictement antérieures)."
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxNetAPayerDto",
+            "description": "Bloc « Net à payer » : Prévision, Prévision ajustée, Réel."
+          },
+          "mois": {
+            "type": "array",
+            "description": "Mois consécutifs du graphe, sommes des lots ; avancements pondérés par le HT prévisionnel.",
+            "items": {
+              "$ref": "#/components/schemas/PointPrevisionDto"
+            }
+          },
+          "lots": {
+            "type": "array",
+            "description": "Une ligne par lot du périmètre (multi-fournisseurs compris).",
+            "items": {
+              "$ref": "#/components/schemas/LotPrevisionProjetDto"
+            }
+          },
+          "decaissements": {
+            "$ref": "#/components/schemas/DecaissementsPrevisionDto",
+            "description": "Grilles « Décaissement » des trois onglets."
+          },
+          "avancements": {
+            "$ref": "#/components/schemas/AvancementsPrevisionDto",
+            "description": "Grilles « Avancement » des trois onglets."
+          }
+        }
+      },
+      "TotalNetAPayerDto": {
+        "type": "object",
+        "description": "Une ligne du bloc « Net à payer ».",
+        "properties": {
+          "total": {
+            "type": "number",
+            "description": "Total ; null pour le Réel."
+          },
+          "due": {
+            "type": "number",
+            "description": "Dû à ce jour."
+          },
+          "reste": {
+            "type": "number",
+            "description": "Reste ; pour le Réel, Σ des prévisions de paiement (code OMRAN)."
+          },
+          "avancement": {
+            "type": "number",
+            "description": "Avancement du projet au mois du jour (fraction 0–1)."
+          }
+        }
+      },
+      "TotauxNetAPayerDto": {
+        "type": "object",
+        "description": "Totaux « Net à payer » des trois séries.",
+        "properties": {
+          "prevision": {
+            "$ref": "#/components/schemas/TotalNetAPayerDto",
+            "description": "Prévision (estimation de base simulée)."
+          },
+          "previsionAjustee": {
+            "$ref": "#/components/schemas/TotalNetAPayerDto",
+            "description": "Prévision ajustée : prévisions de paiement + réel."
+          },
+          "reel": {
+            "$ref": "#/components/schemas/TotalNetAPayerDto",
+            "description": "Réel : pièces payables ; total toujours null."
+          }
+        }
+      },
+      "ProjetPrevisionOptionDto": {
+        "type": "object",
+        "description": "Projet habilité proposé dans la liste de l'écran Prévisions.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet (PrjProject.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du projet."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description du projet (libellé de la liste)."
           }
         }
       },

@@ -1173,3 +1173,126 @@ export interface ModeleSimulationDetailDto {
   categorie: string | null;
   lignes: LigneModeleDto[];
 }
+
+// ---- Prévisions des lots d'un projet (FEATURE-n4-previsions-chantier.md N4a) ----
+
+export interface ProjetPrevisionOptionDto {
+  id: UUID;
+  code: string;
+  description: string;
+}
+
+/** Ligne du bloc « Net à payer » ; avancement en fraction 0–1. */
+export interface TotalNetAPayerDto {
+  /** null pour le Réel. */
+  total: number | null;
+  due: number;
+  reste: number;
+  avancement: number;
+}
+
+export interface TotauxNetAPayerDto {
+  prevision: TotalNetAPayerDto;
+  previsionAjustee: TotalNetAPayerDto;
+  reel: TotalNetAPayerDto;
+}
+
+export interface DecaissementPrevisionDto {
+  date: string;
+  lotId: UUID;
+  lot: string;
+  description: string | null;
+  montant: number;
+  /** PREVISION | REEL dans la Prévision ajustée ; null ailleurs. */
+  nature: 'PREVISION' | 'REEL' | null;
+}
+
+export interface PointAvancementDto {
+  mois: string;
+  avancement: number;
+}
+
+export interface LotPrevisionProjetDto {
+  lotId: UUID;
+  code: string;
+  description: string;
+  fournisseur: string | null;
+  multiFournisseur: boolean;
+  notes: string | null;
+  cloture: boolean;
+  resilie: boolean;
+  previsionNetAPayer: number;
+  previsionNetAPayerCalculee: number;
+  previsionNetAPayerDifference: number;
+  coutPrevisionnelNetAPayer: number;
+  coutPrevisionnelNetAPayerCalcule: number;
+  coutPrevisionnelNetAPayerDifference: number;
+  positionNetAPayer: number;
+  positionNetAPayerCalculee: number;
+  positionNetAPayerDifference: number;
+}
+
+export interface PrevisionsProjetDto {
+  projetId: UUID;
+  projetDescription: string;
+  aujourdhui: string;
+  totaux: TotauxNetAPayerDto;
+  mois: PointPrevisionDto[];
+  lots: LotPrevisionProjetDto[];
+  decaissements: {
+    prevision: DecaissementPrevisionDto[];
+    previsionAjustee: DecaissementPrevisionDto[];
+    reel: DecaissementPrevisionDto[];
+  };
+  avancements: {
+    prevision: PointAvancementDto[];
+    previsionAjustee: PointAvancementDto[];
+    reel: PointAvancementDto[];
+  };
+}
+
+// Prévisions chantier de la fiche projet de configuration (FEATURE-n4-previsions-chantier.md N4b). TVA en % 0–100.
+export interface LignePrevisionChantierDto {
+  id: UUID;
+  typeTravauxId: UUID | null;
+  code: string | null;
+  description: string | null;
+  unite: string | null;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  totalHT: number;
+  tva: number | null;
+  totalTTC: number;
+  notes: string | null;
+}
+
+export interface TypeTravauxDto {
+  id: UUID;
+  code: string | null;
+  description: string | null;
+  unite: string | null;
+  prixUnitaireHT: number | null;
+  tva: number | null;
+}
+
+export interface PrevisionsChantierDto {
+  projetId: UUID;
+  code: string | null;
+  description: string | null;
+  actif: boolean;
+  modifiable: boolean;
+  lignes: LignePrevisionChantierDto[];
+  typesTravaux: TypeTravauxDto[];
+}
+
+export interface LignePrevisionChantierSaisie {
+  typeTravauxId: UUID;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  tva: number | null;
+  notes: string | null;
+}
+
+export interface PrevisionsChantierRequest {
+  lignes: LignePrevisionChantierSaisie[];
+}
