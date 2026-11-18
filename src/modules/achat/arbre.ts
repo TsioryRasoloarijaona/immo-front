@@ -1,8 +1,9 @@
-import { BadgeCheck, Banknote, FileMinus, FileText, Receipt, Tags, Truck, Users, Wallet, Workflow } from 'lucide-react';
+import { BadgeCheck, Banknote, Coins, FileMinus, FileText, Link2, Receipt, Tags, Truck, Users, Wallet, Workflow } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
 
 const DOCUMENTS = '/achat/documents';
 const DEPENSES = '/achat/depenses';
+const RECETTES = '/achat/recettes';
 const BUY = '?modules=BUY';
 const IMPAYES = `${DOCUMENTS}?natures=INVOICE&natures=DOCUMENT_TO_PAY&nonSoldes=true`;
 
@@ -24,6 +25,19 @@ export const arbreAchat: ArbreModule = () => [
       { to: `${DEPENSES}/factures${BUY}`, libelle: 'Factures', Icone: Banknote },
       { to: `${DEPENSES}/documents-a-regler${BUY}`, libelle: 'Documents à régler', Icone: Receipt },
       { to: `${DEPENSES}/avoirs${BUY}`, libelle: 'Avoirs', Icone: FileMinus },
+      { to: `${DEPENSES}/decaissements`, libelle: 'Décaissements', Icone: Banknote },
+      { to: `${DEPENSES}/affectations`, libelle: 'Affectations', Icone: Link2 },
+    ],
+  },
+  {
+    cle: 'recettes',
+    titre: 'Recettes',
+    entrees: [
+      { to: `${RECETTES}/proforma`, libelle: 'Proforma', Icone: FileText },
+      { to: `${RECETTES}/factures`, libelle: 'Factures', Icone: Receipt },
+      { to: `${RECETTES}/avoirs`, libelle: 'Avoirs', Icone: FileMinus },
+      { to: `${RECETTES}/encaissements`, libelle: 'Encaissements', Icone: Coins },
+      { to: `${RECETTES}/affectations`, libelle: 'Affectations', Icone: Link2 },
     ],
   },
   {
