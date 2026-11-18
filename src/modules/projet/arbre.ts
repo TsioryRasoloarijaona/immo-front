@@ -1,4 +1,7 @@
-import { AlertCircle, Banknote, ClipboardList, FileText, HardHat, LineChart, ListChecks, Receipt, Shapes, Tags, Undo2, Wallet } from 'lucide-react';
+import {
+  AlertCircle, Banknote, CalendarClock, CircleCheck, ClipboardList, FileText, HardHat, LineChart, ListChecks, Palette, Receipt, Shapes,
+  Tags, Undo2, Users, Wallet,
+} from 'lucide-react';
 import { estAdministrateur } from '../../lib/roles';
 import type { ArbreModule } from '../arbre';
 
@@ -11,6 +14,7 @@ export const arbreProjet: ArbreModule = ({ user }) => [
     entrees: [
       { to: '/projet/lots', libelle: 'Lots', Icone: ListChecks, couleur: COULEUR },
       { to: '/projet/decomptes', libelle: 'Décomptes', Icone: FileText, couleur: COULEUR },
+      { to: '/projet/reunions', libelle: 'Réunions chantier', Icone: CalendarClock, couleur: COULEUR },
     ],
   },
   {
@@ -33,6 +37,9 @@ export const arbreProjet: ArbreModule = ({ user }) => [
       { to: '/projet/config/types-lot', libelle: 'Types de lot', Icone: Shapes, couleur: COULEUR },
       { to: '/projet/config/statuts-lot', libelle: 'Statuts de lot', Icone: Tags, couleur: COULEUR },
       { to: '/projet/config/modeles-simulation', libelle: 'Modèles de simulation', Icone: LineChart, couleur: COULEUR },
+      { to: '/projet/config/types-reunion', libelle: 'Types de réunion', Icone: Users, couleur: COULEUR },
+      { to: '/projet/config/statuts-reserves', libelle: 'Statuts des réserves', Icone: CircleCheck, couleur: COULEUR },
+      { to: '/projet/config/plages-couleurs', libelle: 'Plages de couleurs', Icone: Palette, couleur: COULEUR },
     ],
   },
 ];
