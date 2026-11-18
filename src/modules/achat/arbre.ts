@@ -1,6 +1,6 @@
 import {
-  BadgeCheck, Banknote, Building2, Coins, FileMinus, FileText, Layers, Link2, ListTree, Package, Receipt, Tags, Truck, Users, Wallet,
-  Workflow,
+  BadgeCheck, Banknote, Building2, Coins, FileMinus, FileText, HandCoins, Layers, Link2, ListTree, Package, Percent, Receipt,
+  ShieldCheck, Tags, Truck, Users, Wallet, Workflow,
 } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
 
@@ -50,7 +50,16 @@ export const arbreAchat: ArbreModule = () => [
       { to: `${DOCUMENTS}?nonSoldes=true`, libelle: 'Non soldées', Icone: Wallet },
       { to: `${IMPAYES}&okPourPaiement=true`, libelle: 'Validées, non réglées', Icone: BadgeCheck },
       { to: IMPAYES, libelle: 'Tous les impayés', Icone: Wallet },
+    ],
+  },
+  {
+    cle: 'tableaux-de-bord',
+    titre: 'Tableaux de bords',
+    entrees: [
       { to: '/achat/fournisseurs', libelle: 'Soldes fournisseurs', Icone: Users },
+      { to: '/achat/etats/tva', libelle: 'État de la TVA déductible', Icone: Percent },
+      { to: '/achat/etats/avances', libelle: 'Suivi des avances', Icone: HandCoins },
+      { to: '/achat/etats/retenues-garantie', libelle: 'Suivi des retenues de garantie', Icone: ShieldCheck },
     ],
   },
   {

@@ -12,7 +12,10 @@ const ArticlesAchatList = lazy(() => import('../../pages/achat/config/ArticlesAc
 const ReferentielAchatPage = lazy(() => import('../../pages/achat/config/ReferentielAchatPage'));
 
 const SoldesFournisseursList = lazy(() => import('../../pages/achat/SoldesFournisseursList'));
-const DecaissementsList = lazy(() => import('../../pages/tresorerie/DecaissementsList'));
+const TvaDeductible = lazy(() => import('../../pages/achat/etats/TvaDeductible'));
+const SuiviAvances = lazy(() => import('../../pages/achat/etats/SuiviAvances'));
+const SuiviRetenues = lazy(() => import('../../pages/achat/etats/SuiviRetenues'));
+const DecaissementsList =lazy(() => import('../../pages/tresorerie/DecaissementsList'));
 const AffectationsList = lazy(() => import('../../pages/tresorerie/AffectationsList'));
 const RecettesList = lazy(() => import('../../pages/tresorerie/RecettesList'));
 
@@ -34,6 +37,9 @@ const achat: ModuleApp = {
     { path: '/achat/recettes/affectations', element: <AffectationsList key="credit" module="BUY" sens="CREDIT" /> },
     ...VUES_RECETTES.map((vue) => ({ path: `/achat/recettes/${vue}`, element: <RecettesList key={vue} vue={vue} module="BUY" /> })),
     { path: '/achat/fournisseurs', element: <SoldesFournisseursList /> },
+    { path: '/achat/etats/tva', element: <TvaDeductible /> },
+    { path: '/achat/etats/avances', element: <SuiviAvances /> },
+    { path: '/achat/etats/retenues-garantie', element: <SuiviRetenues /> },
     { path: '/achat/config/statuts', element: <StatutsAchatList /> },
     { path: '/achat/config/transitions', element: <TransitionsAchatList /> },
     { path: '/achat/config/familles', element: <ReferentielAchatPage slug="familles-achat" titre="Familles" icone={<Layers />} /> },
