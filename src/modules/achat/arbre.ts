@@ -1,4 +1,6 @@
-import { BadgeCheck, Banknote, FileMinus, FileText, Receipt, Tags, Truck, Users, Wallet, Workflow } from 'lucide-react';
+import {
+  BadgeCheck, Banknote, Building2, FileMinus, FileText, Layers, ListTree, Package, Receipt, Tags, Truck, Users, Wallet, Workflow,
+} from 'lucide-react';
 import type { ArbreModule } from '../arbre';
 
 const DOCUMENTS = '/achat/documents';
@@ -42,6 +44,10 @@ export const arbreAchat: ArbreModule = () => [
     entrees: [
       { to: '/achat/config/statuts', libelle: 'Statuts', Icone: Tags },
       { to: '/achat/config/transitions', libelle: 'Transitions', Icone: Workflow },
+      { to: '/achat/config/familles', libelle: 'Familles', Icone: Layers },
+      { to: '/achat/config/sous-familles', libelle: 'Sous-familles', Icone: ListTree },
+      { to: '/achat/config/articles', libelle: 'Articles', Icone: Package },
+      { to: '/achat/config/natures-fournisseur', libelle: 'Natures fournisseur', Icone: Building2 },
     ],
   },
 ];

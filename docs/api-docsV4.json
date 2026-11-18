@@ -272,16 +272,16 @@
       "description": "Finalisations, commissions, prévisions de base et mise à jour des schémas ; écriture Administrateur."
     },
     {
+      "name": "Référentiels (administration)",
+      "description": "Écran Configuration : les référentiels OMRAN (Articles, Prospections de terrains, Autres) en lecture pour tout compte\nconnecté et en écriture pour l'Administrateur. Une seule implémentation pilotée par le descripteur de chaque\nréférentiel (`GET /api/referentiels-admin`) : une ligne lue ou écrite est un objet JSON dont les clés sont les `nom`\ndes champs, plus `id`. Hors portée des clés d'API (403). Voir `FEATURE-patrimoine-referentiels.md`.\nFamille `ACHAT` (familles, sous-familles d'article d'achat, natures fournisseur, `FEATURE-n8-nomenclature.md`) : chaque\nréférentiel est gardé par son droit OMRAN (`AdmRight`), exigé en lecture comme en écriture (403 sans lui), au lieu du\nrôle Administrateur ; l'Administrateur a tous les droits."
+    },
+    {
       "name": "Calendrier",
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
     },
     {
       "name": "Mon équipe",
       "description": "Écran « Mon équipe » du chef commercial. Réservé aux rôles `Commercial Chef`, `Administrateur` et `Direction Générale`.\n\nL'équipe d'un chef = les comptes actifs « Commercial » ou « Commercial Aide » affectés à au moins un de ses projets (`AdmUserHabilitation`). Administrateur et Direction Générale voient tous les commerciaux actifs et tous les projets. Toutes les routes passent par ce même calcul ; un compte désactivé n'est jamais membre.\n\nLes écritures (distribuer, réaffecter, affectations) vont directement dans les tables d'OMRAN, sans validation : un lot est contrôlé en entier avant la première écriture et un lot partiellement invalide n'écrit rien."
-    },
-    {
-      "name": "Référentiels (administration)",
-      "description": "Écran Configuration : les référentiels OMRAN (Articles, Prospections de terrains, Autres) en lecture pour tout compte\nconnecté et en écriture pour l'Administrateur. Une seule implémentation pilotée par le descripteur de chaque\nréférentiel (`GET /api/referentiels-admin`) : une ligne lue ou écrite est un objet JSON dont les clés sont les `nom`\ndes champs, plus `id`. Hors portée des clés d'API (403). Voir `FEATURE-patrimoine-referentiels.md`."
     },
     {
       "name": "Rapports",
@@ -7456,6 +7456,9 @@
               }
             }
           },
+          "403": {
+            "description": "Référentiel gardé par un droit OMRAN que l'appelant n'a pas."
+          },
           "404": {
             "description": "Slug inconnu, ou tranche filtrée inconnue ou non visible.",
             "content": {
@@ -7477,7 +7480,7 @@
           "Référentiels (administration)"
         ],
         "summary": "Crée une ligne",
-        "description": "Tous les champs obligatoires du descripteur sont requis ; une clé hors descripteur → 400. Texte : au plus\n`longueurMax` caractères, les obligatoires sont rognés ; `REFERENCE` : PKey d'une ligne de la liste de choix (sinon\n400 nommant le champ), une tranche inconnue ou d'une entité inactive → 404 ; `FRACTION` entre 0 et 1 ; `OPERATEUR`\n0 (sans contrôle), 1 (`>=`) ou 2 (`>`). Unicité : une autre ligne de même clé (code ; nature + code pour catégories et\ntypes ; tranche + code pour les présentations ; tranche + année pour les quotes-parts ; tranche + statut pour les\nseuils, une tranche absente comptant comme une valeur) → 409. Un seuil est toujours écrit pour les dossiers de vente\net son statut doit être un statut de dossier de vente (sinon 400).",
+        "description": "Tous les champs obligatoires du descripteur sont requis ; une clé hors descripteur → 400. Texte : au plus\n`longueurMax` caractères, les obligatoires sont rognés ; `REFERENCE` : PKey d'une ligne de la liste de choix (sinon\n400 nommant le champ), une tranche inconnue ou d'une entité inactive → 404 ; `FRACTION` entre 0 et 1 ; `OPERATEUR`\n0 (sans contrôle), 1 (`>=`) ou 2 (`>`). Unicité : une autre ligne de même clé (code ; nature + code pour catégories et\ntypes ; tranche + code pour les présentations ; tranche + année pour les quotes-parts ; tranche + statut pour les\nseuils, une tranche absente comptant comme une valeur) → 409 ; quand la clé comprend le code, le `detail` est « Ce code\nexiste déjà. ». Un seuil est toujours écrit pour les dossiers de vente et son statut doit être un statut de dossier de\nvente (sinon 400). Un champ absent prend sa valeur par défaut : O.D.T. (`sorting`) 1 pour les familles et\nsous-familles d'achat, 0 pour les natures fournisseur. Une nature fournisseur est toujours écrite avec le type de tiers\nfournisseur ; les natures des autres types n'existent pas pour ce slug (404).",
         "operationId": "creerLigne",
         "parameters": [
           {
@@ -7525,7 +7528,7 @@
             }
           },
           "403": {
-            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "description": "Sans le rôle Administrateur, ou sans le droit OMRAN du référentiel qui en a un.",
             "content": {
               "*/*": {
                 "schema": {
@@ -19390,6 +19393,79 @@
         }
       }
     },
+    "/api/achat/config/articles": {
+      "get": {
+        "tags": [
+          "Achat — articles (nomenclature)"
+        ],
+        "summary": "Articles d'achat triés par code, avec la recherche multi-critère",
+        "operationId": "lister_22",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Texte cherché, casse ignorée, dans code, description, unité, codes famille et sous-famille.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les articles retenus et les actions permises.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticlesAchatDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sans le droit Yes.Buy.Front.Config.BuyItemList."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Achat — articles (nomenclature)"
+        ],
+        "summary": "Crée un article d'achat",
+        "operationId": "creer_28",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleAchatEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "L'article créé, famille dérivée comprise.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleAchatDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Obligatoire manquant, référence inconnue, texte trop long, ou sous-famille hors de la famille envoyée ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit Yes.Buy.Front.Config.BuyItemList.toolNew."
+          },
+          "409": {
+            "description": "« Ce code existe déjà. »"
+          }
+        }
+      }
+    },
     "/api/utilisateurs/{id}": {
       "get": {
         "tags": [
@@ -19943,6 +20019,9 @@
               }
             }
           },
+          "403": {
+            "description": "Référentiel gardé par un droit OMRAN que l'appelant n'a pas."
+          },
           "404": {
             "description": "Slug inconnu, ligne inconnue, hors écran ou d'une tranche non visible.",
             "content": {
@@ -19961,7 +20040,7 @@
           "Référentiels (administration)"
         ],
         "summary": "Supprime une ligne",
-        "description": "Refusée (409) pour une ligne protégée, pour une ligne encore citée par une autre table (le `detail` nomme la\ncontrainte), et quand la base effacerait en cascade des données d'article : tracés de plan d'un étage, vues ou\ncontenances d'article, catégories et types d'une nature (le `detail` nomme la table enfant et le nombre de lignes).\nSeule exception : les contenances d'un type de présentation partent avec lui. Tiers : refusée aussi pour un pays qui\na des villes, une ville d'une prospection, un type de relation d'un contact, et un pays ou une forme sociale valeur\npar défaut (`AdmParamsGuid`).",
+        "description": "Refusée (409) pour une ligne protégée, pour une ligne encore citée par une autre table (le `detail` nomme la\ncontrainte), et quand la base effacerait en cascade des données d'article : tracés de plan d'un étage, vues ou\ncontenances d'article, catégories et types d'une nature (le `detail` nomme la table enfant et le nombre de lignes).\nSeule exception : les contenances d'un type de présentation partent avec lui. Tiers : refusée aussi pour un pays qui\na des villes, une ville d'une prospection, un type de relation d'un contact, et un pays ou une forme sociale valeur\npar défaut (`AdmParamsGuid`). Achat : une famille citée par une sous-famille, une sous-famille citée par un article,\nune nature fournisseur citée par un tiers. Le `detail` d'un refus pour lignes citantes est « Suppression impossible :\n<libellé> <code> est utilisé par <n> ligne(s) de <table> (…). ».",
         "operationId": "supprimerLigne",
         "parameters": [
           {
@@ -19989,7 +20068,7 @@
             "description": "Ligne supprimée (et ses lignes enfants propres)."
           },
           "403": {
-            "description": "L'appelant n'a pas le rôle Administrateur."
+            "description": "Sans le rôle Administrateur, ou sans le droit OMRAN du référentiel qui en a un."
           },
           "404": {
             "description": "Slug inconnu, ligne inconnue, hors écran ou d'une tranche non visible."
@@ -20062,7 +20141,7 @@
             }
           },
           "403": {
-            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "description": "Sans le rôle Administrateur, ou sans le droit OMRAN du référentiel qui en a un.",
             "content": {
               "*/*": {
                 "schema": {
@@ -23756,6 +23835,131 @@
         }
       }
     },
+    "/api/achat/config/articles/{id}": {
+      "get": {
+        "tags": [
+          "Achat — articles (nomenclature)"
+        ],
+        "summary": "Fiche d'un article d'achat",
+        "operationId": "lire_10",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BuyItem.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "L'article.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleAchatDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sans le droit Yes.Buy.Front.Config.BuyItemList."
+          },
+          "404": {
+            "description": "Article inconnu."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Achat — articles (nomenclature)"
+        ],
+        "summary": "Supprime un article d'achat que rien ne cite",
+        "operationId": "supprimer_24",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BuyItem.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Article supprimé."
+          },
+          "403": {
+            "description": "Sans le droit Yes.Buy.Front.Config.BuyItemList.toolDelete."
+          },
+          "404": {
+            "description": "Article inconnu."
+          },
+          "409": {
+            "description": "Article cité par une ligne de pièce, de lot, de décompte, de sélection ou de journée ; le message donne les nombres."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Achat — articles (nomenclature)"
+        ],
+        "summary": "Modifie un article d'achat (champ absent ou null = inchangé)",
+        "operationId": "modifier_26",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BuyItem.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleAchatEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "L'article à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleAchatDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Obligatoire manquant, référence inconnue, texte trop long, ou sous-famille hors de la famille envoyée ; le message le nomme."
+          },
+          "403": {
+            "description": "Sans le droit Yes.Buy.Front.Config.BuyItemList.toolNew."
+          },
+          "404": {
+            "description": "Article inconnu."
+          },
+          "409": {
+            "description": "« Ce code existe déjà. »"
+          }
+        }
+      }
+    },
     "/api/{porteur}/{id}/pieces-jointes/{pieceId}/fichier": {
       "get": {
         "tags": [
@@ -24932,7 +25136,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_22",
+        "operationId": "lister_23",
         "parameters": [
           {
             "name": "du",
@@ -25616,7 +25820,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_23",
+        "operationId": "lister_24",
         "parameters": [
           {
             "name": "entiteId",
@@ -29037,7 +29241,7 @@
           "Rapports"
         ],
         "summary": "Rapports du module visibles par l'appelant, groupés",
-        "operationId": "lister_24",
+        "operationId": "lister_25",
         "parameters": [
           {
             "name": "module",
@@ -32900,7 +33104,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_25",
+        "operationId": "lister_26",
         "parameters": [
           {
             "name": "page",
@@ -34597,7 +34801,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier (frais syndic compris), `alerte` et `sousArticles` : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
-        "operationId": "lister_26",
+        "operationId": "lister_27",
         "parameters": [
           {
             "name": "entiteId",
@@ -39671,7 +39875,7 @@
         ],
         "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
         "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
-        "operationId": "lister_27",
+        "operationId": "lister_28",
         "parameters": [
           {
             "name": "q",
@@ -40938,7 +41142,7 @@
         ],
         "summary": "Journal d'un objet (patrimoine, prospection, étude, rendez-vous) et de ses lignes enfants",
         "description": "Les lignes sont rendues de la plus récente à la plus ancienne.",
-        "operationId": "lister_28",
+        "operationId": "lister_29",
         "parameters": [
           {
             "name": "objetId",
@@ -41480,7 +41684,7 @@
         ],
         "summary": "Onglet de lecture de la fiche tiers, par date décroissante",
         "description": "Lecture seule. Fournisseurs, contacts et personnels ; conges pour les personnels seuls.",
-        "operationId": "lister_29",
+        "operationId": "lister_30",
         "parameters": [
           {
             "name": "famille",
@@ -41769,7 +41973,7 @@
         ],
         "summary": "Sessions OMRAN, page par page",
         "description": "Lignes triées par date d'ouverture décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`StartDate < dateFin + 1 jour`). `utilisateur` est une égalité exacte sur `UserDesc`. `ip` cherche une sous-chaîne, `%`, `_` et `[` pris à la lettre. `ouverte=true` ne rend que `State = 2`, `ouverte=false` tout le reste, verrouillées comprises. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_30",
+        "operationId": "lister_31",
         "parameters": [
           {
             "name": "dateDebut",
@@ -42100,7 +42304,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes de la période, date décroissante, à date égale par `PKey`. Sans date : les 30 derniers jours. `dateFin` est incluse jusqu'à 23:59:59. `texte` cherche dans `ObjectType` et `ObjectLabel` seulement, `%`, `_` et `[` pris à la lettre ; `utilisateur` est une égalité exacte. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_31",
+        "operationId": "lister_32",
         "parameters": [
           {
             "name": "dateDebut",
@@ -42348,7 +42552,7 @@
           "Fichiers attachés (administration)"
         ],
         "summary": "Fichiers attachés, page par page, du plus récent au plus ancien",
-        "operationId": "lister_32",
+        "operationId": "lister_33",
         "parameters": [
           {
             "name": "recherche",
@@ -42712,7 +42916,7 @@
         ],
         "summary": "Fiches verrouillées par OMRAN, page par page",
         "description": "Lignes triées par date de verrouillage décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`LockDate < dateFin + 1 jour`). `recherche` cherche une sous-chaîne dans `Code`, `Description` et `UserDesc`, `%`, `_` et `[` pris à la lettre. Une ligne dont la session n'existe plus reste listée, `utilisateur` à null. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_33",
+        "operationId": "lister_34",
         "parameters": [
           {
             "name": "etat",
@@ -42812,7 +43016,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_34",
+        "operationId": "lister_35",
         "parameters": [
           {
             "name": "dateDebut",
@@ -42987,7 +43191,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes triées par date de création décroissante, les lignes sans date en dernier ; à date égale, par `PKey` puis `action`, ordre stable entre les pages. Sans filtre : toute la vue, aucune période préréglée. Deux lignes de même `PKey` et d'`action` différente restent deux lignes, comptées toutes deux dans `totalElements`. `recherche` cherche une sous-chaîne dans `code`, `action`, `description`, `creePar` et `modifiePar`, espaces ignorés des deux côtés, `%`, `_` et `[` pris à la lettre ; vide ou blanche = pas de filtre. Les périodes de création et de modification se cumulent, leurs bornes sont des jours inclus ; une ligne sans date est exclue dès qu'une borne de sa période est posée. Les valeurs vides sont rendues telles quelles. `id` sert de clé de ligne, il n'ouvre aucun objet.",
-        "operationId": "lister_35",
+        "operationId": "lister_36",
         "parameters": [
           {
             "name": "recherche",
@@ -43096,7 +43300,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_36",
+        "operationId": "lister_37",
         "parameters": [
           {
             "name": "portee",
@@ -44403,6 +44607,33 @@
         }
       }
     },
+    "/api/achat/config/articles/sous-familles": {
+      "get": {
+        "tags": [
+          "Achat — articles (nomenclature)"
+        ],
+        "summary": "Sous-familles proposées sur la fiche Article, triées par code de famille puis code",
+        "operationId": "sousFamilles",
+        "responses": {
+          "200": {
+            "description": "Toutes les sous-familles, avec leur famille.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SousFamilleAchatDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sans le droit Yes.Buy.Front.Config.BuyItemList."
+          }
+        }
+      }
+    },
     "/api/{porteur}/{id}/pieces-jointes/{pieceId}": {
       "delete": {
         "tags": [
@@ -44410,7 +44641,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_24",
+        "operationId": "supprimer_25",
         "parameters": [
           {
             "name": "porteur",
@@ -44705,7 +44936,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_25",
+        "operationId": "supprimer_26",
         "parameters": [
           {
             "name": "id",
@@ -44949,7 +45180,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_26",
+        "operationId": "supprimer_27",
         "parameters": [
           {
             "name": "id",
@@ -65230,6 +65461,171 @@
           }
         }
       },
+      "ArticleAchatEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'un article d'achat. Création : fiche complète ; modification : champ absent ou null = inchangé.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Obligatoire, unique parmi les articles (409 sinon)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Obligatoire."
+          },
+          "categorieComptableId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Obligatoire : StlCategory.PKey."
+          },
+          "familleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Facultatif : contrôle seulement, 400 s'il n'est pas la famille de la sous-famille."
+          },
+          "sousFamilleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Obligatoire : BuyItemUnderFamily.PKey ; donne la famille de l'article."
+          },
+          "unite": {
+            "type": "string"
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Absent à la création = 0."
+          },
+          "fodec": {
+            "type": "number",
+            "description": "Ratio ; absent à la création = 0."
+          },
+          "coutLogistiqueHT": {
+            "type": "number"
+          },
+          "coutLogistiqueTva": {
+            "type": "number",
+            "description": "Ratio."
+          },
+          "coutIndirectHT": {
+            "type": "number"
+          },
+          "coutIndirectTva": {
+            "type": "number",
+            "description": "Ratio."
+          },
+          "coutFinancierHT": {
+            "type": "number"
+          },
+          "coutFinancierTva": {
+            "type": "number",
+            "description": "Ratio."
+          },
+          "prixVenteHT": {
+            "type": "number"
+          },
+          "venteTva": {
+            "type": "number",
+            "description": "Ratio."
+          },
+          "notes": {
+            "type": "string",
+            "description": "500 caractères au plus."
+          }
+        }
+      },
+      "ArticleAchatDto": {
+        "type": "object",
+        "description": "Article d'achat (BuyItem) : ligne de la liste et fiche, mêmes champs. Ratios tels que stockés (0,2 = 20 %).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyItem.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, unique parmi les articles."
+          },
+          "description": {
+            "type": "string"
+          },
+          "categorieComptableId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de trésorerie (StlCategory.PKey)."
+          },
+          "categorieComptableCode": {
+            "type": "string",
+            "description": "Code de la catégorie."
+          },
+          "familleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Famille, dérivée de la sous-famille (lecture seule)."
+          },
+          "familleCode": {
+            "type": "string",
+            "description": "Code de la famille dérivée."
+          },
+          "sousFamilleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Sous-famille (BuyItemUnderFamily.PKey)."
+          },
+          "sousFamilleCode": {
+            "type": "string",
+            "description": "Code de la sous-famille."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité (texte libre)."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "P.U. HT ; 0 si non saisi."
+          },
+          "fodec": {
+            "type": "number",
+            "description": "Ratio FODEC."
+          },
+          "coutLogistiqueHT": {
+            "type": "number",
+            "description": "Coût logistique HT."
+          },
+          "coutLogistiqueTva": {
+            "type": "number",
+            "description": "Ratio de TVA du coût logistique."
+          },
+          "coutIndirectHT": {
+            "type": "number",
+            "description": "Coût indirect HT."
+          },
+          "coutIndirectTva": {
+            "type": "number",
+            "description": "Ratio de TVA du coût indirect."
+          },
+          "coutFinancierHT": {
+            "type": "number",
+            "description": "Coût financier HT (colonne CostFinacialHT)."
+          },
+          "coutFinancierTva": {
+            "type": "number",
+            "description": "Ratio de TVA du coût financier."
+          },
+          "prixVenteHT": {
+            "type": "number",
+            "description": "Vente P.U. HT."
+          },
+          "venteTva": {
+            "type": "number",
+            "description": "Ratio de TVA de la vente."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes, 500 caractères au plus."
+          }
+        }
+      },
       "ModifierProspectRequest": {
         "type": "object",
         "properties": {
@@ -69605,7 +70001,8 @@
               "AUTRES",
               "TACHES",
               "TIERS",
-              "PROJET"
+              "PROJET",
+              "ACHAT"
             ]
           },
           "parTranche": {
@@ -69633,6 +70030,14 @@
           "lectureSeule": {
             "type": "boolean",
             "description": "Vrai si le référentiel se lit seulement : POST, PATCH et DELETE répondent 409."
+          },
+          "peutEcrire": {
+            "type": "boolean",
+            "description": "Vrai si l'appelant peut créer et modifier : droit OMRAN du référentiel, sinon rôle Administrateur."
+          },
+          "peutSupprimer": {
+            "type": "boolean",
+            "description": "Vrai si l'appelant peut supprimer : même règle que peutEcrire."
           }
         }
       },
@@ -79108,6 +79513,58 @@
             "format": "int64",
             "description": "Taille des octets (ImageData), 0 si vide.",
             "example": 4512
+          }
+        }
+      },
+      "ArticlesAchatDto": {
+        "type": "object",
+        "description": "Écran Articles d'achat : lignes triées par code et actions permises au compte courant.",
+        "properties": {
+          "articles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArticleAchatDto"
+            }
+          },
+          "peutEcrire": {
+            "type": "boolean",
+            "description": "Droit Yes.Buy.Front.Config.BuyItemList.toolNew : créer et modifier."
+          },
+          "peutSupprimer": {
+            "type": "boolean",
+            "description": "Droit Yes.Buy.Front.Config.BuyItemList.toolDelete : supprimer."
+          },
+          "peutExporter": {
+            "type": "boolean",
+            "description": "Droit Yes.Buy.Front.Config.BuyItemList.toolExport : exporter la liste."
+          }
+        }
+      },
+      "SousFamilleAchatDto": {
+        "type": "object",
+        "description": "Sous-famille d'achat proposée sur la fiche Article, avec sa famille (de quoi filtrer par famille).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyItemUnderFamily.PKey."
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "familleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyItemFamily.PKey de sa famille."
+          },
+          "familleCode": {
+            "type": "string"
+          },
+          "familleDescription": {
+            "type": "string"
           }
         }
       }

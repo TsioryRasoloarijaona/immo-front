@@ -9,6 +9,7 @@ export const FAMILLES: { code: FamilleReferentiel; libelle: string }[] = [
   { code: 'ARTICLES', libelle: 'Articles' },
   { code: 'PROSPECTIONS_TERRAINS', libelle: 'Prospections de terrains' },
   { code: 'AUTRES', libelle: 'Autres' },
+  { code: 'ACHAT', libelle: 'Achat' },
 ];
 
 export const TOUTES = 'toutes';
