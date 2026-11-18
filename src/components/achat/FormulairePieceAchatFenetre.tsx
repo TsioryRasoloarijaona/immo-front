@@ -183,10 +183,6 @@ function Saisie({ titre, creer, tvaDefaut, listes, statut, piece, onFermer, onEn
   function echec(err: unknown) {
     const texte = messageActionPieceAchat(err);
     const statutHttp = err instanceof ApiError ? err.status : 0;
-    if (statutHttp === 404) {
-      onFermer();
-      return;
-    }
     if (statutHttp === 403) {
       setLectureSeule(true);
       setMessage('Droit insuffisant');
