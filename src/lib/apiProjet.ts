@@ -24,6 +24,8 @@ import type {
   BordereauEstimatifDto,
   BordereauSaisieDto,
   PrevisionsLotDto,
+  PrevisionsChantierDto,
+  PrevisionsChantierRequest,
   PrevisionsProjetDto,
   ProjetPrevisionOptionDto,
   PrevisionsSaisieLotDto,
@@ -326,4 +328,15 @@ export function getPrevisionsProjet(projetId: UUID): Promise<PrevisionsProjetDto
 export async function exporterPrevisionsProjet(projetId: UUID, nomFichier: string): Promise<void> {
   const url = `${API_BASE_URL}${PREVISIONS}/export?projetId=${encodeURIComponent(projetId)}`;
   triggerBlobDownload(await fetchByteEndpointBlob(url, XLSX), nomFichier);
+}
+
+// Prévisions chantier (N4b) : 404 → 403 (droit BuildingPrevision) ; PUT 409 sans nivellement, 400 grille invalide.
+const previsionsChantier = (id: UUID) => `${RACINE}/config/projets/${id}/previsions-chantier`;
+
+export function getPrevisionsChantier(id: UUID): Promise<PrevisionsChantierDto> {
+  return request('GET', previsionsChantier(id));
+}
+
+export function putPrevisionsChantier(id: UUID, corps: PrevisionsChantierRequest): Promise<PrevisionsChantierDto> {
+  return request('PUT', previsionsChantier(id), { body: corps });
 }

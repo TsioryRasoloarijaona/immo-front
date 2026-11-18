@@ -1250,3 +1250,49 @@ export interface PrevisionsProjetDto {
     reel: PointAvancementDto[];
   };
 }
+
+// Prévisions chantier de la fiche projet de configuration (FEATURE-n4-previsions-chantier.md N4b). TVA en % 0–100.
+export interface LignePrevisionChantierDto {
+  id: UUID;
+  typeTravauxId: UUID | null;
+  code: string | null;
+  description: string | null;
+  unite: string | null;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  totalHT: number;
+  tva: number | null;
+  totalTTC: number;
+  notes: string | null;
+}
+
+export interface TypeTravauxDto {
+  id: UUID;
+  code: string | null;
+  description: string | null;
+  unite: string | null;
+  prixUnitaireHT: number | null;
+  tva: number | null;
+}
+
+export interface PrevisionsChantierDto {
+  projetId: UUID;
+  code: string | null;
+  description: string | null;
+  actif: boolean;
+  modifiable: boolean;
+  lignes: LignePrevisionChantierDto[];
+  typesTravaux: TypeTravauxDto[];
+}
+
+export interface LignePrevisionChantierSaisie {
+  typeTravauxId: UUID;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  tva: number | null;
+  notes: string | null;
+}
+
+export interface PrevisionsChantierRequest {
+  lignes: LignePrevisionChantierSaisie[];
+}
