@@ -1,4 +1,4 @@
-import { AlertCircle, Banknote, ClipboardList, FileText, HardHat, LineChart, ListChecks, Receipt, Shapes, Tags, Undo2, Wallet } from 'lucide-react';
+import { AlertCircle, Banknote, ClipboardList, Coins, FileText, HardHat, Link2, LineChart, ListChecks, Receipt, Shapes, Tags, Undo2, Wallet } from 'lucide-react';
 import { estAdministrateur } from '../../lib/roles';
 import type { ArbreModule } from '../arbre';
 
@@ -22,7 +22,19 @@ export const arbreProjet: ArbreModule = ({ user }) => [
       { to: '/projet/depenses/documents-a-regler', libelle: 'Documents à régler', Icone: ClipboardList, couleur: COULEUR },
       { to: '/projet/depenses/avoirs', libelle: 'Avoirs', Icone: Undo2, couleur: COULEUR },
       { to: '/projet/depenses/impayes', libelle: 'Impayés', Icone: AlertCircle, couleur: COULEUR },
-      { to: '/projet/depenses/reglements', libelle: 'Décaissements', Icone: Banknote, couleur: COULEUR },
+      { to: '/projet/depenses/decaissements', libelle: 'Décaissements', Icone: Banknote, couleur: COULEUR },
+      { to: '/projet/depenses/affectations', libelle: 'Affectations', Icone: Link2, couleur: COULEUR },
+    ],
+  },
+  {
+    cle: 'recettes',
+    titre: 'Recettes',
+    entrees: [
+      { to: '/projet/recettes/proforma', libelle: 'Proforma', Icone: FileText, couleur: COULEUR },
+      { to: '/projet/recettes/factures', libelle: 'Factures', Icone: Receipt, couleur: COULEUR },
+      { to: '/projet/recettes/avoirs', libelle: 'Avoirs', Icone: Undo2, couleur: COULEUR },
+      { to: '/projet/recettes/encaissements', libelle: 'Encaissements', Icone: Coins, couleur: COULEUR },
+      { to: '/projet/recettes/affectations', libelle: 'Affectations', Icone: Link2, couleur: COULEUR },
     ],
   },
   {

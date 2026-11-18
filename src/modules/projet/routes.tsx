@@ -1,6 +1,7 @@
 import { lazy } from 'react';
 import { HardHat } from 'lucide-react';
 import type { ModuleApp } from '../types';
+import { VUES_RECETTES } from '../../lib/tresorerie';
 import { arbreProjet } from './arbre';
 
 const LotsList = lazy(() => import('../../pages/projet/LotsList'));
@@ -9,7 +10,9 @@ const DecomptesList = lazy(() => import('../../pages/projet/DecomptesList'));
 const DecompteDetail = lazy(() => import('../../pages/projet/DecompteDetail'));
 const DepensesProjet = lazy(() => import('../../pages/projet/DepensesProjet'));
 const DepensesProjetListe = lazy(() => import('../../pages/projet/DepensesProjetListe'));
-const ReglementsProjetList = lazy(() => import('../../pages/projet/ReglementsProjetList'));
+const DecaissementsList = lazy(() => import('../../pages/tresorerie/DecaissementsList'));
+const AffectationsList = lazy(() => import('../../pages/tresorerie/AffectationsList'));
+const RecettesList = lazy(() => import('../../pages/tresorerie/RecettesList'));
 const ProjetsConfigList = lazy(() => import('../../pages/projet/config/ProjetsConfigList'));
 const ReferentielTypesLotPage = lazy(() => import('../../pages/projet/config/ReferentielTypesLotPage'));
 const StatutsLotList = lazy(() => import('../../pages/projet/config/StatutsLotList'));
@@ -33,7 +36,10 @@ const projet: ModuleApp = {
     { path: '/projet/depenses/documents-a-regler/:id?', element: <DepensesProjetListe nature="documents-a-regler" /> },
     { path: '/projet/depenses/avoirs/:id?', element: <DepensesProjetListe nature="avoirs" /> },
     { path: '/projet/depenses/impayes/:id?', element: <DepensesProjetListe nature="impayes" /> },
-    { path: '/projet/depenses/reglements', element: <ReglementsProjetList /> },
+    { path: '/projet/depenses/decaissements/:id?', element: <DecaissementsList module="PRJ" /> },
+    { path: '/projet/depenses/affectations', element: <AffectationsList key="debit" module="PRJ" sens="DEBIT" /> },
+    { path: '/projet/recettes/affectations', element: <AffectationsList key="credit" module="PRJ" sens="CREDIT" /> },
+    ...VUES_RECETTES.map((vue) => ({ path: `/projet/recettes/${vue}`, element: <RecettesList key={vue} vue={vue} module="PRJ" /> })),
     { path: '/projet/config/projets', element: <ProjetsConfigList /> },
     { path: '/projet/config/types-lot', element: <ReferentielTypesLotPage /> },
     { path: '/projet/config/statuts-lot', element: <StatutsLotList /> },
