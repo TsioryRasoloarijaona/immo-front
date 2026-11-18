@@ -24083,7 +24083,7 @@
           {
             "name": "recherche",
             "in": "query",
-            "description": "Texte cherché dans la référence, la description, le tiers, le code reçu ou la référence externe.",
+            "description": "Texte cherché dans la référence, la description, le tiers, le code reçu (règlement) ou la référence externe (pièce).",
             "required": false,
             "schema": {
               "type": "string"
@@ -24305,7 +24305,7 @@
           {
             "name": "recherche",
             "in": "query",
-            "description": "Texte cherché dans la référence, la description, le tiers, le code reçu ou la référence externe.",
+            "description": "Texte cherché dans la référence, la description, le tiers, le code reçu (règlement) ou la référence externe (pièce).",
             "required": false,
             "schema": {
               "type": "string"
@@ -24580,7 +24580,7 @@
           {
             "name": "recherche",
             "in": "query",
-            "description": "Texte cherché dans la référence, la description, le tiers, le code reçu ou la référence externe.",
+            "description": "Texte cherché dans la référence, la description, le tiers, le code reçu (règlement) ou la référence externe (pièce).",
             "required": false,
             "schema": {
               "type": "string"
@@ -68223,7 +68223,7 @@
           },
           "categorie": {
             "type": "string",
-            "description": "Catégorie de trésorerie (StlCategory) du règlement."
+            "description": "Catégories de la ventilation de la pièce, séparées par une virgule."
           },
           "societe": {
             "type": "string"
