@@ -260,6 +260,10 @@
       "description": "Journal des e-mails envoyés (`AdmEMailHistory`), en lecture seule : l'écran « EMail Historique » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). La configuration d'envoi (`SmtpHost`, `SmtpPort`, `EnableSsl`) n'est jamais exposée. Voir `instructions/FEATURE-admin-email-historique.md`."
     },
     {
+      "name": "Trésorerie",
+      "description": "Écrans de trésorerie des arbres **Projet** (`module=PRJ`) et **Achat** (`module=BUY`), en **lecture seule** : Dépenses ›\nDécaissements, Dépenses › Affectations, Recettes (factures proforma, factures, avoirs, encaissements, affectations).\nVoir `FEATURE-n3-recettes-depenses.md`. Chaque écran exige son droit OMRAN `Yes.Stl.Front.*` (403 sans lui).\n\n**Visibilité** (celle des pièces d'achat) : société habilitée ET (projet habilité OU sans projet). Le projet d'un\nrèglement se lit **à la ligne** : une affectation est visible si sa pièce l'est ; un règlement est visible si sa société\nest habilitée ET (il n'a aucune ligne OU au moins une ligne visible). Une pièce de recette (`StlDocument`) n'a pas de\nprojet : elle suit la règle « sans projet ». `projetIds` restreint aux projets cochés ; `sansProjet=true` ajoute les\npièces et règlements sans projet (seul : uniquement eux).\n\n**Annulés** : listés par défaut (`inclureAnnules` absent = true), **jamais dans les totaux** ; un statut NULL n'est pas\nannulé. Les totaux portent sur toute la liste filtrée, pas sur la page. Tri fixe : date de pièce décroissante puis\nréférence décroissante.\n\n**Période** : `dateSur` choisit la date filtrée par `du` / `au` (jours inclus) : `PIECE` (DocDate), `ECHEANCE`,\n`POINTAGE` (SettlementDate), `POINTAGE_REPORTE` (date de mouvement : `d` = date de pointage, sinon échéance ; si\n`d` ≤ aujourd'hui et non pointé → aujourd'hui, sinon `d`)."
+    },
+    {
       "name": "Notes",
       "description": "Notes (AdmMessage) du patrimoine et des prospections terrain ; écriture Administrateur."
     },
@@ -25177,6 +25181,735 @@
           },
           "403": {
             "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
+    "/api/tresorerie/recettes/{vue}": {
+      "get": {
+        "tags": [
+          "Trésorerie"
+        ],
+        "summary": "Listes Recettes : factures proforma, factures, avoirs ou encaissements du module",
+        "description": "`proforma`, `factures`, `avoirs` : pièces `StlDocument` de nature `INVOICE_PROFORMA`, `INVOICE`, `REFUND` ; réglé = Σ\ndes lignes de règlement non annulées, reste = net à payer − réglé ; `totaux.montant` = Σ net à payer. `dateSur` :\n`PIECE` ou `ECHEANCE` seulement (400 sinon). `encaissements` : règlements crédit (`IsCredit = 1`) du module, colonnes\nde la grille OMRAN ; `totaux.montant` = Σ montant hors annulés. `colonnes` décrit les champs de chaque ligne.",
+        "operationId": "recettes",
+        "parameters": [
+          {
+            "name": "vue",
+            "in": "path",
+            "description": "proforma | factures | avoirs | encaissements.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "factures"
+          },
+          {
+            "name": "module",
+            "in": "query",
+            "description": "Module OMRAN des pièces : PRJ (arbre Projet) ou BUY (arbre Achat). Obligatoire, sinon 400.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PRJ",
+                "BUY"
+              ]
+            }
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey) ; hors périmètre = ignorée.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), paramètre répété ; un projet hors périmètre est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "sansProjet",
+            "in": "query",
+            "description": "true : pièces sans projet (règlement sans ligne compris), en plus des projets cochés.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "dateSur",
+            "in": "query",
+            "description": "Date filtrée par du / au ; absent = PIECE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PIECE",
+                "ECHEANCE",
+                "POINTAGE",
+                "POINTAGE_REPORTE"
+              ]
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date filtrée à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date filtrée jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "typeIds",
+            "in": "query",
+            "description": "Types de règlement (StlSettlementType.PKey), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statuts",
+            "in": "query",
+            "description": "Statuts de règlement (IN_WORK, POINTED, NOTPAYED, CANCELED…), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "compteId",
+            "in": "query",
+            "description": "Compte bancaire (StlAccount.PKey) du règlement.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tiersId",
+            "in": "query",
+            "description": "Tiers (CfgTier.PKey) du règlement ou de la pièce.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "montantDe",
+            "in": "query",
+            "description": "Montant minimal (montant du règlement, net à payer d'une pièce).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "montantA",
+            "in": "query",
+            "description": "Montant maximal (montant du règlement, net à payer d'une pièce).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "comptabilise",
+            "in": "query",
+            "description": "true : comptabilisés seulement ; false : non comptabilisés ; absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "inclureAnnules",
+            "in": "query",
+            "description": "false : règlements annulés (CANCELED) exclus de la liste ; absent = true. Jamais dans les totaux.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Texte cherché dans la référence, la description, le tiers, le code reçu (règlement) ou la référence externe (pièce).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page, à partir de 0 ; absent = 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "taille",
+            "in": "query",
+            "description": "Lignes par page, de 1 à 500 ; absent = 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Colonnes, page de lignes et total ; vide = lignes [] et total 0.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecettesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "vue inconnue, dateSur POINTAGE* sur une pièce ; module absent ou hors PRJ/BUY, ou filtre mal formé."
+          },
+          "403": {
+            "description": "Droit OMRAN de l'écran absent."
+          }
+        }
+      }
+    },
+    "/api/tresorerie/decaissements": {
+      "get": {
+        "tags": [
+          "Trésorerie"
+        ],
+        "summary": "Décaissements (règlements débit) visibles du module",
+        "description": "Une ligne par règlement débit (`IsCredit = 0`) du module. `montant` tel que stocké ; `montantAffecte` et\n`resteAAffecter` portent sur **toutes** les lignes du règlement, même celles d'un projet non habilité (un mouvement\nbancaire unique). `nonAffecte` : aucune ligne. `enRetard` : échéance ≤ aujourd'hui et statut ≠ `POINTED`.",
+        "operationId": "decaissements",
+        "parameters": [
+          {
+            "name": "module",
+            "in": "query",
+            "description": "Module OMRAN des pièces : PRJ (arbre Projet) ou BUY (arbre Achat). Obligatoire, sinon 400.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PRJ",
+                "BUY"
+              ]
+            }
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey) ; hors périmètre = ignorée.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), paramètre répété ; un projet hors périmètre est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "sansProjet",
+            "in": "query",
+            "description": "true : pièces sans projet (règlement sans ligne compris), en plus des projets cochés.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "dateSur",
+            "in": "query",
+            "description": "Date filtrée par du / au ; absent = PIECE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PIECE",
+                "ECHEANCE",
+                "POINTAGE",
+                "POINTAGE_REPORTE"
+              ]
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date filtrée à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date filtrée jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "typeIds",
+            "in": "query",
+            "description": "Types de règlement (StlSettlementType.PKey), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statuts",
+            "in": "query",
+            "description": "Statuts de règlement (IN_WORK, POINTED, NOTPAYED, CANCELED…), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "compteId",
+            "in": "query",
+            "description": "Compte bancaire (StlAccount.PKey) du règlement.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tiersId",
+            "in": "query",
+            "description": "Tiers (CfgTier.PKey) du règlement ou de la pièce.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "montantDe",
+            "in": "query",
+            "description": "Montant minimal (montant du règlement, net à payer d'une pièce).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "montantA",
+            "in": "query",
+            "description": "Montant maximal (montant du règlement, net à payer d'une pièce).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "comptabilise",
+            "in": "query",
+            "description": "true : comptabilisés seulement ; false : non comptabilisés ; absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "inclureAnnules",
+            "in": "query",
+            "description": "false : règlements annulés (CANCELED) exclus de la liste ; absent = true. Jamais dans les totaux.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Texte cherché dans la référence, la description, le tiers, le code reçu (règlement) ou la référence externe (pièce).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page, à partir de 0 ; absent = 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "taille",
+            "in": "query",
+            "description": "Lignes par page, de 1 à 500 ; absent = 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de décaissements et totaux de toute la liste, hors annulés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListeTresorerieDtoDecaissementLigneDtoTotauxDecaissementsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "module absent ou hors PRJ/BUY, ou filtre mal formé."
+          },
+          "403": {
+            "description": "Droit OMRAN de l'écran absent."
+          }
+        }
+      }
+    },
+    "/api/tresorerie/decaissements/{id}": {
+      "get": {
+        "tags": [
+          "Trésorerie"
+        ],
+        "summary": "Fiche en lecture d'un décaissement visible",
+        "description": "Même visibilité que la liste (sans filtre de module). `lignes` ne contient que les affectations dont la pièce est\nvisible ; `lignesMasquees` compte les autres.",
+        "operationId": "decaissement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "StlSettlement.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "En-tête et pièces affectées visibles.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecaissementFicheDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit OMRAN de l'écran absent."
+          },
+          "404": {
+            "description": "Décaissement inconnu ou invisible."
+          }
+        }
+      }
+    },
+    "/api/tresorerie/affectations": {
+      "get": {
+        "tags": [
+          "Trésorerie"
+        ],
+        "summary": "Affectations de règlements (une ligne par StlSettlementLine visible)",
+        "description": "Une ligne par affectation `StlSettlementLine` visible, rattachée à un règlement du module et du sens demandés.\n`totaux.montantReglement` compte chaque règlement une fois ; `debit` / `credit` = Σ `montantAffecte` des règlements\ndébit / crédit. Droit : `Debit.SettlementAffectationList` (DEBIT) ou `Credit.SettlementAffectationList` (CREDIT).",
+        "operationId": "affectationsTresorerie",
+        "parameters": [
+          {
+            "name": "sens",
+            "in": "query",
+            "description": "DEBIT : Dépenses › Affectations ; CREDIT : Recettes › Affectations.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DEBIT",
+                "CREDIT"
+              ]
+            }
+          },
+          {
+            "name": "module",
+            "in": "query",
+            "description": "Module OMRAN des pièces : PRJ (arbre Projet) ou BUY (arbre Achat). Obligatoire, sinon 400.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PRJ",
+                "BUY"
+              ]
+            }
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey) ; hors périmètre = ignorée.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), paramètre répété ; un projet hors périmètre est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "sansProjet",
+            "in": "query",
+            "description": "true : pièces sans projet (règlement sans ligne compris), en plus des projets cochés.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "dateSur",
+            "in": "query",
+            "description": "Date filtrée par du / au ; absent = PIECE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PIECE",
+                "ECHEANCE",
+                "POINTAGE",
+                "POINTAGE_REPORTE"
+              ]
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date filtrée à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date filtrée jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "typeIds",
+            "in": "query",
+            "description": "Types de règlement (StlSettlementType.PKey), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statuts",
+            "in": "query",
+            "description": "Statuts de règlement (IN_WORK, POINTED, NOTPAYED, CANCELED…), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "compteId",
+            "in": "query",
+            "description": "Compte bancaire (StlAccount.PKey) du règlement.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tiersId",
+            "in": "query",
+            "description": "Tiers (CfgTier.PKey) du règlement ou de la pièce.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "montantDe",
+            "in": "query",
+            "description": "Montant minimal (montant du règlement, net à payer d'une pièce).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "montantA",
+            "in": "query",
+            "description": "Montant maximal (montant du règlement, net à payer d'une pièce).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "comptabilise",
+            "in": "query",
+            "description": "true : comptabilisés seulement ; false : non comptabilisés ; absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "inclureAnnules",
+            "in": "query",
+            "description": "false : règlements annulés (CANCELED) exclus de la liste ; absent = true. Jamais dans les totaux.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Texte cherché dans la référence, la description, le tiers, le code reçu (règlement) ou la référence externe (pièce).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page, à partir de 0 ; absent = 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "taille",
+            "in": "query",
+            "description": "Lignes par page, de 1 à 500 ; absent = 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page d'affectations et totaux de toute la liste, hors annulés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListeTresorerieDtoAffectationLigneDtoTotauxAffectationsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "sens absent ou invalide ; module absent ou hors PRJ/BUY, ou filtre mal formé."
+          },
+          "403": {
+            "description": "Droit OMRAN de l'écran absent."
           }
         }
       }
@@ -69133,6 +69866,463 @@
             "items": {
               "$ref": "#/components/schemas/ReferentielItemDto"
             }
+          }
+        }
+      },
+      "ColonneRecetteDto": {
+        "type": "object",
+        "description": "Une colonne de la grille Recettes.",
+        "properties": {
+          "cle": {
+            "type": "string",
+            "description": "Clé du champ dans chaque ligne.",
+            "example": "montantAPayer"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "En-tête en français.",
+            "example": "Net à payer"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type d'affichage.",
+            "enum": [
+              "TEXTE",
+              "NOMBRE",
+              "MONTANT",
+              "DATE",
+              "BOOLEEN"
+            ],
+            "example": "MONTANT"
+          },
+          "visible": {
+            "type": "boolean",
+            "description": "false : colonne masquée par défaut dans OMRAN."
+          }
+        }
+      },
+      "RecettesDto": {
+        "type": "object",
+        "description": "Liste Recettes : colonnes de la grille OMRAN et lignes indexées par la clé de colonne.",
+        "properties": {
+          "colonnes": {
+            "type": "array",
+            "description": "Colonnes de la vue, dans l'ordre d'affichage.",
+            "items": {
+              "$ref": "#/components/schemas/ColonneRecetteDto"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la page : `id` (PKey) plus une entrée par clé de colonne ; [] si rien.",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes de toute la liste filtrée."
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxRecettesDto"
+          }
+        }
+      },
+      "TotauxRecettesDto": {
+        "type": "object",
+        "description": "Σ du net à payer des pièces, ou du montant des encaissements hors annulés.",
+        "properties": {
+          "montant": {
+            "type": "number"
+          }
+        }
+      },
+      "DecaissementLigneDto": {
+        "type": "object",
+        "description": "Un décaissement (StlSettlement, IsCredit = 0) de la liste Dépenses › Décaissements.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StlSettlement.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Référence (Code, sinon code reçu).",
+            "example": "DEC-000123"
+          },
+          "description": {
+            "type": "string"
+          },
+          "datePiece": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date",
+            "description": "Échéance (EcheanceDate)."
+          },
+          "datePointage": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de pointage (SettlementDate) ; null = non pointé."
+          },
+          "dateMouvement": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de pointage reportée, calculée par le serveur (voir dateSur=POINTAGE_REPORTE)."
+          },
+          "type": {
+            "type": "string",
+            "description": "Libellé du type de règlement.",
+            "example": "Virement"
+          },
+          "tiers": {
+            "type": "string",
+            "description": "Nom du tiers réglé."
+          },
+          "banque": {
+            "type": "string",
+            "description": "Banque du tiers (CfgTier de CfgBankId)."
+          },
+          "compte": {
+            "type": "string",
+            "description": "Compte bancaire de la société (StlAccount)."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Code du statut tel que stocké ; null si absent.",
+            "example": "IN_WORK"
+          },
+          "statutLibelle": {
+            "type": "string",
+            "description": "Libellé français du statut.",
+            "example": "En cours"
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant tel que stocké (Amount), sans changement de signe."
+          },
+          "montantAffecte": {
+            "type": "number",
+            "description": "Σ des montants de toutes ses lignes d'affectation, visibles ou non."
+          },
+          "resteAAffecter": {
+            "type": "number",
+            "description": "AmountBase × ConvertValue / ConvertUnit (1 si unité 0) − montantAffecte."
+          },
+          "societe": {
+            "type": "string",
+            "description": "Libellé de la société."
+          },
+          "comptabilise": {
+            "type": "boolean",
+            "description": "IsAccounted."
+          },
+          "nonAffecte": {
+            "type": "boolean",
+            "description": "true : aucune ligne d'affectation (badge « Non affecté »)."
+          },
+          "enRetard": {
+            "type": "boolean",
+            "description": "Échéance ≤ aujourd'hui et statut ≠ POINTED (icône d'alerte OMRAN)."
+          }
+        }
+      },
+      "ListeTresorerieDtoDecaissementLigneDtoTotauxDecaissementsDto": {
+        "type": "object",
+        "description": "Page d'une liste de trésorerie, avec le nombre total de lignes et les totaux de toute la liste.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la page demandée ; [] si rien n'est visible.",
+            "items": {
+              "$ref": "#/components/schemas/DecaissementLigneDto"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes de toute la liste filtrée."
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxDecaissementsDto"
+          }
+        }
+      },
+      "TotauxDecaissementsDto": {
+        "type": "object",
+        "description": "Σ de toute la liste filtrée (pas seulement la page), hors règlements annulés.",
+        "properties": {
+          "montant": {
+            "type": "number"
+          },
+          "montantAffecte": {
+            "type": "number"
+          },
+          "resteAAffecter": {
+            "type": "number"
+          }
+        }
+      },
+      "DecaissementFicheDto": {
+        "type": "object",
+        "description": "Fiche en lecture d'un décaissement : en-tête et pièces affectées visibles.",
+        "properties": {
+          "decaissement": {
+            "$ref": "#/components/schemas/DecaissementLigneDto",
+            "description": "En-tête, mêmes champs que la ligne de liste ; montants sur toutes les lignes."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes du règlement."
+          },
+          "codeRecu": {
+            "type": "string",
+            "description": "Code reçu (ReceiptCode)."
+          },
+          "devise": {
+            "type": "string",
+            "description": "Code de la devise.",
+            "example": "MAD"
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes d'affectation dont la pièce est visible, tri par code de pièce.",
+            "items": {
+              "$ref": "#/components/schemas/LigneDecaissementDto"
+            }
+          },
+          "lignesMasquees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de lignes d'affectation masquées (pièce d'un projet ou d'une société non habilités)."
+          }
+        }
+      },
+      "LigneDecaissementDto": {
+        "type": "object",
+        "description": "Une affectation du décaissement à une pièce.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StlSettlementLine.PKey."
+          },
+          "piece": {
+            "$ref": "#/components/schemas/PieceTresorerieDto",
+            "description": "Pièce affectée (BuyDocument ou StlDocument)."
+          },
+          "fournisseur": {
+            "type": "string",
+            "description": "Nom du fournisseur / tiers de la pièce."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projet": {
+            "type": "string",
+            "description": "Code du projet de la pièce."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lot": {
+            "type": "string",
+            "description": "Code du lot de marché de la pièce."
+          },
+          "montantAffecte": {
+            "type": "number",
+            "description": "Montant affecté (StlSettlementLine.Amount)."
+          }
+        }
+      },
+      "PieceTresorerieDto": {
+        "type": "object",
+        "description": "Pièce réglée : facture d'achat (BuyDocument) ou pièce de recette (StlDocument).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la pièce."
+          },
+          "type": {
+            "type": "string",
+            "description": "DocType de la pièce.",
+            "example": "INVOICE"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Code de la pièce."
+          }
+        }
+      },
+      "AffectationLigneDto": {
+        "type": "object",
+        "description": "Une affectation (StlSettlementLine) d'un règlement à une pièce visible.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StlSettlementLine.PKey."
+          },
+          "reglementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StlSettlement.PKey : ouvre la fiche du décaissement."
+          },
+          "code": {
+            "type": "string",
+            "description": "Référence du règlement."
+          },
+          "description": {
+            "type": "string"
+          },
+          "datePiece": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce du règlement."
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date",
+            "description": "Échéance du règlement."
+          },
+          "datePointage": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de pointage ; null = non pointé."
+          },
+          "dateMouvement": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de pointage reportée, calculée par le serveur."
+          },
+          "codeRecu": {
+            "type": "string",
+            "description": "Code reçu (ReceiptCode)."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Code du statut du règlement.",
+            "example": "POINTED"
+          },
+          "statutLibelle": {
+            "type": "string",
+            "description": "Libellé français du statut.",
+            "example": "Pointé"
+          },
+          "montantReglement": {
+            "type": "number",
+            "description": "Montant du règlement tel que stocké."
+          },
+          "tiers": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "description": "Libellé du type de règlement."
+          },
+          "banque": {
+            "type": "string"
+          },
+          "compte": {
+            "type": "string"
+          },
+          "module": {
+            "type": "string",
+            "description": "Code du module du règlement.",
+            "example": "PRJ"
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégories de la ventilation de la pièce, séparées par une virgule."
+          },
+          "societe": {
+            "type": "string"
+          },
+          "projet": {
+            "type": "string",
+            "description": "Code du projet de la pièce."
+          },
+          "tranche": {
+            "type": "string",
+            "description": "Toujours null ici : tranche des pièces de vente, hors périmètre."
+          },
+          "article": {
+            "type": "string",
+            "description": "Toujours null ici : article des pièces de vente, hors périmètre."
+          },
+          "lot": {
+            "type": "string",
+            "description": "Code du lot de marché de la pièce."
+          },
+          "pieceLiee": {
+            "$ref": "#/components/schemas/PieceTresorerieDto",
+            "description": "Pièce réglée ; ouvre la facture d'achat."
+          },
+          "montantPiece": {
+            "type": "number",
+            "description": "Net à payer de la pièce (AmountToPay)."
+          },
+          "montantAffecte": {
+            "type": "number",
+            "description": "Montant affecté (StlSettlementLine.Amount)."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Toujours null ici : dossier de vente, hors périmètre."
+          },
+          "dossierStatut": {
+            "type": "string",
+            "description": "Toujours null ici : statut du dossier de vente, hors périmètre."
+          }
+        }
+      },
+      "ListeTresorerieDtoAffectationLigneDtoTotauxAffectationsDto": {
+        "type": "object",
+        "description": "Page d'une liste de trésorerie, avec le nombre total de lignes et les totaux de toute la liste.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la page demandée ; [] si rien n'est visible.",
+            "items": {
+              "$ref": "#/components/schemas/AffectationLigneDto"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes de toute la liste filtrée."
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxAffectationsDto"
+          }
+        }
+      },
+      "TotauxAffectationsDto": {
+        "type": "object",
+        "description": "Σ de toute la liste filtrée, hors annulés ; montantReglement compte chaque règlement une fois.",
+        "properties": {
+          "montantAffecte": {
+            "type": "number"
+          },
+          "montantReglement": {
+            "type": "number"
+          },
+          "debit": {
+            "type": "number",
+            "description": "Σ montantAffecte des décaissements (IsCredit = 0), rouge à l'écran."
+          },
+          "credit": {
+            "type": "number",
+            "description": "Σ montantAffecte des encaissements (IsCredit = 1), vert à l'écran."
           }
         }
       },
