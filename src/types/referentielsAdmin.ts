@@ -50,6 +50,8 @@ export interface DescripteurReferentielDto {
   champs: ChampReferentielDto[];
   /** POST, PATCH et DELETE répondent 409 (types de tiers). */
   lectureSeule: boolean;
+  peutEcrire: boolean;
+  peutSupprimer: boolean;
 }
 
 /** Valeur d'un champ sur le fil : texte, nombre, booléen, PKey (REFERENCE) ou lignes enfants (LIGNES). */
