@@ -1805,6 +1805,443 @@
         }
       }
     },
+    "/api/projet/reunions/{id}": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Fiche d'une réunion avec ses quatre onglets",
+        "operationId": "reunion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList."
+          },
+          "404": {
+            "description": "Réunion inconnue ou de projet non habilité."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Modifie l'en-tête d'une réunion (projet et type non modifiables)",
+        "operationId": "modifierReunion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReunionModificationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Champ obligatoire manquant ou date de prochaine réunion trop proche."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion inconnue ou de projet non habilité."
+          },
+          "409": {
+            "description": "Référence P.V. déjà prise."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Supprime une réunion et toutes ses lignes",
+        "operationId": "supprimerReunion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolDelete."
+          },
+          "404": {
+            "description": "Réunion inconnue ou de projet non habilité."
+          },
+          "409": {
+            "description": "Une décision est reprise par une réunion suivante."
+          }
+        }
+      }
+    },
+    "/api/projet/reunions/{id}/intervenants/{ligneId}": {
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Modifie un intervenant",
+        "operationId": "modifierIntervenant",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "BulDelegate.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntervenantSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Lot hors projet ou fournisseur inconnu."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          },
+          "409": {
+            "description": "Intervenant déjà présent pour ce lot et ce fournisseur."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Supprime un intervenant et ses contacts",
+        "operationId": "supprimerIntervenant",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "BulDelegate.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      }
+    },
+    "/api/projet/reunions/{id}/intervenants/{intervenantId}/contacts/{ligneId}": {
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Modifie « Présent » et « À notifier » d'un contact d'intervenant",
+        "operationId": "modifierContactIntervenant",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "intervenantId",
+            "in": "path",
+            "description": "BulDelegate.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "PKey de la ligne de l'onglet.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Retire un contact d'un intervenant",
+        "operationId": "supprimerContactIntervenant",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "intervenantId",
+            "in": "path",
+            "description": "BulDelegate.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "PKey de la ligne de l'onglet.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      }
+    },
+    "/api/projet/reunions/{id}/decisions/{ligneId}": {
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Modifie une décision",
+        "operationId": "modifierDecision",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "BulMeetingLine.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Description ou observation manquante, lot hors projet."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Supprime une décision",
+        "operationId": "supprimerDecision",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "BulMeetingLine.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          },
+          "409": {
+            "description": "Décision reprise par une réunion suivante."
+          }
+        }
+      }
+    },
+    "/api/projet/reunions/{id}/avancements": {
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Renseigne une cellule de l'onglet Avancements",
+        "operationId": "modifierAvancement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvancementSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Critère ou niveau absent, hors projet, ou pourcentage hors 0-100."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      }
+    },
     "/api/projet/modeles-simulation/{id}": {
       "get": {
         "tags": [
@@ -9640,6 +10077,319 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/projet/reunions": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Réunions de chantier des projets habilités, par date décroissante",
+        "operationId": "listeReunions",
+        "parameters": [
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey) du projet.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey) ; un projet non habilité est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date de réunion minimale (incluse).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date de réunion maximale (incluse).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type de réunion (BulMeetingType.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Référence P.V., note ou surveillant ; espaces et casse ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Réunions filtrées ; vide sans projet habilité.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReunionLigneDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Crée une réunion et reporte le P.V. précédent du même projet et type",
+        "operationId": "creerReunion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReunionCreationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReunionFicheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire manquant ou date de prochaine réunion trop proche."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Projet non habilité."
+          },
+          "409": {
+            "description": "Référence P.V. déjà prise."
+          }
+        }
+      }
+    },
+    "/api/projet/reunions/{id}/maitres-ouvrage": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Ajoute des maîtres d'ouvrage (contacts déjà présents ignorés)",
+        "operationId": "ajouterMaitresOuvrage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaitresOuvrageAjoutDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Liste vide ou contact inconnu."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      }
+    },
+    "/api/projet/reunions/{id}/intervenants": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Ajoute un intervenant",
+        "operationId": "creerIntervenant",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntervenantSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Lot hors projet ou fournisseur inconnu."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          },
+          "409": {
+            "description": "Intervenant déjà présent pour ce lot et ce fournisseur."
+          }
+        }
+      }
+    },
+    "/api/projet/reunions/{id}/intervenants/{intervenantId}/contacts": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Ajoute un contact à un intervenant",
+        "operationId": "creerContactIntervenant",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "intervenantId",
+            "in": "path",
+            "description": "BulDelegate.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Contact absent ou inconnu."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      }
+    },
+    "/api/projet/reunions/{id}/decisions": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Ajoute une décision",
+        "operationId": "creerDecision",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Description ou observation manquante, lot hors projet."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
           }
         }
       }
@@ -20943,6 +21693,92 @@
         }
       }
     },
+    "/api/projet/reunions/{id}/maitres-ouvrage/{ligneId}": {
+      "delete": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Retire un maître d'ouvrage",
+        "operationId": "supprimerMaitreOuvrage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "PKey de la ligne de l'onglet.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Coche « Présent » et « À notifier » d'un maître d'ouvrage",
+        "operationId": "modifierMaitreOuvrage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "BulMeeting.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "PKey de la ligne de l'onglet.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContactSaisieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList.toolNew."
+          },
+          "404": {
+            "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}": {
       "get": {
         "tags": [
@@ -30804,6 +31640,32 @@
           },
           "404": {
             "description": "Entité introuvable ou inactive."
+          }
+        }
+      }
+    },
+    "/api/projet/reunions/choix": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Types de réunion, statuts de réserve et lots d'un projet",
+        "operationId": "choixReunions",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Projet (PrjProject.PKey) dont on veut les lots ; ignoré s'il n'est pas habilité.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.MeetingList."
           }
         }
       }
@@ -46066,6 +46928,159 @@
           }
         }
       },
+      "ReunionModificationDto": {
+        "type": "object",
+        "description": "Modification de l'en-tête d'une réunion ; projet et type ne sont pas modifiables.",
+        "properties": {
+          "reference": {
+            "type": "string",
+            "description": "Référence P.V. ; vide = générée « yy/nnnnn »."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la réunion, obligatoire."
+          },
+          "prochaineDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la prochaine réunion, postérieure à la date."
+          },
+          "surveillantId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Surveillant (CfgTier.PKey)."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note (500 caractères au plus)."
+          }
+        },
+        "required": [
+          "date"
+        ]
+      },
+      "IntervenantSaisieDto": {
+        "type": "object",
+        "description": "Saisie d'un intervenant ; un seul intervenant par couple (lot, fournisseur) dans une réunion.",
+        "properties": {
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T. ; absent = nombre de lignes + 1."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey) du projet de la réunion."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.PKey)."
+          },
+          "effectif": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Effectif."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note (500 caractères au plus)."
+          }
+        }
+      },
+      "ContactSaisieDto": {
+        "type": "object",
+        "description": "Saisie d'un contact de réunion (maître d'ouvrage ou contact d'intervenant).",
+        "properties": {
+          "contactId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Contact (CfgTier.PKey) : obligatoire à l'ajout d'un contact d'intervenant, ignoré sinon."
+          },
+          "present": {
+            "type": "boolean",
+            "description": "Présent ; absent = non."
+          },
+          "aNotifier": {
+            "type": "boolean",
+            "description": "À notifier ; absent = non."
+          }
+        }
+      },
+      "DecisionSaisieDto": {
+        "type": "object",
+        "description": "Saisie d'une décision ; description et observation obligatoires.",
+        "properties": {
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T. ; absent = nombre de lignes + 1."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey) du projet de la réunion."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.PKey)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description (500 caractères au plus)."
+          },
+          "observationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de réserve (BulObservationStatus.PKey)."
+          },
+          "objectif": {
+            "type": "string",
+            "format": "date",
+            "description": "Objectif (date)."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note (500 caractères au plus)."
+          },
+          "nousMemes": {
+            "type": "boolean",
+            "description": "« Nous mêmes » ; absent = non."
+          }
+        },
+        "required": [
+          "description",
+          "observationId"
+        ]
+      },
+      "AvancementSaisieDto": {
+        "type": "object",
+        "description": "Saisie d'une cellule de l'onglet Avancements ; la ligne est créée si absente.",
+        "properties": {
+          "critereId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Critère du projet (PrjProjectProgressCriteriaLine.PKey)."
+          },
+          "niveauId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Niveau du projet (CfgTrancheLevelingDefinition.PKey)."
+          },
+          "pourcentage": {
+            "type": "number",
+            "description": "Pourcentage de 0 à 100 ; 0 ou absent = cellule vidée.",
+            "example": 40
+          }
+        },
+        "required": [
+          "critereId",
+          "niveauId"
+        ]
+      },
       "LigneModeleDto": {
         "type": "object",
         "description": "Ligne d'un modèle de simulation (PrjMarketPrevisionModelLine), fractions 0–1.",
@@ -59007,6 +60022,367 @@
           }
         }
       },
+      "ReunionCreationDto": {
+        "type": "object",
+        "description": "Création d'une réunion ; le P.V. précédent du même projet et type est reporté.",
+        "properties": {
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet (PrjProject.PKey), obligatoire."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de réunion (BulMeetingType.PKey), obligatoire."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence P.V. ; vide = générée « yy/nnnnn »."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la réunion, obligatoire."
+          },
+          "prochaineDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la prochaine réunion, postérieure à la date."
+          },
+          "surveillantId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Surveillant (CfgTier.PKey)."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note (500 caractères au plus)."
+          }
+        },
+        "required": [
+          "date",
+          "projetId",
+          "typeId"
+        ]
+      },
+      "AvancementsDto": {
+        "type": "object",
+        "description": "Onglet Avancements : lignes = critères d'avancement du projet, colonnes = niveaux de nivellement.",
+        "properties": {
+          "criteres": {
+            "type": "array",
+            "description": "Critères du projet (PrjProjectProgressCriteriaLine), par O.D.T.",
+            "items": {
+              "$ref": "#/components/schemas/ReferentielItemDto"
+            }
+          },
+          "niveaux": {
+            "type": "array",
+            "description": "Niveaux de nivellement du projet (CfgTrancheLevelingDefinition), par O.D.T.",
+            "items": {
+              "$ref": "#/components/schemas/ReferentielItemDto"
+            }
+          },
+          "valeurs": {
+            "type": "array",
+            "description": "Cellules renseignées ; une cellule absente vaut 0.",
+            "items": {
+              "$ref": "#/components/schemas/ValeurAvancementReunion"
+            }
+          }
+        }
+      },
+      "ContactReunionDto": {
+        "type": "object",
+        "description": "Contact présent à une réunion : maître d'ouvrage (BulMeetingContact) ou contact d'un intervenant (BulDelegateContact).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T."
+          },
+          "contactId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Contact (CfgTier.PKey)."
+          },
+          "contact": {
+            "type": "string",
+            "description": "Raison sociale du contact."
+          },
+          "present": {
+            "type": "boolean",
+            "description": "Présent à la réunion (IsPresent)."
+          },
+          "aNotifier": {
+            "type": "boolean",
+            "description": "À notifier (Notify) ; la notification elle-même est hors lot."
+          }
+        }
+      },
+      "DecisionDto": {
+        "type": "object",
+        "description": "Décision d'une réunion (BulMeetingLine).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BulMeetingLine.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey) ; null si aucun."
+          },
+          "lot": {
+            "type": "string",
+            "description": "Libellé du lot."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.PKey) ; null si aucun."
+          },
+          "fournisseur": {
+            "type": "string",
+            "description": "Raison sociale du fournisseur."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de la décision."
+          },
+          "observation": {
+            "$ref": "#/components/schemas/ObservationDto",
+            "description": "Observation : statut de réserve choisi."
+          },
+          "objectif": {
+            "type": "string",
+            "format": "date",
+            "description": "Objectif (BulMeetingLine.DueDate) ; null si aucun."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note."
+          },
+          "nousMemes": {
+            "type": "boolean",
+            "description": "« Nous mêmes » (IsInternal) : la décision nous incombe."
+          },
+          "fermee": {
+            "type": "boolean",
+            "description": "Calculé : statut de réserve fermé (BulObservationStatus.IsColsed), jamais stocké."
+          }
+        }
+      },
+      "IntervenantDto": {
+        "type": "object",
+        "description": "Intervenant d'une réunion (BulDelegate) : un fournisseur, sur un lot, avec ses contacts.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BulDelegate.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T."
+          },
+          "effectif": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Effectif présent sur le chantier."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot (PrjMarket.PKey) ; null si aucun."
+          },
+          "lot": {
+            "type": "string",
+            "description": "Libellé du lot."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.PKey) ; null si aucun."
+          },
+          "fournisseur": {
+            "type": "string",
+            "description": "Raison sociale du fournisseur."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note (BulDelegate.Notes)."
+          },
+          "contacts": {
+            "type": "array",
+            "description": "Contacts de l'intervenant (BulDelegateContact), par O.D.T.",
+            "items": {
+              "$ref": "#/components/schemas/ContactReunionDto"
+            }
+          }
+        }
+      },
+      "ObservationDto": {
+        "type": "object",
+        "description": "Statut de réserve (BulObservationStatus).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BulObservationStatus.PKey."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Description, à défaut le code."
+          },
+          "couleur": {
+            "type": "string",
+            "description": "Couleur (ColorName), nom de couleur OMRAN.",
+            "example": "RED"
+          },
+          "ferme": {
+            "type": "boolean",
+            "description": "Statut fermé (IsColsed) : une décision fermée n'est pas reportée."
+          }
+        }
+      },
+      "ReunionFicheDto": {
+        "type": "object",
+        "description": "Fiche « Réunion du chantier » avec ses quatre onglets.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BulMeeting.PKey."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T. : rang de la réunion dans son projet et son type, calculé à la création."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence P.V. (BulMeeting.Code), générée « yy/nnnnn » si laissée vide."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet (PrjProject.PKey), non modifiable."
+          },
+          "projet": {
+            "type": "string",
+            "description": "Libellé du projet."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de réunion (BulMeetingType.PKey), non modifiable."
+          },
+          "type": {
+            "type": "string",
+            "description": "Libellé du type de réunion."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la réunion (jour)."
+          },
+          "prochaineDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la prochaine réunion ; null si non prévue."
+          },
+          "surveillantId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Surveillant (CfgTier.PKey) ; null si aucun."
+          },
+          "surveillant": {
+            "type": "string",
+            "description": "Raison sociale du surveillant."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note libre (500 caractères)."
+          },
+          "maitresOuvrage": {
+            "type": "array",
+            "description": "Onglet Maître d'ouvrage (BulMeetingContact), par O.D.T.",
+            "items": {
+              "$ref": "#/components/schemas/ContactReunionDto"
+            }
+          },
+          "intervenants": {
+            "type": "array",
+            "description": "Onglet Intervenants (BulDelegate), par O.D.T.",
+            "items": {
+              "$ref": "#/components/schemas/IntervenantDto"
+            }
+          },
+          "decisions": {
+            "type": "array",
+            "description": "Onglet Décisions (BulMeetingLine), par O.D.T.",
+            "items": {
+              "$ref": "#/components/schemas/DecisionDto"
+            }
+          },
+          "avancements": {
+            "$ref": "#/components/schemas/AvancementsDto",
+            "description": "Onglet Avancements : critères × niveaux."
+          }
+        }
+      },
+      "ValeurAvancementReunion": {
+        "type": "object",
+        "description": "Cellule de l'onglet Avancements.",
+        "properties": {
+          "critereId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjProjectProgressCriteriaLine.PKey."
+          },
+          "niveauId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "CfgTrancheLevelingDefinition.PKey."
+          },
+          "pourcentage": {
+            "type": "number",
+            "description": "Avancement en pourcentage (0 à 100).",
+            "example": 40
+          }
+        }
+      },
+      "MaitresOuvrageAjoutDto": {
+        "type": "object",
+        "description": "Ajout de maîtres d'ouvrage ; un contact déjà présent est ignoré.",
+        "properties": {
+          "contactIds": {
+            "type": "array",
+            "description": "Contacts (CfgTier.PKey).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "contactIds"
+        ]
+      },
       "ModeleSimulationDetailDto": {
         "type": "object",
         "description": "Fiche d'un modèle de simulation lot.",
@@ -71611,6 +72987,53 @@
           "modifieLe": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "ReunionLigneDto": {
+        "type": "object",
+        "description": "Ligne de la liste « Réunions chantier » (BulMeeting).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BulMeeting.PKey."
+          },
+          "projet": {
+            "type": "string",
+            "description": "Libellé du projet (PrjProject.Description, à défaut son code)."
+          },
+          "type": {
+            "type": "string",
+            "description": "Libellé du type de réunion (BulMeetingType.Description)."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence P.V. (BulMeeting.Code).",
+            "example": "26/00002"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la réunion (jour)."
+          },
+          "prochaineDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la prochaine réunion ; null si non prévue."
+          },
+          "surveillant": {
+            "type": "string",
+            "description": "Raison sociale du surveillant (CfgTier) ; null si aucun."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note libre."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T. : rang de la réunion dans son projet et son type."
           }
         }
       },
