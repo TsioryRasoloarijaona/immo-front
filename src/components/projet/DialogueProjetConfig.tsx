@@ -12,6 +12,7 @@ import {
   createProjetConfig, getChoixProjet, getReferentielsProjetConfig, listProjetsConfig, updateProjetConfig,
 } from '../../lib/apiProjetConfig';
 import { brouillonDepuis, corpsDepuis, useSaisie, type ChampDef } from '../../lib/saisiePatrimoine';
+import BoutonPrevisionsChantier from './BoutonPrevisionsChantier';
 import BoutonStatutProjet from './BoutonStatutProjet';
 import OngletCriteresProjet from './OngletCriteresProjet';
 import OngletHistoriqueProjet from './OngletHistoriqueProjet';
@@ -159,8 +160,11 @@ export default function DialogueProjetConfig({ projet, onClose, onSaved }: Reado
       {!referentiels.error && ref && !projet && formulaire}
       {!referentiels.error && ref && projet && (
         <div className="flex flex-col gap-3">
-          <BoutonStatutProjet projetId={projet.id} statut={statut}
-            onChange={(p) => { setStatut(p.statutCode); setStatutChange(true); }} />
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <BoutonStatutProjet projetId={projet.id} statut={statut}
+              onChange={(p) => { setStatut(p.statutCode); setStatutChange(true); }} />
+            <BoutonPrevisionsChantier projetId={projet.id} />
+          </div>
           {choixProjet.error && <ErrorState message={choixProjet.error} />}
           <Tabs defaultValue="general">
             <TabsList>
