@@ -87,7 +87,9 @@ export default function TableReferentiel({ descripteur }: Readonly<{ descripteur
             <ActionAdmin to="/articles/import?type=presentations" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />
           )}
           {descripteur.peutEcrire && (
-            <ActionAdmin libelle="Nouvelle ligne" icone={<Plus data-icon="inline-start" />} onClick={() => setDialogue('creation')} />
+            <Button type="button" size="sm" onClick={() => setDialogue('creation')}>
+              <Plus data-icon="inline-start" /> Nouvelle ligne
+            </Button>
           )}
         </div>
       </div>
