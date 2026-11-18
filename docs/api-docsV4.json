@@ -31062,7 +31062,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
+            "description": "Module : vente, patrimoine, achat ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -31105,7 +31105,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
+            "description": "Module : vente, patrimoine, achat ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -31155,7 +31155,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
+            "description": "Module : vente, patrimoine, achat ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
@@ -31286,7 +31286,7 @@
           {
             "name": "module",
             "in": "path",
-            "description": "Module : vente, patrimoine ou administration (Administrateur seul).",
+            "description": "Module : vente, patrimoine, achat ou administration (Administrateur seul).",
             "required": true,
             "schema": {
               "type": "string"
