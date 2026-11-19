@@ -1,6 +1,6 @@
 import {
-  AlertCircle, Banknote, CalendarClock, CircleCheck, ClipboardList, Coins, FileText, HardHat, LineChart, Link2, ListChecks, Palette,
-  Receipt, Shapes, Tags, Undo2, Users, Wallet,
+  AlertCircle, Banknote, CalendarClock, CircleCheck, ClipboardList, Coins, FileText, Hammer, HardHat, LineChart, Link2, ListChecks, Palette,
+  PencilRuler, Receipt, Shapes, Tags, Undo2, Users, Wallet,
 } from 'lucide-react';
 import { estAdministrateur } from '../../lib/roles';
 import type { ArbreModule } from '../arbre';
@@ -16,6 +16,8 @@ export const arbreProjet: ArbreModule = ({ user }) => [
       { to: '/projet/decomptes', libelle: 'Décomptes', Icone: FileText, couleur: COULEUR },
       { to: '/projet/reunions', libelle: 'Réunions chantier', Icone: CalendarClock, couleur: COULEUR },
       { to: '/projet/previsions', libelle: 'Prévisions', Icone: LineChart, couleur: COULEUR },
+      { to: '/projet/travaux-chantier', libelle: 'Travaux chantier', Icone: Hammer, couleur: COULEUR },
+      { to: '/projet/modifications', libelle: 'Modifications', Icone: PencilRuler, couleur: COULEUR },
     ],
   },
   {
