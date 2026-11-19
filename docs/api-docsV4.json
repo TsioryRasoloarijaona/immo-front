@@ -328,6 +328,10 @@
       "description": "Les trois routes partagent une seule sélection : dossiers de vente portés par un article **non sous-article** de la tranche\n(`StkItem.ComFolderId`), dont le statut n'est ni une annulation (`BoolField002`) ni un désistement (`BoolField003`) ; un\ndossier sans statut est exclu. Réservées à l'Administrateur (403 avant tout autre refus)."
     },
     {
+      "name": "Projet — configuration, nivellement",
+      "description": "Bouton « Nivellement » de la fiche projet de configuration : arbre des niveaux du projet (`CfgTrancheLevelingDefinition`, `CfgTrancheId` = `PrjProject.PKey`). Lecture : tout compte qui voit le projet (habilitation `AdmUserHabilitation.PrjProjectId`). Écritures : rôle Administrateur (règle d'URL de la configuration projet) et projet visible. Le projet d'un nœud est lu sur la ligne stockée : un nœud d'un autre projet répond 404. Voir `instructions/FEATURE-n9-planification.md` (R4, D6, D7)."
+    },
+    {
       "name": "Encaissements",
       "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...).\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, un encaissement hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les règlements portés par une entité juridique active (`StlSettlement.CfgCompanyId` → `CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Un règlement masqué renvoie 404 sur toutes les routes portant son identifiant."
     },
@@ -12304,6 +12308,115 @@
         }
       }
     },
+    "/api/projet/config/projets/{id}/nivellement": {
+      "get": {
+        "tags": [
+          "Projet — configuration, nivellement"
+        ],
+        "summary": "Nœuds de la définition de nivellement du projet, à plat (parentId), par rang",
+        "description": "Liste à plat, triée par rang : l'arbre se reconstruit avec `parentId` (null = racine). Liste vide = aucun niveau défini.",
+        "operationId": "lister_6",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Projet hors périmètre ou inconnu, ou nœud d'un autre projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoeudNivellementDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet — configuration, nivellement"
+        ],
+        "summary": "Ajoute une racine ou un enfant ; code et rang calculés par le serveur",
+        "description": "Corps `{\"parentId\": uuid|null}`. Le serveur calcule le rang (nombre de frères + 1) et le code : code de la ligne du nivellement du projet (`StkLevelingLine`) dont le rang égale la profondeur du nouveau nœud, suivi du rang (« BLOC 1 », « ETAGE 2 »). 400 « Aucun niveau n'est défini pour ce projet : renseigner le nivellement du projet. » si le projet n'a pas de nivellement ; 400 « Vous ne pouvez pas ajouter un niveau inférieur » au-delà de la profondeur du nivellement. Parent d'un autre projet ou inconnu : 404.",
+        "operationId": "creer_12",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoeudNivellementEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Projet sans nivellement, ou niveau plus profond que le nivellement.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle Administrateur absent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet hors périmètre ou inconnu, ou nœud d'un autre projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projet/config/projets/{id}/criteres": {
       "get": {
         "tags": [
@@ -12693,7 +12806,7 @@
         ],
         "summary": "Crée une pré-prospection (lead brut)",
         "description": "Équivalent de l'écran « Pré-prospection » d'OMRAN, dont la trace d'audit fixe la séquence : code\ntiré du compteur `AdmSequence` « Prospection » (format `AA/NNNNN`, **le même compteur que les\nprospections**), type de document `ComPreProspection`, contact saisi en champs libres\n(`TempDescription`, `TempTel`, `TempEMail`) — **aucune fiche prospect n'est créée**.\n\nSeul `nom` est obligatoire. Posés par le serveur : code, date du document (maintenant), `IsClosed =\nfalse`, auteur (utilisateur connecté), vocation `VENTE` si aucune n'est fournie. Jamais de prospect\nni de commercial : c'est l'objet de `POST /api/pre-prospections/{id}/creer-prospect` puis `POST\n/api/prospections/{id}/transformer`.\n\n**Doublons signalés, jamais refusés.** La réponse liste les prospections existantes au même contact\n(même nom, même téléphone sur ses 9 derniers chiffres, même email — un champ absent des deux côtés\ncompte comme égal). OMRAN enregistre lui aussi une ligne par soumission ; à l'écran d'avertir. Seuls\nles doublons **visibles de l'appelant** (périmètre commercial) sont listés : un contact hors\npérimètre n'est jamais révélé.\n\nLa ligne créée apparaît aussitôt dans `GET /api/pre-prospections` et dans le logiciel de bureau.",
-        "operationId": "creer_12",
+        "operationId": "creer_13",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13133,7 +13246,7 @@
           "Notes"
         ],
         "summary": "Notes d'un objet du patrimoine, d'une prospection terrain ou d'une étude, plus récentes d'abord",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "porteur",
@@ -13203,7 +13316,7 @@
           "Notes"
         ],
         "summary": "Ajoute une note en texte simple (échappée en HTML pour OMRAN)",
-        "operationId": "creer_13",
+        "operationId": "creer_14",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13353,7 +13466,7 @@
           "Modèles de documents"
         ],
         "summary": "Crée un modèle et sa version 1",
-        "operationId": "creer_14",
+        "operationId": "creer_15",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13617,7 +13730,7 @@
         ],
         "summary": "Lots de terrain : terrains d'une tranche, entité « article », vocation autre que PROJET",
         "description": "Lots des tranches visibles (société du programme active). Mêmes filtres que `GET /api/terrains`, plus `trancheId`.",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "search",
@@ -13697,7 +13810,7 @@
         ],
         "summary": "Crée un lot de terrain dans une tranche (nature TER, entité « article », sans statut de workflow)",
         "description": "Tranche obligatoire, visible et d'entité active (sinon 400, sans dire si elle existe). Code unique dans la tranche,\ntoutes natures confondues (409). Vocation obligatoire et jamais PROJET ; catégorie et type obligatoires, de nature TER\nou LOT DE TERRAIN (400 nommant le champ). Prix : un seul calcul, celui des articles (prix au m² HT ou TTC exclusifs).",
-        "operationId": "creer_15",
+        "operationId": "creer_16",
         "requestBody": {
           "content": {
             "application/json": {
@@ -14044,7 +14157,7 @@
           "Études de faisabilité"
         ],
         "summary": "Liste des études des sociétés actives, par code",
-        "operationId": "lister_8",
+        "operationId": "lister_9",
         "parameters": [
           {
             "name": "societeId",
@@ -14098,7 +14211,7 @@
         ],
         "summary": "Crée une étude au statut « En étude »",
         "description": "`code` (unique → 409), `description`, `dateDocument`, `societeId` (société active, sinon 400) obligatoires ;\n`terrainId` : article de nature TER (sinon 400). Statut initial « En étude », une ligne d'historique au nom de\nl'appelant ; `tauxTvaDefaut` 0,20 et `tauxTvaInterets` 0,10 si absents. Bloc A et phases calculés et stockés ;\n`unites` / `tranches` du corps sont ignorés (grilles par les PUT).",
-        "operationId": "creer_16",
+        "operationId": "creer_17",
         "requestBody": {
           "content": {
             "application/json": {
@@ -15239,7 +15352,7 @@
           "Entités juridiques"
         ],
         "summary": "Liste des entités, actives ou non (colonnes de la liste OMRAN)",
-        "operationId": "lister_9",
+        "operationId": "lister_10",
         "parameters": [
           {
             "name": "actif",
@@ -15281,7 +15394,7 @@
           "Entités juridiques"
         ],
         "summary": "Crée une entité (habilitation du créateur et 4 compteurs AdmSequence dans la même transaction)",
-        "operationId": "creer_17",
+        "operationId": "creer_18",
         "requestBody": {
           "content": {
             "application/json": {
@@ -15950,7 +16063,7 @@
           "Dossiers — sous-articles"
         ],
         "summary": "Sous-articles du dossier et prix qui en dépendent",
-        "operationId": "lister_10",
+        "operationId": "lister_11",
         "parameters": [
           {
             "name": "id",
@@ -16139,7 +16252,7 @@
         ],
         "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
         "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
-        "operationId": "lister_11",
+        "operationId": "lister_12",
         "parameters": [
           {
             "name": "id",
@@ -16187,7 +16300,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_18",
+        "operationId": "creer_19",
         "parameters": [
           {
             "name": "id",
@@ -16649,7 +16762,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "id",
@@ -16743,7 +16856,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_13",
+        "operationId": "lister_14",
         "parameters": [
           {
             "name": "id",
@@ -17355,7 +17468,7 @@
         ],
         "summary": "Crée un désistement (brouillon) sur le dossier",
         "description": "Statut du dossier sans « Peut effectuer un désistement » (`StrStatus.BoolField010`) : 409. Un seul désistement non légalisé par dossier : 409. Les montants sont calculés comme la simulation et enregistrés ; le N° de demande vient de la séquence « Désistement ».",
-        "operationId": "creer_19",
+        "operationId": "creer_20",
         "parameters": [
           {
             "name": "id",
@@ -17410,7 +17523,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_14",
+        "operationId": "lister_15",
         "parameters": [
           {
             "name": "id",
@@ -17542,7 +17655,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_15",
+        "operationId": "lister_16",
         "parameters": [
           {
             "name": "id",
@@ -17583,7 +17696,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_20",
+        "operationId": "creer_21",
         "parameters": [
           {
             "name": "id",
@@ -18486,7 +18599,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_16",
+        "operationId": "lister_17",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -18522,7 +18635,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_21",
+        "operationId": "creer_22",
         "requestBody": {
           "content": {
             "application/json": {
@@ -19026,7 +19139,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_22",
+        "operationId": "creer_23",
         "requestBody": {
           "content": {
             "application/json": {
@@ -19416,7 +19529,7 @@
           "Actions d'article"
         ],
         "summary": "Actions portant sur l'article (dossiers compris), plus récentes d'abord",
-        "operationId": "lister_17",
+        "operationId": "lister_18",
         "parameters": [
           {
             "name": "id",
@@ -19463,7 +19576,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_23",
+        "operationId": "creer_24",
         "parameters": [
           {
             "name": "id",
@@ -19632,7 +19745,7 @@
         ],
         "summary": "Tiers d'une famille, par code puis PKey",
         "description": "La recherche est un « contient » sans casse ; `%`, `_` et `[` y sont pris à la lettre ; vide ou faite d'espaces = pas de filtre. Colonnes cherchées : code, description, raison sociale, mobile, téléphone, e-mail, ICE ; banques et organismes : code, description, mobile, téléphones, fax, e-mail, site, notes, adresse ; personnels : les colonnes générales sans l'ICE. `natureId` n'est lu que pour les fournisseurs. `contacts` joint les libellés de `CfgTierContact` par « , ». Personnels : `rib` et `iban` toujours null en liste, lus sur la fiche.",
-        "operationId": "lister_18",
+        "operationId": "lister_19",
         "parameters": [
           {
             "name": "famille",
@@ -19724,7 +19837,7 @@
         ],
         "summary": "Crée un tiers ; code au compteur partagé, saisi pour banques et organismes",
         "description": "Personne morale : `raisonSociale` requise. Personne physique : `prenom`, `nom`, `titreId` et `sexeId` requis, `raisonSociale` et `description` valent « prénom nom ». Toujours requis : `personneMorale`, `paysResidenceId`, `deviseId`, `formeSocialeId`, et `mobile` ou `email`. Un doublon n'est pas refusé.\n\nBanques et organismes : fiche réduite, `code`, `description` et `paysId` seuls requis, compteur jamais utilisé. La description passe en majuscules et la raison sociale la suit, le pays de résidence suit `paysId`, `matriculeFiscal` s'écrit aussi dans `IDNumber`. La forme sociale vient du paramètre OMRAN de la famille, la devise reste vide. Seuls comptent `code`, `description`, `paysId`, `natureId`, `matriculeFiscal`, `registreCommerce`, `ice`, `compteComptableId`, `journalId`, les téléphones et leurs indicatifs, `fax`, `email`, `siteWeb`, les adresses, `codePostal`, `villeId`, `ville`, `notes` ; tout autre champ est ignoré.\n\nPersonnels : personne physique seule, `personneMorale` vrai = 400 ; `formeSocialeId` et `deviseId` facultatifs, contrôlés s'ils sont fournis. `ice`, `matriculeFiscal`, `registreCommerce`, `douane`, `codeComptable`, `codeComptableCollectif`, `tauxRetenue`, `tauxTva`, `delaiPaiement`, `assujettissementId` et `estPrestataire` sont ignorés.",
-        "operationId": "creer_24",
+        "operationId": "creer_25",
         "parameters": [
           {
             "name": "famille",
@@ -19820,7 +19933,7 @@
           "Tâches (administration)"
         ],
         "summary": "Liste paginée des tâches, triée par date prévisionnelle",
-        "operationId": "lister_19",
+        "operationId": "lister_20",
         "parameters": [
           {
             "name": "statutId",
@@ -19891,7 +20004,7 @@
           "Tâches (administration)"
         ],
         "summary": "Crée une tâche",
-        "operationId": "creer_25",
+        "operationId": "creer_26",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20030,7 +20143,7 @@
           "Rôles (administration)"
         ],
         "summary": "Liste paginée des rôles, triée par code",
-        "operationId": "lister_20",
+        "operationId": "lister_21",
         "parameters": [
           {
             "name": "texte",
@@ -20071,7 +20184,7 @@
           "Rôles (administration)"
         ],
         "summary": "Crée un rôle",
-        "operationId": "creer_26",
+        "operationId": "creer_27",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20111,7 +20224,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Liste paginée des rendez-vous, triée par date prévisionnelle puis code",
-        "operationId": "lister_21",
+        "operationId": "lister_22",
         "parameters": [
           {
             "name": "texte",
@@ -20187,7 +20300,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Crée un rendez-vous, code issu de la séquence AdmTask",
-        "operationId": "creer_27",
+        "operationId": "creer_28",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20641,7 +20754,7 @@
         ],
         "summary": "Crée une pièce d'achat (devis, bon de commande, bon de livraison, facture, avoir généré)",
         "description": "Ordre des refus : 400 nature non prise en charge → 404 source, société ou projet non habilité → 403 droit de création (code Achat « Nouveau » ; le code Projet › Lot compte pour une pièce à lot, jamais pour une facture) → 400 champs → 409 génération. Écrit la pièce, ses lignes, la ventilation des catégories (calculée depuis les lignes) et des projets, le numéro de la séquence de la nature, le statut de départ (null sans workflow) et, sauf pour un bon de livraison, une ligne d'historique. Montants sans arrondi : PU net = PU × (1 − remise), PU HT = PU net × (1 + FODEC), total HT = PU HT × quantité, TVA = total HT × taux. Une facture à lot reprend le reste d'avance du lot ; seule une facture générée reprend aussi ses taux de retenue.\n\nAvec `sources` : mêmes contrôles que le modèle, rejoués ; la pièce prend la gestion d'arrivée et la devise de la 1re source et écrit les liens (`BuyQuoteId` du bon de commande, `BuyOrderId`, `BuyInvoiceId` des bons de livraison facturés, une ligne `BuyOrderInvoice` par bon de commande distinct) ; un bon de livraison est contrôlé contre les quantités du bon de commande si `LimitDeliveryAndInvoiceQuantityToOrder`. Un refus ne consomme aucun numéro.\n\nAvoir : `InvoiceSourceId` = la facture, `BuyOrderId` = son bon de commande, numéro de la séquence « Avoir fournisseur », `IsFinancialRefund` = `avoirFinancier` (paramètre `DefaultRefundIsFinancial` si absent). Sans ligne, `montantHT` + `montantTVA` fixent les totaux (TTC = somme) ; avec lignes ils sont ignorés. Le net à payer de la facture source est recalculé (TTC et retenues moins la somme de ses avoirs non financiers), à la création, à la modification et à la suppression de l'avoir.",
-        "operationId": "creer_28",
+        "operationId": "creer_29",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20827,7 +20940,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Articles d'achat triés par code, avec la recherche multi-critère",
-        "operationId": "lister_22",
+        "operationId": "lister_23",
         "parameters": [
           {
             "name": "search",
@@ -20860,7 +20973,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Crée un article d'achat",
-        "operationId": "creer_29",
+        "operationId": "creer_30",
         "requestBody": {
           "content": {
             "application/json": {
@@ -22661,6 +22774,124 @@
         }
       }
     },
+    "/api/projet/config/projets/{id}/nivellement/{noeudId}": {
+      "delete": {
+        "tags": [
+          "Projet — configuration, nivellement"
+        ],
+        "summary": "Supprime un nœud et ses descendants",
+        "description": "Supprime le nœud et tous ses descendants. 409 « Suppression impossible : … » avec le nombre de références si le nœud ou un descendant est cité par un lot (`PrjMarketHierarchy.StkHierarchyId`), une journée de travail (`GrhWorkedDay`) ou un avancement de réunion (`BulMeetingPrjProjectProgressCriteriaLine`).",
+        "operationId": "supprimer_15",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "noeudId",
+            "in": "path",
+            "description": "Id du nœud (CfgTrancheLevelingDefinition.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Rôle Administrateur absent."
+          },
+          "404": {
+            "description": "Projet hors périmètre ou inconnu, ou nœud d'un autre projet."
+          },
+          "409": {
+            "description": "Le nœud ou un descendant est cité (lot, journée, avancement)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Projet — configuration, nivellement"
+        ],
+        "summary": "Modifie le code d'un nœud (parent et rang inchangés)",
+        "description": "Corps `{\"code\": \"…\"}` : seul le code change, les autres champs sont ignorés.",
+        "operationId": "modifier_17",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "noeudId",
+            "in": "path",
+            "description": "Id du nœud (CfgTrancheLevelingDefinition.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoeudNivellementEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Code absent, vide ou de plus de 255 caractères.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle Administrateur absent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet hors périmètre ou inconnu, ou nœud d'un autre projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/mon-compte/profil": {
       "patch": {
         "tags": [
@@ -22745,7 +22976,7 @@
         ],
         "summary": "Supprime un lot avec ses contenances, tracés, notes et pièces jointes",
         "description": "Supprime le lot, ses contenances, tracés de plan, notes, pièces jointes et frais non validés. 409 si le lot est occupé,\nporte un frais validé ou est encore référencé (prospection, offre…), avec la cause dans le message.",
-        "operationId": "supprimer_15",
+        "operationId": "supprimer_16",
         "parameters": [
           {
             "name": "id",
@@ -22779,7 +23010,7 @@
         ],
         "summary": "Modifie un lot de terrain (champ absent ou null = inchangé)",
         "description": "Lot occupé : code, surfaces, prix, TVA, remises, classification, titre foncier et tranche → 409. Changer de tranche\nvide la présentation ; refusé (409) si le lot a des prospections. Une présentation d'une autre tranche → 400.",
-        "operationId": "modifier_17",
+        "operationId": "modifier_18",
         "parameters": [
           {
             "name": "id",
@@ -23061,7 +23292,7 @@
         ],
         "summary": "Supprime une étude sans prévision ni financement, avec ses grilles et son historique",
         "description": "409 si l'étude est bloquée, ou porte des prévisions (`FSPrevision`) ou des financements (`FSFunding`). Sinon ventilations,\ntranches, unités et historique sont supprimés avec elle, dans la transaction.",
-        "operationId": "supprimer_16",
+        "operationId": "supprimer_17",
         "parameters": [
           {
             "name": "id",
@@ -23095,7 +23326,7 @@
         ],
         "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
         "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel.\n`pourcentageConcretisation` et `tauxIs` : fractions entre 0 et 1 (400) ; écarts-types ≥ 0,5 (400, message OMRAN « la\nvaleur de l'écart type doit être supérieur ou égal à 0.5 ») ; `nombreArticlesAVendre` reçu est ignoré.",
-        "operationId": "modifier_18",
+        "operationId": "modifier_19",
         "parameters": [
           {
             "name": "id",
@@ -23209,7 +23440,7 @@
           "Entités juridiques"
         ],
         "summary": "Supprime une entité sans programme ni autre référence",
-        "operationId": "supprimer_17",
+        "operationId": "supprimer_18",
         "parameters": [
           {
             "name": "id",
@@ -23242,7 +23473,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_19",
+        "operationId": "modifier_20",
         "parameters": [
           {
             "name": "id",
@@ -23368,7 +23599,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_20",
+        "operationId": "modifier_21",
         "parameters": [
           {
             "name": "id",
@@ -23693,7 +23924,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_18",
+        "operationId": "supprimer_19",
         "parameters": [
           {
             "name": "id",
@@ -23897,7 +24128,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_21",
+        "operationId": "modifier_22",
         "parameters": [
           {
             "name": "id",
@@ -24006,7 +24237,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_19",
+        "operationId": "supprimer_20",
         "parameters": [
           {
             "name": "id",
@@ -24037,7 +24268,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_22",
+        "operationId": "modifier_23",
         "parameters": [
           {
             "name": "id",
@@ -24124,7 +24355,7 @@
           "Désistements"
         ],
         "summary": "Supprime un désistement non validé",
-        "operationId": "supprimer_20",
+        "operationId": "supprimer_21",
         "parameters": [
           {
             "name": "id",
@@ -24158,7 +24389,7 @@
         ],
         "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
         "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` (≥ 0) la conserve au centime et recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` (fraction entre 0 et 1) recalcule la pénalité ; les montants du dossier sont relus, et une pénalité saisie est gardée tant que la base (prix, réglé, taux) ne change pas. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
-        "operationId": "modifier_23",
+        "operationId": "modifier_24",
         "parameters": [
           {
             "name": "id",
@@ -24670,7 +24901,7 @@
         ],
         "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
         "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article ; s'il lui est affecté par défaut → 409 « Vous ne pouvez pas supprimer un sous article affecté par\ndéfaut à l'article en cours ! ».",
-        "operationId": "supprimer_21",
+        "operationId": "supprimer_22",
         "parameters": [
           {
             "name": "id",
@@ -24704,7 +24935,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_24",
+        "operationId": "modifier_25",
         "parameters": [
           {
             "name": "id",
@@ -24824,7 +25055,7 @@
           "Tâches (administration)"
         ],
         "summary": "Supprime une tâche (son historique de statuts est conservé)",
-        "operationId": "supprimer_22",
+        "operationId": "supprimer_23",
         "parameters": [
           {
             "name": "id",
@@ -24854,7 +25085,7 @@
           "Tâches (administration)"
         ],
         "summary": "Modifie une tâche (champ absent ou null = inchangé)",
-        "operationId": "modifier_25",
+        "operationId": "modifier_26",
         "parameters": [
           {
             "name": "id",
@@ -24944,7 +25175,7 @@
         ],
         "summary": "Supprime un rôle libre et ses droits",
         "description": "Refusée en 409 si le rôle est lié à un utilisateur (`AdmUserRole` ou rôle web), un intervenant, un rapport, un workflow ou un droit web : en base, ces liens partiraient en cascade sans prévenir.",
-        "operationId": "supprimer_23",
+        "operationId": "supprimer_24",
         "parameters": [
           {
             "name": "id",
@@ -24977,7 +25208,7 @@
           "Rôles (administration)"
         ],
         "summary": "Modifie description et restrictions (champ absent ou null = inchangé, code ignoré)",
-        "operationId": "modifier_26",
+        "operationId": "modifier_27",
         "parameters": [
           {
             "name": "id",
@@ -25069,7 +25300,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Supprime un rendez-vous",
-        "operationId": "supprimer_24",
+        "operationId": "supprimer_25",
         "parameters": [
           {
             "name": "id",
@@ -25100,7 +25331,7 @@
         ],
         "summary": "Modifie un rendez-vous (champ absent ou null = inchangé)",
         "description": "Les dates comparées sont les valeurs fusionnées : un champ absent vaut la date déjà en base. La source (`sourceId`, `sourceLibelle`, `sourceEntite`) ne bouge jamais.",
-        "operationId": "modifier_27",
+        "operationId": "modifier_28",
         "parameters": [
           {
             "name": "id",
@@ -25392,7 +25623,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Supprime un article d'achat que rien ne cite",
-        "operationId": "supprimer_25",
+        "operationId": "supprimer_26",
         "parameters": [
           {
             "name": "id",
@@ -25425,7 +25656,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Modifie un article d'achat (champ absent ou null = inchangé)",
-        "operationId": "modifier_28",
+        "operationId": "modifier_29",
         "parameters": [
           {
             "name": "id",
@@ -27379,7 +27610,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_23",
+        "operationId": "lister_24",
         "parameters": [
           {
             "name": "du",
@@ -28063,7 +28294,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_24",
+        "operationId": "lister_25",
         "parameters": [
           {
             "name": "entiteId",
@@ -31484,7 +31715,7 @@
           "Rapports"
         ],
         "summary": "Rapports du module visibles par l'appelant, groupés",
-        "operationId": "lister_25",
+        "operationId": "lister_26",
         "parameters": [
           {
             "name": "module",
@@ -35602,7 +35833,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_26",
+        "operationId": "lister_27",
         "parameters": [
           {
             "name": "page",
@@ -37299,7 +37530,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier (frais syndic compris), `alerte` et `sousArticles` : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
-        "operationId": "lister_27",
+        "operationId": "lister_28",
         "parameters": [
           {
             "name": "entiteId",
@@ -42373,7 +42604,7 @@
         ],
         "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
         "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
-        "operationId": "lister_28",
+        "operationId": "lister_29",
         "parameters": [
           {
             "name": "q",
@@ -43640,7 +43871,7 @@
         ],
         "summary": "Journal d'un objet (patrimoine, prospection, étude, rendez-vous) et de ses lignes enfants",
         "description": "Les lignes sont rendues de la plus récente à la plus ancienne.",
-        "operationId": "lister_29",
+        "operationId": "lister_30",
         "parameters": [
           {
             "name": "objetId",
@@ -44182,7 +44413,7 @@
         ],
         "summary": "Onglet de lecture de la fiche tiers, par date décroissante",
         "description": "Lecture seule. Fournisseurs, contacts et personnels ; conges pour les personnels seuls.",
-        "operationId": "lister_30",
+        "operationId": "lister_31",
         "parameters": [
           {
             "name": "famille",
@@ -44471,7 +44702,7 @@
         ],
         "summary": "Sessions OMRAN, page par page",
         "description": "Lignes triées par date d'ouverture décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`StartDate < dateFin + 1 jour`). `utilisateur` est une égalité exacte sur `UserDesc`. `ip` cherche une sous-chaîne, `%`, `_` et `[` pris à la lettre. `ouverte=true` ne rend que `State = 2`, `ouverte=false` tout le reste, verrouillées comprises. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_31",
+        "operationId": "lister_32",
         "parameters": [
           {
             "name": "dateDebut",
@@ -44802,7 +45033,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes de la période, date décroissante, à date égale par `PKey`. Sans date : les 30 derniers jours. `dateFin` est incluse jusqu'à 23:59:59. `texte` cherche dans `ObjectType` et `ObjectLabel` seulement, `%`, `_` et `[` pris à la lettre ; `utilisateur` est une égalité exacte. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_32",
+        "operationId": "lister_33",
         "parameters": [
           {
             "name": "dateDebut",
@@ -45050,7 +45281,7 @@
           "Fichiers attachés (administration)"
         ],
         "summary": "Fichiers attachés, page par page, du plus récent au plus ancien",
-        "operationId": "lister_33",
+        "operationId": "lister_34",
         "parameters": [
           {
             "name": "recherche",
@@ -45414,7 +45645,7 @@
         ],
         "summary": "Fiches verrouillées par OMRAN, page par page",
         "description": "Lignes triées par date de verrouillage décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`LockDate < dateFin + 1 jour`). `recherche` cherche une sous-chaîne dans `Code`, `Description` et `UserDesc`, `%`, `_` et `[` pris à la lettre. Une ligne dont la session n'existe plus reste listée, `utilisateur` à null. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_34",
+        "operationId": "lister_35",
         "parameters": [
           {
             "name": "etat",
@@ -45514,7 +45745,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_35",
+        "operationId": "lister_36",
         "parameters": [
           {
             "name": "dateDebut",
@@ -45689,7 +45920,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes triées par date de création décroissante, les lignes sans date en dernier ; à date égale, par `PKey` puis `action`, ordre stable entre les pages. Sans filtre : toute la vue, aucune période préréglée. Deux lignes de même `PKey` et d'`action` différente restent deux lignes, comptées toutes deux dans `totalElements`. `recherche` cherche une sous-chaîne dans `code`, `action`, `description`, `creePar` et `modifiePar`, espaces ignorés des deux côtés, `%`, `_` et `[` pris à la lettre ; vide ou blanche = pas de filtre. Les périodes de création et de modification se cumulent, leurs bornes sont des jours inclus ; une ligne sans date est exclue dès qu'une borne de sa période est posée. Les valeurs vides sont rendues telles quelles. `id` sert de clé de ligne, il n'ouvre aucun objet.",
-        "operationId": "lister_36",
+        "operationId": "lister_37",
         "parameters": [
           {
             "name": "recherche",
@@ -45798,7 +46029,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_37",
+        "operationId": "lister_38",
         "parameters": [
           {
             "name": "portee",
@@ -47574,7 +47805,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_26",
+        "operationId": "supprimer_27",
         "parameters": [
           {
             "name": "porteur",
@@ -47869,7 +48100,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_27",
+        "operationId": "supprimer_28",
         "parameters": [
           {
             "name": "id",
@@ -48113,7 +48344,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_28",
+        "operationId": "supprimer_29",
         "parameters": [
           {
             "name": "id",
@@ -63984,6 +64215,47 @@
         "required": [
           "transitionId"
         ]
+      },
+      "NoeudNivellementEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'un nœud de nivellement : parentId à la création, code à la modification.",
+        "properties": {
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Création : nœud parent du même projet ; null = nouvelle racine. Ignoré en modification."
+          },
+          "code": {
+            "type": "string",
+            "description": "Modification : nouveau code (obligatoire, 255 caractères). Ignoré à la création.",
+            "maxLength": 255
+          }
+        }
+      },
+      "NoeudNivellementDto": {
+        "type": "object",
+        "description": "Nœud de la définition de nivellement d'un projet (CfgTrancheLevelingDefinition).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du nœud (PKey)."
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Nœud parent ; null pour une racine."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code affiché dans l'arbre (« BLOC 1 », « ETAGE 2 »…)."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang parmi les frères, à partir de 1 (Sorting)."
+          }
+        }
       },
       "ImportCriteresDto": {
         "type": "object",
