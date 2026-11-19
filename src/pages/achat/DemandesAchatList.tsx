@@ -33,12 +33,20 @@ const ACCES_REFUSE = "Vous n'avez pas accès aux demandes d'achat.";
 const MESSAGE_SUPPRESSION = 'Voulez-vous vraiment supprimer cet enregistrement ?';
 
 const CHAMPS_DATE = [
-  { value: 'DocDate', label: 'Date de la demande' },
-  { value: 'ServiceOrderDate', label: "Date d'ordre de service" },
-  { value: 'WorkLaunchDate', label: 'Date de lancement des travaux' },
-  { value: 'WorkCompletionDate', label: "Date d'achèvement des travaux" },
-  { value: 'ReattachmentDate', label: 'Date de rattachement' },
-  { value: 'CancellationDate', label: "Date d'annulation" },
+  { value: 'DocDate', label: 'Date du document' },
+  { value: 'LaunchOfTenderDate', label: "Lancement de l'appel d'offres" },
+  { value: 'WithdrawalTenderDocumentsDate', label: 'Retrait des dossiers' },
+  { value: 'TenderMaturityDate', label: "Échéance de l'appel d'offres" },
+  { value: 'TendersResortDate', label: 'Remise des offres' },
+  { value: 'BidOpeningDate', label: 'Ouverture des plis' },
+  { value: 'TendersReportDate', label: 'Rapport des offres' },
+  { value: 'TenderDate', label: "Date de l'offre" },
+  { value: 'ContractSignatureDate', label: 'Signature du contrat' },
+  { value: 'ServiceOrderDate', label: 'Ordre de service' },
+  { value: 'WorkLaunchDate', label: 'Début des travaux' },
+  { value: 'WorkCompletionDate', label: 'Fin des travaux' },
+  { value: 'ReattachmentDate', label: 'Rattachement' },
+  { value: 'CancellationDate', label: 'Annulation' },
 ];
 
 const COLONNES: ColonneGrille<DemandeAchatLigne>[] = [
