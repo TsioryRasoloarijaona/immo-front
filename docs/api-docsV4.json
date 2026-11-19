@@ -6408,7 +6408,7 @@
           "Achat"
         ],
         "summary": "Saisit les prix et remises des lignes d'une offre",
-        "description": "Le corps liste les lignes à changer (`ligneId` = ligne de ce devis). Ordre des refus : 404 (demande, ou devis d'une autre demande) → 403 (`…toolAddQuote`) → 400 (ligne inconnue, prix négatif, remise hors de 0..1) → 409 (demande non dernière, hors phase offres, offre écartée). Totaux du devis recalculés.",
+        "description": "Le corps liste les lignes à changer (`ligneId` = ligne de ce devis). Ordre des refus : 404 (demande) → 403 (`…toolAddQuote`) → 409 (demande non dernière, hors phase offres) → 404 (devis d'une autre demande) → 400 (ligne inconnue, prix négatif, remise hors de 0..1) → 409 (offre écartée). Totaux du devis recalculés.",
         "operationId": "modifierOffre",
         "parameters": [
           {
@@ -6667,7 +6667,7 @@
           "Achat"
         ],
         "summary": "Remplace le bordereau de la demande (groupes et lignes)",
-        "description": "Le corps est le bordereau entier : groupes et lignes absents sont supprimés. Ordre des refus : 404 → 403 (`…toolNew`) → 409 (demande non dernière, hors phase bordereau `BoolField001`) → 400.",
+        "description": "Le corps est le bordereau entier : il remplace groupes et lignes, qui reçoivent de nouveaux id (les id du corps ne servent qu'à relier lignes, groupes et parents). Ordre des refus : 404 → 403 (`…toolNew`) → 409 (demande non dernière, hors phase bordereau `BoolField001`) → 400.",
         "operationId": "enregistrerBordereau",
         "parameters": [
           {
@@ -6702,7 +6702,7 @@
             }
           },
           "400": {
-            "description": "Champ obligatoire absent ou hors bornes (mêmes règles que le bordereau d'un lot), id d'un autre bordereau, code de ligne en double (« Le code <code> doit être unique pour les lignes du bordereaux ! »)."
+            "description": "Champ obligatoire absent ou hors bornes (mêmes règles que le bordereau d'un lot), code de ligne en double (« Le code <code> doit être unique pour les lignes du bordereaux ! »)."
           },
           "403": {
             "description": "Forbidden"
@@ -12030,7 +12030,7 @@
           "Projet"
         ],
         "summary": "Crée une demande interne d'achat depuis le lot, bordereau estimatif copié",
-        "description": "Ordre des refus : 404 (lot inconnu ou hors périmètre) → 403 (`Yes.Buy.Front.CallOfTender.BuySelectionList.toolNew`, ou aucun statut de départ visible) → 400 (procédure ou description absente, procédure sans entité, montant refusé par la procédure) → 409. Demande au module Projet : société et projet du lot, procédure choisie par montant si l'estimé TTC du lot n'est pas nul, montants, paiement, délai et dates du lot ; bordereau estimatif du lot copié (groupes et lignes hors stock).",
+        "description": "Ordre des refus : 404 (lot inconnu ou hors périmètre) → 403 (`Yes.Buy.Front.CallOfTender.BuySelectionList.toolNew`, ou aucun statut de départ visible) → 409 (statut du lot) → 400 (procédure ou description absente, procédure sans entité) → 409 (autre demande non annulée). Demande au module Projet : société et projet du lot, procédure choisie par montant si l'estimé TTC du lot n'est pas nul, montants, paiement, délai et dates du lot ; bordereau estimatif du lot copié (groupes et lignes hors stock).",
         "operationId": "creer_9",
         "parameters": [
           {
@@ -21727,7 +21727,7 @@
           "Achat"
         ],
         "summary": "Crée l'offre d'un fournisseur présélectionné : un devis recopiant le bordereau",
-        "description": "Ordre des refus : 404 → 403 (`…toolAddQuote`) → 400 (`fournisseurId` absent ou non présélectionné) → 409 : demande non dernière, hors phase offres (`BoolField003`), fournisseur écarté, date de dépôt vide, demande sans projet. Crée un devis (gestion `BuyQuote` sans lot, `PrjMarketQuote` lot simple, `PrjMarketMultiSupplierQuote` lot multi-fournisseur), sans statut, daté et échu au dépôt, société, projet, lot, module, type de lot et devise de la demande ; une ligne par ligne du bordereau (ordre, code, désignation, unité, quantité, TVA, FODEC, catégorie), prix à 0.",
+        "description": "Ordre des refus : 404 → 403 (`…toolAddQuote`) → 409 (demande non dernière, hors phase offres `BoolField003`) → 400 (`fournisseurId` absent ou non présélectionné) → 409 : fournisseur écarté, date de dépôt vide, demande sans projet. Crée un devis (gestion `BuyQuote` sans lot, `PrjMarketQuote` lot simple, `PrjMarketMultiSupplierQuote` lot multi-fournisseur), sans statut, daté et échu au dépôt, société, projet, lot, module, type de lot et devise de la demande ; une ligne par ligne du bordereau (ordre, code, désignation, unité, quantité, TVA, FODEC, catégorie), prix à 0.",
         "operationId": "creerOffre",
         "parameters": [
           {
@@ -21782,7 +21782,7 @@
           "Achat"
         ],
         "summary": "Retient une offre : seule sélectionnée, son fournisseur devient celui de la demande",
-        "description": "Ordre des refus : 404 → 403 (`…toolSelectDeselectQuote`) → 409 : demande non dernière, hors phase sélection (`BoolField004`), demande sans lot ou à lot multi-fournisseur, fournisseur écarté, lot ayant un décompte. Seule cette offre reste sélectionnée ; fournisseur de la demande = celui de l'offre ; délai de paiement = celui du fournisseur si celui de la demande est nul ou négatif.",
+        "description": "Ordre des refus : 404 → 403 (`…toolSelectDeselectQuote`) → 409 : demande non dernière, hors phase sélection (`BoolField004`, jamais ouverte pour un lot multi-fournisseur), lot ayant un décompte ou des affectations de décomposition, fournisseur écarté. Seule cette offre reste sélectionnée ; fournisseur de la demande = celui de l'offre ; délai de paiement = celui du fournisseur si celui de la demande est nul ou négatif.",
         "operationId": "selectionnerOffre",
         "parameters": [
           {
@@ -21876,7 +21876,7 @@
           "Achat"
         ],
         "summary": "Ajoute une modalité de paiement",
-        "description": "Ordre des refus : 404 → 403 (`…toolNew`, droit d'enregistrer la fiche) → 400 (`ordre` ou `code` absent) → 409 (demande non dernière).",
+        "description": "Ordre des refus : 404 → 403 (`…toolNew`, droit d'enregistrer la fiche) → 409 (demande non dernière) → 400 (`ordre` ou `code` absent).",
         "operationId": "ajouterModalite",
         "parameters": [
           {
@@ -21972,7 +21972,7 @@
           "Achat"
         ],
         "summary": "Ajoute un fournisseur présélectionné",
-        "description": "Ordre des refus : 404 → 403 (`…BuySelectionList.toolAddSupplier`) → 400 (`fournisseurId` absent ou inconnu, texte trop long) → 409.",
+        "description": "Ordre des refus : 404 → 403 (`…BuySelectionList.toolAddSupplier`) → 409 (demande non dernière, hors phase présélection `BoolField002`) → 400 (`fournisseurId` absent ou inconnu, texte trop long) → 409 métier.",
         "operationId": "ajouterFournisseur",
         "parameters": [
           {
@@ -22133,7 +22133,7 @@
           "Achat"
         ],
         "summary": "Remplace le bordereau par celui d'un classeur au format de l'export",
-        "description": "Classeur `.xlsx` au format de l'export (colonnes Groupe, Code, Désignation, Unité, Quantité, TVA %, FODEC %, Catégorie, Notes) ; groupe et catégorie désignés par leur code. Mêmes droits, refus et effet que l'enregistrement du bordereau ; 400 aussi si le fichier est illisible ou si un code de groupe ou de catégorie est inconnu.",
+        "description": "Classeur `.xlsx` au format de l'export (colonnes Groupe, Code, Désignation, Unité, Quantité, PU HT, TVA %, FODEC %, Catégorie, Notes) ; groupe et catégorie désignés par leur code ; les groupes existants sont gardés, les lignes remplacées. Mêmes droits, refus et effet que l'enregistrement du bordereau ; 400 aussi si le fichier est illisible, un nombre mal formé, ou un code de groupe ou de catégorie inconnu.",
         "operationId": "importerBordereau",
         "parameters": [
           {
@@ -49047,7 +49047,7 @@
           "Achat"
         ],
         "summary": "Comparaison des offres non écartées, lignes rattachées au bordereau par le code",
-        "description": "Mêmes droits que la liste des offres ; ouverte en phase offres ou sélection (sinon 409). Rend les offres non écartées.",
+        "description": "Mêmes droits que la liste des offres ; ouverte quand `phases.comparaison` de la fiche est vrai (sinon 409). Rend les offres non écartées.",
         "operationId": "comparaison",
         "parameters": [
           {
@@ -49093,7 +49093,7 @@
           "Achat"
         ],
         "summary": "Export Excel du bordereau de la demande",
-        "description": "Droit de lecture de la demande ; une ligne de classeur par ligne du bordereau, groupe désigné par son code.",
+        "description": "Droit de lecture de la demande ; une ligne de classeur par ligne du bordereau, groupe et catégorie désignés par leur code.",
         "operationId": "exporterBordereau",
         "parameters": [
           {
@@ -50250,7 +50250,7 @@
           "Achat"
         ],
         "summary": "Retire une modalité de paiement",
-        "description": "Ordre des refus : 404 (demande, ou modalité d'une autre demande) → 403 (`…toolNew`) → 409 (demande non dernière).",
+        "description": "Ordre des refus : 404 (demande) → 403 (`…toolNew`) → 409 (demande non dernière) → 404 (modalité d'une autre demande).",
         "operationId": "supprimerModalite",
         "parameters": [
           {

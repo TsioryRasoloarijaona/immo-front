@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { History, RotateCcw, Shuffle } from 'lucide-react';
+import { History, RefreshCw, RotateCcw, Shuffle } from 'lucide-react';
 import FenetreFiche from '../../components/fiche/FenetreFiche';
 import RubanFiche from '../../components/fiche/RubanFiche';
 import { ErrorState, LoadingState } from '../../components/ui';
@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/button';
 import { ApiError } from '../../lib/api';
 import { getReferentielsAchat } from '../../lib/apiAchat';
 import {
-  creerDemandeAchat, getDemandeAchat, getTransitionsDemandeAchat, modifierDemandeAchat, supprimerDemandeAchat,
+  creerDemandeAchat, getDemandeAchat, getTransitionsDemandeAchat, modifierDemandeAchat, renouvelerDemandeAchat, supprimerDemandeAchat,
 } from '../../lib/apiDemandesAchat';
 import { listLignesReferentiel } from '../../lib/apiReferentielsAdmin';
 import { useConfirm } from '../../lib/confirmContext';
@@ -103,8 +103,22 @@ function FenetreDemande({ id, initiale, voisins, onFermer, onNaviguer }: Props &
     }
   }
 
+  async function renouveler() {
+    if (!fiche || !onNaviguer) return;
+    if (!(await confirmer({ title: 'Renouveler', message: 'Lancer un nouvel appel d\'offre à partir de cette demande ?', confirmLabel: 'Renouveler' }))) return;
+    setMessage(null);
+    try {
+      const nouvelle = await renouvelerDemandeAchat(fiche.id);
+      refetchAllApis();
+      onNaviguer(nouvelle.id);
+    } catch (err) {
+      setMessage(errorMessage(err));
+    }
+  }
+
   const propres = fiche
     ? [
+        ...(onNaviguer ? [{ id: 'renouveler', libelle: 'Lancer un nouvel appel d\'offre', icone: RefreshCw, onClick: () => void renouveler() }] : []),
         ...(droitStatut ? [{ id: 'statut', libelle: 'Statut', icone: Shuffle, onClick: () => setDialogue('statut') }] : []),
         { id: 'historique', libelle: 'Historique', icone: History, onClick: () => setDialogue('historique') },
       ]

@@ -4,8 +4,16 @@ import Champ from '../../components/dossier/echeancier/Champ';
 import { Input } from '../../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Textarea } from '../../components/ui/textarea';
+import { getFournisseursDemandeAchat, getOffresDemandeAchat } from '../../lib/apiDemandesAchat';
 import { formatCurrency } from '../../lib/format';
+import { useApi } from '../../lib/useApi';
 import type { DatesDemandeAchat, DemandeAchatFiche } from '../../types/demandesAchat';
+import { lire, MESSAGE_ACCES_REFUSE } from '../commissions/lecture';
+import OngletBonsCommandeDemandeAchat from './OngletBonsCommandeDemandeAchat';
+import OngletBordereauDemandeAchat from './OngletBordereauDemandeAchat';
+import OngletModalitesDemandeAchat from './OngletModalitesDemandeAchat';
+import OngletOffresDemandeAchat from './OngletOffresDemandeAchat';
+import OngletPreselectionDemandeAchat from './OngletPreselectionDemandeAchat';
 import { DATES, type CleSaisie, type Listes, type Saisie } from './saisieDemandeAchat';
 
 type Choix = Listes['procedures'];
@@ -58,13 +66,34 @@ export default function DemandeAchatOnglets({ fiche, saisie, maj, majDate, liste
 }>) {
   const verrou = fiche?.estDerniere === false;
   const [onglet, setOnglet] = useState('principal');
+  const id = fiche?.id;
+  // Demande confidentielle : un 403 sur la route d'un onglet le masque.
+  const sondePresel = useApi(() => (id && fiche.confidentielle ? lire(() => getFournisseursDemandeAchat(id)) : Promise.resolve(null)), [id]);
+  const sondeOffres = useApi(() => (id && fiche.confidentielle ? lire(() => getOffresDemandeAchat(id)) : Promise.resolve(null)), [id]);
+  const sansPresel = sondePresel.error === MESSAGE_ACCES_REFUSE;
+  const sansOffres = sondeOffres.error === MESSAGE_ACCES_REFUSE;
+  const avecBons = fiche !== null && (fiche.lotMultiFournisseur || !fiche.lot);
   return (
     <Tabs value={onglet} onValueChange={setOnglet} className="min-h-0">
       <TabsList>
         <TabsTrigger value="principal">Principal</TabsTrigger>
         <TabsTrigger value="modalites">Modalités-dates</TabsTrigger>
         <TabsTrigger value="autres">Autres</TabsTrigger>
+        {fiche && !sansPresel && <TabsTrigger value="presel">Présélection</TabsTrigger>}
+        {fiche && !sansOffres && <TabsTrigger value="offres">Offres</TabsTrigger>}
+        {fiche && <TabsTrigger value="paiement">Modalités de paiement</TabsTrigger>}
+        {fiche && avecBons && <TabsTrigger value="bons">Bons de commande</TabsTrigger>}
+        {fiche && <TabsTrigger value="bordereau">Bordereau</TabsTrigger>}
       </TabsList>
+      {fiche && (
+        <>
+          <TabsContent value="presel"><OngletPreselectionDemandeAchat fiche={fiche} verrouille={verrou} /></TabsContent>
+          <TabsContent value="offres"><OngletOffresDemandeAchat fiche={fiche} verrouille={verrou} /></TabsContent>
+          <TabsContent value="paiement"><OngletModalitesDemandeAchat fiche={fiche} verrouille={verrou} /></TabsContent>
+          <TabsContent value="bons"><OngletBonsCommandeDemandeAchat fiche={fiche} verrouille={verrou} /></TabsContent>
+          <TabsContent value="bordereau"><OngletBordereauDemandeAchat fiche={fiche} verrouille={verrou} /></TabsContent>
+        </>
+      )}
       <TabsContent value="principal" className="grid grid-cols-2 gap-3 pt-3 lg:grid-cols-4">
         <Champ id="da-code" libelle="Code"><Input id="da-code" value={fiche?.code ?? ''} placeholder="Généré à l'enregistrement" disabled readOnly /></Champ>
         <Saisir id="da-date" libelle="Date" type="date" valeur={saisie.date} onChange={maj('date')} disabled={verrou} />
