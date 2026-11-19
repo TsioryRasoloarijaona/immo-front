@@ -111,6 +111,21 @@ export interface ImportCriteresDto {
   projetSourceId: UUID;
 }
 
+/** Nœud de nivellement du projet, liste à plat : l'arbre se bâtit sur `parentId` (null = racine). */
+export interface NoeudNivellementDto {
+  id: UUID;
+  parentId?: UUID | null;
+  code?: string | null;
+  /** Rang parmi les frères, à partir de 1. */
+  ordre?: number | null;
+}
+
+/** Création : `parentId` (null = racine), code et rang calculés par le serveur. Modification : `code` seul. */
+export interface NoeudNivellementEcritureDto {
+  parentId?: UUID | null;
+  code?: string | null;
+}
+
 export interface TransitionProjetDto {
   id: UUID;
   code?: string | null;
