@@ -49,6 +49,86 @@ export interface PhasesDemandeAchat {
   preselection: boolean;
   offres: boolean;
   selection: boolean;
+  /** BC depuis une offre (génération des pièces d'achat, nature ORDER). */
+  bonCommande: boolean;
+  comparaison: boolean;
+}
+
+/** Fournisseur présélectionné ; `id` = PKey de la présélection, pas du tiers. */
+export interface FournisseurDemandeAchat {
+  id: UUID;
+  fournisseur: ElementDemandeAchat | null;
+  referenceOdt: string | null;
+  lettreEnvoyee: string | null;
+  retraitDossier: string | null;
+  depot: string | null;
+  ecarte: boolean;
+  notes: string | null;
+}
+
+export interface SaisieFournisseurDemandeAchat {
+  fournisseurId: UUID | null;
+  referenceOdt?: string | null;
+  lettreEnvoyee?: string | null;
+  retraitDossier?: string | null;
+  depot?: string | null;
+  notes?: string | null;
+}
+
+/** Remise et TVA en fraction (0,1 = 10 %). */
+export interface LigneOffreDemandeAchat {
+  id: UUID;
+  ordre: number | null;
+  code: string | null;
+  designation: string | null;
+  unite: string | null;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  remise: number | null;
+  prixApresRemiseHT: number | null;
+  tauxTVA: number | null;
+  totalHT: number | null;
+}
+
+export interface OffreDemandeAchat {
+  id: UUID;
+  code: string | null;
+  fournisseur: ElementDemandeAchat | null;
+  date: string | null;
+  totalHT: number | null;
+  totalTTC: number | null;
+  selectionnee: boolean;
+  ecartee: boolean;
+  lignes: LigneOffreDemandeAchat[];
+}
+
+export interface PrixLigneOffre {
+  ligneId: UUID;
+  prixUnitaireHT: number;
+  remise?: number | null;
+}
+
+/** `ratio` en fraction ; `id` ignoré à la saisie. */
+export interface ModaliteDemandeAchat {
+  id?: UUID | null;
+  ordre: number | null;
+  code: string | null;
+  ratio: number | null;
+}
+
+export interface BonCommandeDemandeAchat {
+  id: UUID;
+  code: string | null;
+  nature: string | null;
+  date: string | null;
+  fournisseur: ElementDemandeAchat | null;
+  statut: StatutDemandeAchat | null;
+  montantTTC: number | null;
+}
+
+export interface SaisieDemandeAchatLot {
+  procedureId: UUID | null;
+  description: string | null;
 }
 
 export interface DemandeAchatFiche {

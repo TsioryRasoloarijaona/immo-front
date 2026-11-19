@@ -6402,6 +6402,320 @@
         }
       }
     },
+    "/api/achat/demandes-achat/{id}/offres/{oid}": {
+      "put": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Saisit les prix et remises des lignes d'une offre",
+        "description": "Le corps liste les lignes à changer (`ligneId` = ligne de ce devis). Ordre des refus : 404 (demande, ou devis d'une autre demande) → 403 (`…toolAddQuote`) → 400 (ligne inconnue, prix négatif, remise hors de 0..1) → 409 (demande non dernière, hors phase offres, offre écartée). Totaux du devis recalculés.",
+        "operationId": "modifierOffre",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "oid",
+            "in": "path",
+            "description": "Id du devis (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PrixLigneOffre"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Offre relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/OffreDemandeAchat"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Supprime une offre non sélectionnée",
+        "description": "Ordre des refus : 404 → 403 (`…toolDeleteQuote`) → 409 : demande non dernière, hors phase offres, offre sélectionnée.",
+        "operationId": "supprimerOffre",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "oid",
+            "in": "path",
+            "description": "Id du devis (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Offre supprimée."
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/fournisseurs/{fid}": {
+      "put": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Modifie un fournisseur présélectionné (références et dates)",
+        "description": "Mêmes droits et refus que l'ajout ; le fournisseur peut être changé s'il n'est pas déjà présent. 404 aussi si `fid` n'appartient pas à la demande.",
+        "operationId": "modifierFournisseur",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fid",
+            "in": "path",
+            "description": "Id de la présélection (BuySelectionSupplier.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieFournisseurDemandeAchat"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fournisseur modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FournisseurDemandeAchat"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Retire un fournisseur présélectionné sans offre",
+        "description": "Ordre des refus : 404 → 403 (`…toolDeleteSupplier`) → 409 : demande non dernière, hors phase présélection, ou fournisseur ayant au moins une offre.",
+        "operationId": "supprimerFournisseur",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fid",
+            "in": "path",
+            "description": "Id de la présélection (BuySelectionSupplier.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Fournisseur retiré."
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/bordereau": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Bordereau de la demande : groupes et lignes",
+        "description": "Droit de lecture de la demande. Taux de TVA et de FODEC en pourcentage, comme le bordereau d'un lot.",
+        "operationId": "bordereau_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bordereau, taux en pourcentage.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BordereauSaisieDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Remplace le bordereau de la demande (groupes et lignes)",
+        "description": "Le corps est le bordereau entier : groupes et lignes absents sont supprimés. Ordre des refus : 404 → 403 (`…toolNew`) → 409 (demande non dernière, hors phase bordereau `BoolField001`) → 400.",
+        "operationId": "enregistrerBordereau",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BordereauSaisieDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bordereau relu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BordereauSaisieDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent ou hors bornes (mêmes règles que le bordereau d'un lot), id d'un autre bordereau, code de ligne en double (« Le code <code> doit être unique pour les lignes du bordereaux ! »)."
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
     "/api/achat/config/transitions/{id}": {
       "put": {
         "tags": [
@@ -11672,6 +11986,99 @@
         }
       }
     },
+    "/api/projet/lots/{id}/demandes-achat": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Demandes internes d'achat du lot, par date décroissante",
+        "description": "Demandes internes d'achat (`BuySelection`) rattachées au lot, en lecture seule, par date décroissante puis code. Onglet\nRéclamations : module SAV non porté, aucune route.",
+        "operationId": "demandesAchat",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demandes du lot (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DemandeAchatLotDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Crée une demande interne d'achat depuis le lot, bordereau estimatif copié",
+        "description": "Ordre des refus : 404 (lot inconnu ou hors périmètre) → 403 (`Yes.Buy.Front.CallOfTender.BuySelectionList.toolNew`, ou aucun statut de départ visible) → 400 (procédure ou description absente, procédure sans entité, montant refusé par la procédure) → 409. Demande au module Projet : société et projet du lot, procédure choisie par montant si l'estimé TTC du lot n'est pas nul, montants, paiement, délai et dates du lot ; bordereau estimatif du lot copié (groupes et lignes hors stock).",
+        "operationId": "creer_9",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieDemandeAchatLot"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Demande créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeAchatFiche"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Lot inconnu ou hors périmètre."
+          },
+          "409": {
+            "description": "Statut du lot qui n'ouvre pas l'ajout d'une demande (`BoolField005`) ; lot non multi-fournisseur ayant déjà une demande non annulée (« Pour pouvoir ajouter un nouvel appel d'offre il faut d'abords annuler tous les autres ! »)."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}/copie": {
       "post": {
         "tags": [
@@ -11756,7 +12163,7 @@
           "Projet"
         ],
         "summary": "Créer un avenant du lot",
-        "operationId": "creer_9",
+        "operationId": "creer_10",
         "parameters": [
           {
             "name": "id",
@@ -11976,7 +12383,7 @@
           "Projet — configuration des réunions de chantier"
         ],
         "summary": "Crée une ligne",
-        "operationId": "creer_10",
+        "operationId": "creer_11",
         "parameters": [
           {
             "name": "table",
@@ -12195,7 +12602,7 @@
         ],
         "summary": "Crée un projet et habilite son créateur dans la même transaction",
         "description": "Le statut (premier statut de type « Nouveau » du workflow projet) et le type d'objet (`StrEntity` « PrjProject ») sont posés par le serveur, avec une ligne d'historique `StrHistory` « Création ». Défauts : non ventilé, taux 0, sans parties communes. Une habilitation (`AdmUserHabilitation`, portée projet seule) est créée pour l'utilisateur courant dans la même transaction : un échec de l'une annule l'autre.",
-        "operationId": "creer_11",
+        "operationId": "creer_12",
         "requestBody": {
           "content": {
             "application/json": {
@@ -12477,7 +12884,7 @@
         ],
         "summary": "Ajoute une racine ou un enfant ; code et rang calculés par le serveur",
         "description": "Corps `{\"parentId\": uuid|null}`. Le serveur calcule le rang (nombre de frères + 1) et le code : code de la ligne du nivellement du projet (`StkLevelingLine`) dont le rang égale la profondeur du nouveau nœud, suivi du rang (« BLOC 1 », « ETAGE 2 »). 400 « Aucun niveau n'est défini pour ce projet : renseigner le nivellement du projet. » si le projet n'a pas de nivellement ; 400 « Vous ne pouvez pas ajouter un niveau inférieur » au-delà de la profondeur du nivellement. Parent d'un autre projet ou inconnu : 404.",
-        "operationId": "creer_12",
+        "operationId": "creer_13",
         "parameters": [
           {
             "name": "id",
@@ -12933,7 +13340,7 @@
         ],
         "summary": "Crée une pré-prospection (lead brut)",
         "description": "Équivalent de l'écran « Pré-prospection » d'OMRAN, dont la trace d'audit fixe la séquence : code\ntiré du compteur `AdmSequence` « Prospection » (format `AA/NNNNN`, **le même compteur que les\nprospections**), type de document `ComPreProspection`, contact saisi en champs libres\n(`TempDescription`, `TempTel`, `TempEMail`) — **aucune fiche prospect n'est créée**.\n\nSeul `nom` est obligatoire. Posés par le serveur : code, date du document (maintenant), `IsClosed =\nfalse`, auteur (utilisateur connecté), vocation `VENTE` si aucune n'est fournie. Jamais de prospect\nni de commercial : c'est l'objet de `POST /api/pre-prospections/{id}/creer-prospect` puis `POST\n/api/prospections/{id}/transformer`.\n\n**Doublons signalés, jamais refusés.** La réponse liste les prospections existantes au même contact\n(même nom, même téléphone sur ses 9 derniers chiffres, même email — un champ absent des deux côtés\ncompte comme égal). OMRAN enregistre lui aussi une ligne par soumission ; à l'écran d'avertir. Seuls\nles doublons **visibles de l'appelant** (périmètre commercial) sont listés : un contact hors\npérimètre n'est jamais révélé.\n\nLa ligne créée apparaît aussitôt dans `GET /api/pre-prospections` et dans le logiciel de bureau.",
-        "operationId": "creer_13",
+        "operationId": "creer_14",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13443,7 +13850,7 @@
           "Notes"
         ],
         "summary": "Ajoute une note en texte simple (échappée en HTML pour OMRAN)",
-        "operationId": "creer_14",
+        "operationId": "creer_15",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13593,7 +14000,7 @@
           "Modèles de documents"
         ],
         "summary": "Crée un modèle et sa version 1",
-        "operationId": "creer_15",
+        "operationId": "creer_16",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13937,7 +14344,7 @@
         ],
         "summary": "Crée un lot de terrain dans une tranche (nature TER, entité « article », sans statut de workflow)",
         "description": "Tranche obligatoire, visible et d'entité active (sinon 400, sans dire si elle existe). Code unique dans la tranche,\ntoutes natures confondues (409). Vocation obligatoire et jamais PROJET ; catégorie et type obligatoires, de nature TER\nou LOT DE TERRAIN (400 nommant le champ). Prix : un seul calcul, celui des articles (prix au m² HT ou TTC exclusifs).",
-        "operationId": "creer_16",
+        "operationId": "creer_17",
         "requestBody": {
           "content": {
             "application/json": {
@@ -14338,7 +14745,7 @@
         ],
         "summary": "Crée une étude au statut « En étude »",
         "description": "`code` (unique → 409), `description`, `dateDocument`, `societeId` (société active, sinon 400) obligatoires ;\n`terrainId` : article de nature TER (sinon 400). Statut initial « En étude », une ligne d'historique au nom de\nl'appelant ; `tauxTvaDefaut` 0,20 et `tauxTvaInterets` 0,10 si absents. Bloc A et phases calculés et stockés ;\n`unites` / `tranches` du corps sont ignorés (grilles par les PUT).",
-        "operationId": "creer_17",
+        "operationId": "creer_18",
         "requestBody": {
           "content": {
             "application/json": {
@@ -15521,7 +15928,7 @@
           "Entités juridiques"
         ],
         "summary": "Crée une entité (habilitation du créateur et 4 compteurs AdmSequence dans la même transaction)",
-        "operationId": "creer_18",
+        "operationId": "creer_19",
         "requestBody": {
           "content": {
             "application/json": {
@@ -16427,7 +16834,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_19",
+        "operationId": "creer_20",
         "parameters": [
           {
             "name": "id",
@@ -17595,7 +18002,7 @@
         ],
         "summary": "Crée un désistement (brouillon) sur le dossier",
         "description": "Statut du dossier sans « Peut effectuer un désistement » (`StrStatus.BoolField010`) : 409. Un seul désistement non légalisé par dossier : 409. Les montants sont calculés comme la simulation et enregistrés ; le N° de demande vient de la séquence « Désistement ».",
-        "operationId": "creer_20",
+        "operationId": "creer_21",
         "parameters": [
           {
             "name": "id",
@@ -17823,7 +18230,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_21",
+        "operationId": "creer_22",
         "parameters": [
           {
             "name": "id",
@@ -18762,7 +19169,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_22",
+        "operationId": "creer_23",
         "requestBody": {
           "content": {
             "application/json": {
@@ -19266,7 +19673,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_23",
+        "operationId": "creer_24",
         "requestBody": {
           "content": {
             "application/json": {
@@ -19703,7 +20110,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_24",
+        "operationId": "creer_25",
         "parameters": [
           {
             "name": "id",
@@ -19964,7 +20371,7 @@
         ],
         "summary": "Crée un tiers ; code au compteur partagé, saisi pour banques et organismes",
         "description": "Personne morale : `raisonSociale` requise. Personne physique : `prenom`, `nom`, `titreId` et `sexeId` requis, `raisonSociale` et `description` valent « prénom nom ». Toujours requis : `personneMorale`, `paysResidenceId`, `deviseId`, `formeSocialeId`, et `mobile` ou `email`. Un doublon n'est pas refusé.\n\nBanques et organismes : fiche réduite, `code`, `description` et `paysId` seuls requis, compteur jamais utilisé. La description passe en majuscules et la raison sociale la suit, le pays de résidence suit `paysId`, `matriculeFiscal` s'écrit aussi dans `IDNumber`. La forme sociale vient du paramètre OMRAN de la famille, la devise reste vide. Seuls comptent `code`, `description`, `paysId`, `natureId`, `matriculeFiscal`, `registreCommerce`, `ice`, `compteComptableId`, `journalId`, les téléphones et leurs indicatifs, `fax`, `email`, `siteWeb`, les adresses, `codePostal`, `villeId`, `ville`, `notes` ; tout autre champ est ignoré.\n\nPersonnels : personne physique seule, `personneMorale` vrai = 400 ; `formeSocialeId` et `deviseId` facultatifs, contrôlés s'ils sont fournis. `ice`, `matriculeFiscal`, `registreCommerce`, `douane`, `codeComptable`, `codeComptableCollectif`, `tauxRetenue`, `tauxTva`, `delaiPaiement`, `assujettissementId` et `estPrestataire` sont ignorés.",
-        "operationId": "creer_25",
+        "operationId": "creer_26",
         "parameters": [
           {
             "name": "famille",
@@ -20131,7 +20538,7 @@
           "Tâches (administration)"
         ],
         "summary": "Crée une tâche",
-        "operationId": "creer_26",
+        "operationId": "creer_27",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20311,7 +20718,7 @@
           "Rôles (administration)"
         ],
         "summary": "Crée un rôle",
-        "operationId": "creer_27",
+        "operationId": "creer_28",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20427,7 +20834,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Crée un rendez-vous, code issu de la séquence AdmTask",
-        "operationId": "creer_28",
+        "operationId": "creer_29",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20881,7 +21288,7 @@
         ],
         "summary": "Crée une pièce d'achat (devis, bon de commande, bon de livraison, facture, avoir généré)",
         "description": "Ordre des refus : 400 nature non prise en charge → 404 source, société ou projet non habilité → 403 droit de création (code Achat « Nouveau » ; le code Projet › Lot compte pour une pièce à lot, jamais pour une facture) → 400 champs → 409 génération. Écrit la pièce, ses lignes, la ventilation des catégories (calculée depuis les lignes) et des projets, le numéro de la séquence de la nature, le statut de départ (null sans workflow) et, sauf pour un bon de livraison, une ligne d'historique. Montants sans arrondi : PU net = PU × (1 − remise), PU HT = PU net × (1 + FODEC), total HT = PU HT × quantité, TVA = total HT × taux. Une facture à lot reprend le reste d'avance du lot ; seule une facture générée reprend aussi ses taux de retenue.\n\nAvec `sources` : mêmes contrôles que le modèle, rejoués ; la pièce prend la gestion d'arrivée et la devise de la 1re source et écrit les liens (`BuyQuoteId` du bon de commande, `BuyOrderId`, `BuyInvoiceId` des bons de livraison facturés, une ligne `BuyOrderInvoice` par bon de commande distinct) ; un bon de livraison est contrôlé contre les quantités du bon de commande si `LimitDeliveryAndInvoiceQuantityToOrder`. Un refus ne consomme aucun numéro.\n\nAvoir : `InvoiceSourceId` = la facture, `BuyOrderId` = son bon de commande, numéro de la séquence « Avoir fournisseur », `IsFinancialRefund` = `avoirFinancier` (paramètre `DefaultRefundIsFinancial` si absent). Sans ligne, `montantHT` + `montantTVA` fixent les totaux (TTC = somme) ; avec lignes ils sont ignorés. Le net à payer de la facture source est recalculé (TTC et retenues moins la somme de ses avoirs non financiers), à la création, à la modification et à la suppression de l'avoir.",
-        "operationId": "creer_29",
+        "operationId": "creer_30",
         "requestBody": {
           "content": {
             "application/json": {
@@ -21104,7 +21511,7 @@
         ],
         "summary": "Crée une demande interne d'achat au statut de départ de l'entité de sa procédure",
         "description": "Droit `…BuySelectionList.toolNew`. Code `yy/nnnnn` (plus grand numéro de l'année + 1) ; entité = celle de la procédure ; statut = premier statut de type Nouveau (tri `Sorting`) de l'entité visible de l'appelant ; dernière de son groupe ; déclencheur = employé du compte ; module Achat par défaut ; ligne d'historique « Création ». Le corps ne fixe jamais le code, le statut ni l'entité.",
-        "operationId": "creer_30",
+        "operationId": "creer_31",
         "requestBody": {
           "content": {
             "application/json": {
@@ -21181,7 +21588,7 @@
           "Achat"
         ],
         "summary": "Exécute une transition de statut",
-        "description": "Même calcul que la liste des transitions. Ordre des refus : 404 → 403 (lecture) → 400 `transitionId` absent → 409 (lecture seule, transition non proposée) → 400 / 403 second valideur → 400 commentaire → 409 (arrivée de type Terminé avec succès sur une demande à lot non multi-fournisseur). Historique : `<transition>: <départ de la transition>=><arrivée>(<login> & <login du second>)` ; notes conservées seulement si la transition exige un commentaire ou une date. Mot de passe du second jamais conservé ni renvoyé.",
+        "description": "Même calcul que la liste des transitions. Ordre des refus : 404 → 403 (lecture) → 400 `transitionId` absent → 409 (lecture seule, transition non proposée) → 400 / 403 second valideur → 400 commentaire → 409 (clôture avec succès, ci-dessous). Arrivée de type Terminé avec succès sur une demande à lot non multi-fournisseur : le bordereau définitif du lot est remplacé par celui de la demande (groupes gardant leurs ids, lignes hors stock), prix unitaire HT de chaque ligne = celui après remise de la ligne de même code de l'offre sélectionnée, aussi reporté sur la demande ; le lot reçoit le fournisseur, le mode et le délai de paiement et les 8 dates d'appel d'offre de la demande. Historique : `<transition>: <départ de la transition>=><arrivée>(<login> & <login du second>)` ; notes conservées seulement si la transition exige un commentaire ou une date. Mot de passe du second jamais conservé ni renvoyé.",
         "operationId": "executerTransition_4",
         "parameters": [
           {
@@ -21225,7 +21632,561 @@
             "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
           },
           "409": {
-            "description": "Transition non proposée à l'appelant (le corps porte `transitionsAutorisees`), demande non dernière, ou génération du bordereau du lot non disponible."
+            "description": "Transition non proposée à l'appelant (le corps porte `transitionsAutorisees`), demande non dernière ; clôture avec succès sans offre sélectionnée (« Aucune offre n'est sélectionnée ! »), code de ligne présent d'un seul côté entre le bordereau et l'offre (« Il y a une erreur au niveaux du bordereau de dépouillement ! »), ligne ou groupe du lot cité par un décompte."
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/renouvellement": {
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Lance un nouvel appel d'offre à partir d'une demande annulée",
+        "description": "Ordre des refus : 404 → 403 (`…toolNew`) → 409 : demande non dernière, statut hors type Annulation (« Pour pouvoir générer un nouvel appel d'offre il faut d'abords annuler l'actuel ! »). Nouvelle demande du même groupe, dernière, au statut de départ de l'entité, nouveau code ; copie l'en-tête, le bordereau, les modalités et les fournisseurs non écartés ayant déposé (références et dates vidées) ; l'ancienne n'est plus la dernière.",
+        "operationId": "renouveler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Nouvelle demande créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeAchatFiche"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/offres": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Offres (devis) de la demande, avec leurs lignes",
+        "description": "Mêmes droits que la liste des fournisseurs (confidentialité comprise). Totaux calculés sur les lignes, prix après remise.",
+        "operationId": "offres",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Offres, par fournisseur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OffreDemandeAchat"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit de lecture manquant, ou procédure confidentielle sans le droit IsConfidential."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Crée l'offre d'un fournisseur présélectionné : un devis recopiant le bordereau",
+        "description": "Ordre des refus : 404 → 403 (`…toolAddQuote`) → 400 (`fournisseurId` absent ou non présélectionné) → 409 : demande non dernière, hors phase offres (`BoolField003`), fournisseur écarté, date de dépôt vide, demande sans projet. Crée un devis (gestion `BuyQuote` sans lot, `PrjMarketQuote` lot simple, `PrjMarketMultiSupplierQuote` lot multi-fournisseur), sans statut, daté et échu au dépôt, société, projet, lot, module, type de lot et devise de la demande ; une ligne par ligne du bordereau (ordre, code, désignation, unité, quantité, TVA, FODEC, catégorie), prix à 0.",
+        "operationId": "creerOffre",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieOffreDemandeAchat"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Devis créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/OffreDemandeAchat"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/offres/{oid}/selection": {
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Retient une offre : seule sélectionnée, son fournisseur devient celui de la demande",
+        "description": "Ordre des refus : 404 → 403 (`…toolSelectDeselectQuote`) → 409 : demande non dernière, hors phase sélection (`BoolField004`), demande sans lot ou à lot multi-fournisseur, fournisseur écarté, lot ayant un décompte. Seule cette offre reste sélectionnée ; fournisseur de la demande = celui de l'offre ; délai de paiement = celui du fournisseur si celui de la demande est nul ou négatif.",
+        "operationId": "selectionnerOffre",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "oid",
+            "in": "path",
+            "description": "Id du devis (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche de la demande relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeAchatFiche"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/modalites": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Modalités de paiement de la demande, par O.D.T.",
+        "description": "Mêmes droits que la liste des fournisseurs (confidentialité comprise).",
+        "operationId": "modalites",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Modalités.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModaliteDemandeAchat"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit de lecture manquant, ou procédure confidentielle sans le droit IsConfidential."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Ajoute une modalité de paiement",
+        "description": "Ordre des refus : 404 → 403 (`…toolNew`, droit d'enregistrer la fiche) → 400 (`ordre` ou `code` absent) → 409 (demande non dernière).",
+        "operationId": "ajouterModalite",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModaliteDemandeAchat"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Modalité ajoutée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModaliteDemandeAchat"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/fournisseurs": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Fournisseurs présélectionnés de la demande",
+        "description": "Droit `Yes.Buy.Front.CallOfTender.BuySelectionList` ; une procédure confidentielle exige aussi `…BuySelectionList.IsConfidential` (sinon 403). Ordre des refus : 404 puis 403.",
+        "operationId": "fournisseurs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fournisseurs, par raison sociale.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FournisseurDemandeAchat"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit de lecture manquant, ou procédure confidentielle sans le droit IsConfidential."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Ajoute un fournisseur présélectionné",
+        "description": "Ordre des refus : 404 → 403 (`…BuySelectionList.toolAddSupplier`) → 400 (`fournisseurId` absent ou inconnu, texte trop long) → 409.",
+        "operationId": "ajouterFournisseur",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieFournisseurDemandeAchat"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Fournisseur ajouté.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FournisseurDemandeAchat"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Demande qui n'est pas la dernière de son groupe ; statut hors de la phase présélection (`BoolField002`) ; fournisseur déjà présent (« Ce fournisseur est déja ajouté »)."
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/fournisseurs/{fid}/reactiver": {
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Réactive un fournisseur écarté et toutes ses offres",
+        "description": "Mêmes droits et refus que l'écart (sans le cas de l'offre sélectionnée) ; réactive aussi toutes ses offres.",
+        "operationId": "reactiverFournisseur",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fid",
+            "in": "path",
+            "description": "Id de la présélection (BuySelectionSupplier.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fournisseur réactivé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FournisseurDemandeAchat"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/fournisseurs/{fid}/ecarter": {
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Écarte un fournisseur et toutes ses offres",
+        "description": "Ordre des refus : 404 → 403 (`…toolSelectDeselectSupplier`) → 409 : demande non dernière, hors phase présélection, ou fournisseur de l'offre sélectionnée. Écarte aussi toutes ses offres (`IsRejected`).",
+        "operationId": "ecarterFournisseur",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fid",
+            "in": "path",
+            "description": "Id de la présélection (BuySelectionSupplier.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fournisseur écarté.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FournisseurDemandeAchat"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/bordereau/import": {
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Remplace le bordereau par celui d'un classeur au format de l'export",
+        "description": "Classeur `.xlsx` au format de l'export (colonnes Groupe, Code, Désignation, Unité, Quantité, TVA %, FODEC %, Catégorie, Notes) ; groupe et catégorie désignés par leur code. Mêmes droits, refus et effet que l'enregistrement du bordereau ; 400 aussi si le fichier est illisible ou si un code de groupe ou de catégorie est inconnu.",
+        "operationId": "importerBordereau",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bordereau relu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BordereauSaisieDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Conflict"
           }
         }
       }
@@ -21409,7 +22370,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Crée un article d'achat",
-        "operationId": "creer_31",
+        "operationId": "creer_32",
         "requestBody": {
           "content": {
             "application/json": {
@@ -34446,46 +35407,6 @@
           },
           "409": {
             "description": "Lot mono-fournisseur sans fournisseur, ou statut du lot / blocage de la RG (message OMRAN)."
-          }
-        }
-      }
-    },
-    "/api/projet/lots/{id}/demandes-achat": {
-      "get": {
-        "tags": [
-          "Projet"
-        ],
-        "summary": "Demandes internes d'achat du lot, par date décroissante",
-        "description": "Demandes internes d'achat (`BuySelection`) rattachées au lot, en lecture seule, par date décroissante puis code. Onglet\nRéclamations : module SAV non porté, aucune route.",
-        "operationId": "demandesAchat",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Identifiant du lot (PrjMarket.PKey).",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Demandes du lot (éventuellement vide).",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DemandeAchatLotDto"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
           }
         }
       }
@@ -48120,6 +49041,149 @@
         }
       }
     },
+    "/api/achat/demandes-achat/{id}/comparaison": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Comparaison des offres non écartées, lignes rattachées au bordereau par le code",
+        "description": "Mêmes droits que la liste des offres ; ouverte en phase offres ou sélection (sinon 409). Rend les offres non écartées.",
+        "operationId": "comparaison",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Offres non écartées avec leurs lignes.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OffreDemandeAchat"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit de lecture manquant, ou procédure confidentielle sans le droit IsConfidential."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Statut hors des phases offres et sélection."
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/bordereau/export": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Export Excel du bordereau de la demande",
+        "description": "Droit de lecture de la demande ; une ligne de classeur par ligne du bordereau, groupe désigné par son code.",
+        "operationId": "exporterBordereau",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille DONNEES, une ligne par ligne du bordereau.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Format autre que xlsx."
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/bons-commande": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Pièces d'achat liées à la demande, hors devis",
+        "description": "Mêmes droits que la liste des fournisseurs (confidentialité comprise). Pièces d'achat dont `BuySelectionId` est la demande, sauf les devis. Le bon de commande depuis une offre se crée par la génération des pièces d'achat (`GET /api/achat/documents/modele?nature=ORDER&sources=<offre>`) ; `phases.bonCommande` de la fiche dit quand OMRAN l'autorise.",
+        "operationId": "bonsCommande",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pièces, plus récentes d'abord.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BonCommandeDemandeAchat"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit de lecture manquant, ou procédure confidentielle sans le droit IsConfidential."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          }
+        }
+      }
+    },
     "/api/achat/demandes-achat/export": {
       "get": {
         "tags": [
@@ -49133,6 +50197,95 @@
           },
           "404": {
             "description": "Tiers inconnu, ou lien inconnu ou d'un autre tiers."
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/offres/selection": {
+      "delete": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Désélectionne les offres et vide le bordereau de la demande",
+        "description": "Mêmes droits et refus que la sélection (sans le fournisseur écarté). Toutes les offres désélectionnées, bordereau de la demande vidé (groupes et lignes), fournisseur de la demande retiré ; le bordereau du lot reste intact.",
+        "operationId": "deselectionnerOffres",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche de la demande relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeAchatFiche"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/modalites/{mid}": {
+      "delete": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Retire une modalité de paiement",
+        "description": "Ordre des refus : 404 (demande, ou modalité d'une autre demande) → 403 (`…toolNew`) → 409 (demande non dernière).",
+        "operationId": "supprimerModalite",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mid",
+            "in": "path",
+            "description": "Id de la modalité (BuySelectionPaymentTerm.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Modalité retirée."
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
           }
         }
       }
@@ -57718,6 +58871,14 @@
           "selection": {
             "type": "boolean",
             "description": "Sélection d'une offre (BoolField004)."
+          },
+          "bonCommande": {
+            "type": "boolean",
+            "description": "Bon de commande depuis une offre : BoolField004, procédure multi, lot multi ou sans lot."
+          },
+          "comparaison": {
+            "type": "boolean",
+            "description": "Comparaison des offres (BoolField003 ou BoolField004)."
           }
         }
       },
@@ -57737,6 +58898,200 @@
           "couleur": {
             "type": "string",
             "description": "StrStatus.ColorName (nom de couleur .NET, ex. LimeGreen) ; null si absent."
+          }
+        }
+      },
+      "PrixLigneOffre": {
+        "type": "object",
+        "description": "Prix saisi sur une ligne d'offre.",
+        "properties": {
+          "ligneId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne d'offre (BuyDocumentLine) de ce devis."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT, positif ou nul."
+          },
+          "remise": {
+            "type": "number",
+            "description": "Remise en fraction entre 0 et 1 ; null = 0."
+          }
+        }
+      },
+      "LigneOffreDemandeAchat": {
+        "type": "object",
+        "description": "Ligne d'une offre (BuyDocumentLine).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne (BuyDocumentLine)."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre (Sorting)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, égal à celui de la ligne du bordereau de la demande."
+          },
+          "designation": {
+            "type": "string",
+            "description": "Désignation."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT saisi."
+          },
+          "remise": {
+            "type": "number",
+            "description": "Remise en fraction (0,1 = 10 %)."
+          },
+          "prixApresRemiseHT": {
+            "type": "number",
+            "description": "Prix unitaire HT après remise : prixUnitaireHT × (1 − remise)."
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA en fraction."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT après remise : prixApresRemiseHT × quantite."
+          }
+        }
+      },
+      "OffreDemandeAchat": {
+        "type": "object",
+        "description": "Offre d'un fournisseur (devis BuyDocument QUOTE lié à la demande), avec ses lignes.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du devis (BuyDocument)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du devis."
+          },
+          "fournisseur": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Fournisseur (CfgTier)."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de dépôt (DocDate)."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT après remise, calculé sur les lignes."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Total TTC après remise, calculé sur les lignes."
+          },
+          "selectionnee": {
+            "type": "boolean",
+            "description": "Offre retenue (IsSelected)."
+          },
+          "ecartee": {
+            "type": "boolean",
+            "description": "Offre écartée avec son fournisseur (IsRejected)."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes du devis par ordre ; rattachées au bordereau de la demande par le code.",
+            "items": {
+              "$ref": "#/components/schemas/LigneOffreDemandeAchat"
+            }
+          }
+        }
+      },
+      "SaisieFournisseurDemandeAchat": {
+        "type": "object",
+        "description": "Saisie d'un fournisseur présélectionné ; seul fournisseurId est obligatoire.",
+        "properties": {
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.PKey), unique dans la demande."
+          },
+          "referenceOdt": {
+            "type": "string",
+            "description": "Référence O.D.T. (255 caractères au plus)."
+          },
+          "lettreEnvoyee": {
+            "type": "string",
+            "format": "date",
+            "description": "Lettre de consultation envoyée le."
+          },
+          "retraitDossier": {
+            "type": "string",
+            "format": "date",
+            "description": "Retrait du dossier le."
+          },
+          "depot": {
+            "type": "string",
+            "format": "date",
+            "description": "Dépôt de l'offre le."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1000 caractères au plus)."
+          }
+        }
+      },
+      "FournisseurDemandeAchat": {
+        "type": "object",
+        "description": "Fournisseur présélectionné d'une demande interne d'achat (BuySelectionSupplier).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la présélection (BuySelectionSupplier), pas celle du tiers."
+          },
+          "fournisseur": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Fournisseur (CfgTier)."
+          },
+          "referenceOdt": {
+            "type": "string",
+            "description": "Référence O.D.T. (OfficeOrderRef)."
+          },
+          "lettreEnvoyee": {
+            "type": "string",
+            "format": "date",
+            "description": "Lettre de consultation envoyée le (SelectionLetterSendDate)."
+          },
+          "retraitDossier": {
+            "type": "string",
+            "format": "date",
+            "description": "Retrait du dossier le (TenderAcquisitionDate)."
+          },
+          "depot": {
+            "type": "string",
+            "format": "date",
+            "description": "Dépôt de l'offre le (TenderDepositDate) ; null = aucune offre ne peut être créée."
+          },
+          "ecarte": {
+            "type": "boolean",
+            "description": "Fournisseur écarté (IsRejected)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
           }
         }
       },
@@ -65206,6 +66561,21 @@
           }
         }
       },
+      "SaisieDemandeAchatLot": {
+        "type": "object",
+        "description": "Création d'une demande interne d'achat depuis un lot ; le reste est copié du lot.",
+        "properties": {
+          "procedureId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Procédure d'achat (BuySelectionKind.PKey) ; remplacée par celle du montant si l'estimé TTC du lot ≠ 0."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description de la demande, obligatoire."
+          }
+        }
+      },
       "ExecutionTransitionProjetDto": {
         "type": "object",
         "description": "Exécution d'une transition de statut du projet.",
@@ -70546,6 +71916,41 @@
         "required": [
           "transitionId"
         ]
+      },
+      "SaisieOffreDemandeAchat": {
+        "type": "object",
+        "description": "Création d'une offre : le fournisseur présélectionné qui la dépose.",
+        "properties": {
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier.PKey), présélectionné, non écarté et avec une date de dépôt."
+          }
+        }
+      },
+      "ModaliteDemandeAchat": {
+        "type": "object",
+        "description": "Modalité de paiement de la demande (BuySelectionPaymentTerm) ; même forme en lecture et en saisie.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey ; ignoré à la saisie."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T. : ordre d'affichage (Sorting), obligatoire."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, obligatoire (255 caractères au plus)."
+          },
+          "ratio": {
+            "type": "number",
+            "description": "Ratio du montant, enregistré tel que saisi (fraction, comme PaymentRatio)."
+          }
+        }
       },
       "ArticleAchatEcritureDto": {
         "type": "object",
@@ -85822,6 +87227,42 @@
             "type": "string",
             "format": "date-time",
             "description": "UserDate."
+          }
+        }
+      },
+      "BonCommandeDemandeAchat": {
+        "type": "object",
+        "description": "Pièce d'achat liée à la demande, autre qu'un devis (onglet Bons de commande).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la pièce (BuyDocument)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pièce."
+          },
+          "nature": {
+            "type": "string",
+            "description": "Nature (DocType) : ORDER, DELIVRY, INVOICE…"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la pièce (DocDate)."
+          },
+          "fournisseur": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Fournisseur (CfgTier), null si absent."
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutDemandeAchat",
+            "description": "Statut de la pièce, null si absent."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Total TTC (AmountTTC)."
           }
         }
       },
