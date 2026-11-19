@@ -123,7 +123,7 @@ function FenetreJour({ initiale, voisins, onFermer, onCree }: Props & Readonly<{
               onValueChange={(v) => setSaisie((s) => appliquerType({ ...s, typeId: v ?? '' }, referentiels?.types.find((t) => t.id === v)))} />
             <Erreur texte={erreurs.typeId} />
           </Champ>
-          {choisi('zoneId', 'Zone *', liste(referentiels?.zones))}
+          {choisi('zoneId', 'Zone', liste(referentiels?.zones))}
           {champ('date', 'Date *', 'date')}
           {champ('heureDebut', 'Heure début', 'time')}
           {champ('heureFin', 'Heure fin', 'time')}

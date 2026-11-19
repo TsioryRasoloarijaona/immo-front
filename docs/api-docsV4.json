@@ -49513,7 +49513,7 @@
           "zoneId": {
             "type": "string",
             "format": "uuid",
-            "description": "Zone (CfgProjectZone.PKey). Obligatoire."
+            "description": "Zone (CfgProjectZone.PKey). Facultative."
           },
           "articleId": {
             "type": "string",

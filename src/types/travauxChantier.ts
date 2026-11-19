@@ -44,7 +44,7 @@ export interface JourTravailleLigneDto {
   notes: string | null;
 }
 
-/** Corps du POST / PUT et valeurs de la fiche. Obligatoires : societeId, typeId, zoneId, date, quantite, quantite1. */
+/** Corps du POST / PUT et valeurs de la fiche. Obligatoires : societeId, typeId, date, quantite, quantite1. */
 export interface JourTravailleEcritureDto {
   societeId: UUID | null;
   projetId: UUID | null;

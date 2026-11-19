@@ -82,8 +82,7 @@ export function erreurParChamp(message: string): { cle: CleChamp | null; texte: 
 }
 
 const OBLIGATOIRES: [CleChamp, string][] = [
-  ['societeId', "L'entité est obligatoire."], ['typeId', 'Le type est obligatoire.'], ['zoneId', 'La zone est obligatoire.'],
-  ['date', 'La date est obligatoire.'], ['quantite', 'La quantité est obligatoire.'], ['quantite1', 'La quantité 1 est obligatoire.'],
+  ['societeId', "L'entité est obligatoire."], ['typeId', 'Le type est obligatoire.'],  ['date', 'La date est obligatoire.'], ['quantite', 'La quantité est obligatoire.'], ['quantite1', 'La quantité 1 est obligatoire.'],
 ];
 
 export function erreursObligatoires(s: SaisieJour): Partial<Record<CleChamp, string>> {
