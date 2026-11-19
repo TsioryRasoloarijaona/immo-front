@@ -212,6 +212,8 @@ export interface LotDetailDto extends LotListItemDto {
   avancementFacture: number | null;
   /** Fraction 0–1. */
   avancementDecompte: number | null;
+  /** Statut du lot ouvrant l'ajout d'une DIA (BoolField005) ; droit et autres DIA contrôlés au POST (FEATURE-n6-demandes-achat.md R18). */
+  peutAjouterDia: boolean;
 }
 
 /** PATCH /api/projet/lots/{id} : champ absent = inchangé, null = vidé ; taux en pourcentage 0–100. */

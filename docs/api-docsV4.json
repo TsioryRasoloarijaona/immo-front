@@ -49147,7 +49147,7 @@
           "Achat"
         ],
         "summary": "Pièces d'achat liées à la demande, hors devis",
-        "description": "Mêmes droits que la liste des fournisseurs (confidentialité comprise). Pièces d'achat dont `BuySelectionId` est la demande, sauf les devis. Le bon de commande depuis une offre se crée par la génération des pièces d'achat (`GET /api/achat/documents/modele?nature=ORDER&sources=<offre>`) ; `phases.bonCommande` de la fiche dit quand OMRAN l'autorise.",
+        "description": "Mêmes droits que la liste des fournisseurs (confidentialité comprise). Pièces d'achat dont `BuySelectionId` est la demande, sauf les devis. Le bon de commande depuis une offre se crée par la génération des pièces d'achat (`GET /api/achat/documents/modele?nature=ORDER&sources=<offre>` puis `POST /api/achat/documents` avec `sources`), comme OMRAN (`AddOrderFromQuote`) ; le BC créé est rattaché à la demande de l'offre et apparaît ici. `phases.bonCommande` de la fiche dit quand OMRAN montre l'action (procédure et lot multi-fournisseurs ou sans lot) ; un devis de lot simple (`PrjMarketQuote`) n'a pas de génération (409).",
         "operationId": "bonsCommande",
         "parameters": [
           {
@@ -66250,6 +66250,10 @@
           "avancementDecompte": {
             "type": "number",
             "description": "Avancement décompté, fraction 0–1 : (décomptes HT − dépassements) / bordereau HT."
+          },
+          "peutAjouterDia": {
+            "type": "boolean",
+            "description": "Statut du lot ouvrant l'ajout d'une DIA (BoolField005) ; droit et autres DIA contrôlés au POST."
           }
         }
       },
