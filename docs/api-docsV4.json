@@ -1821,6 +1821,105 @@
         }
       }
     },
+    "/api/projet/travaux-chantier/{id}": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Fiche d'un jour travaillé",
+        "operationId": "jourTravaille",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "GrhWorkedDay.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.GrhWorkedDayView."
+          },
+          "404": {
+            "description": "Jour inconnu, de statut non visible ou de projet non habilité."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Modifie un jour travaillé (le statut ne change pas ici)",
+        "operationId": "modifierJourTravaille",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "GrhWorkedDay.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JourTravailleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Champ obligatoire manquant ou référence inconnue (le détail nomme le champ)."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.GrhWorkedDayView.toolNew."
+          },
+          "404": {
+            "description": "Jour non visible, ou nouveau projet non habilité."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Supprime un jour travaillé",
+        "operationId": "supprimerJourTravaille",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "GrhWorkedDay.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.GrhWorkedDayView.toolDelete."
+          },
+          "404": {
+            "description": "Jour inconnu, de statut non visible ou de projet non habilité."
+          }
+        }
+      }
+    },
     "/api/projet/reunions/{id}": {
       "get": {
         "tags": [
@@ -2254,6 +2353,75 @@
           },
           "404": {
             "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      }
+    },
+    "/api/projet/modifications/{id}": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Fiche d'une demande de modification",
+        "operationId": "modificationProjet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ComModification.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Modification.ModificationList."
+          },
+          "404": {
+            "description": "Demande inconnue, d'un sous-article ou d'une tranche non habilitée."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Modifie une demande ; recalcule les montants du dossier comme l'onglet du dossier",
+        "operationId": "modifierModificationProjet",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ComModification.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Saisie invalide."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Modification.ModificationList.toolNew."
+          },
+          "404": {
+            "description": "Demande inconnue, d'un sous-article ou d'une tranche non habilitée. Ou dossier hors périmètre commercial."
           }
         }
       }
@@ -10471,6 +10639,145 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/projet/travaux-chantier": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Jours travaillés visibles (statut visible, projet habilité), par date décroissante",
+        "operationId": "listeTravaux",
+        "parameters": [
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey) ; un projet non habilité est ignoré, les jours sans projet exclus.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date minimale (incluse).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date maximale (incluse, toute la journée).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "statutIds",
+            "in": "query",
+            "description": "Statuts (StrStatus.PKey) cochés ; vide = tous les statuts visibles.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type de travaux (GrhWorkedDayType.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "employeId",
+            "in": "query",
+            "description": "Personnel (CfgTier.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Code, description, notes, nom du personnel ou du client (contient).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.GrhWorkedDayView."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Crée un jour travaillé au statut de départ (« En cours »)",
+        "operationId": "creerJourTravaille",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JourTravailleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/JourTravailleFicheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire manquant ou référence inconnue (le détail nomme le champ)."
+          },
+          "403": {
+            "description": "Sans le droit toolNew, ou statut de départ non visible."
+          },
+          "404": {
+            "description": "Projet non habilité."
           }
         }
       }
@@ -20652,7 +20959,7 @@
           {
             "name": "sansProjet",
             "in": "query",
-            "description": "true : demandes sans projet seulement.",
+            "description": "true : sans projet seulement ; avec projetIds : ces projets OU sans projet.",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -33615,6 +33922,32 @@
         }
       }
     },
+    "/api/projet/travaux-chantier/referentiels": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Types, statuts, zones, niveaux du projet, articles et personnel",
+        "operationId": "referentielsTravaux",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Projet (PrjProject.PKey) dont on veut les niveaux ; ignoré s'il n'est pas habilité.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.GrhWorkedDayView."
+          }
+        }
+      }
+    },
     "/api/projet/reunions/choix": {
       "get": {
         "tags": [
@@ -33774,6 +34107,94 @@
           },
           "404": {
             "description": "Projet inconnu ou non habilité (même message)."
+          }
+        }
+      }
+    },
+    "/api/projet/modifications": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Demandes de modification des tranches habilitées, par date de demande décroissante",
+        "operationId": "listeModificationsProjet",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche (CfgTranche.PKey) ; non habilitée = liste vide ; absente = toutes les habilitées.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "etats",
+            "in": "query",
+            "description": "États cochés ; vide = tous les états.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "ENCOURS",
+                  "REFUSE_PAR_LE_SERVICE_TECHNIQUE",
+                  "REFUSE_PAR_LE_CLIENT",
+                  "ACCEPTEE",
+                  "REALISED"
+                ]
+              }
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date de demande minimale (incluse).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date de demande maximale (incluse).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Description, notes, code du bien ou acquéreur (contient).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Modification.ModificationList."
+          }
+        }
+      }
+    },
+    "/api/projet/modifications/referentiels": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Tranches habilitées et états des demandes",
+        "operationId": "referentielsModifications",
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Modification.ModificationList."
           }
         }
       }
@@ -47747,7 +48168,7 @@
           {
             "name": "sansProjet",
             "in": "query",
-            "description": "true : demandes sans projet seulement.",
+            "description": "true : sans projet seulement ; avec projetIds : ces projets OU sans projet.",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -49705,6 +50126,111 @@
           }
         }
       },
+      "JourTravailleEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'un jour travaillé ; un champ obligatoire absent donne un 400 qui le nomme.",
+        "properties": {
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompany.PKey). Obligatoire ; la changer vide le personnel."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet (PrjProject.PKey) ; null = jour sans projet. Non habilité → 404."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de travaux (GrhWorkedDayType.PKey). Obligatoire."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date. Obligatoire."
+          },
+          "heureDebut": {
+            "type": "string",
+            "description": "Heure de début, null si vide.",
+            "example": "08:00"
+          },
+          "heureFin": {
+            "type": "string",
+            "description": "Heure de fin, null si vide ; non contrôlée contre l'heure de début.",
+            "example": "17:30"
+          },
+          "employeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Personnel (CfgTier.PKey)."
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client (CfgTier.PKey)."
+          },
+          "niveauId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Niveau de nivellement (CfgTrancheLevelingDefinition.PKey)."
+          },
+          "zoneId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Zone (CfgProjectZone.PKey). Facultative."
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Article (BuyItem.PKey)."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité. Obligatoire."
+          },
+          "quantite1": {
+            "type": "number",
+            "description": "Quantité 1. Obligatoire."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité ; absente, celle du type."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT ; absent, celui du type."
+          },
+          "tva": {
+            "type": "number",
+            "description": "Taux de TVA (fraction : 0.2 = 20 %) ; absent, celui du type."
+          },
+          "unite1": {
+            "type": "string",
+            "description": "Unité 1 ; absente, celle du type."
+          },
+          "prixUnitaireHT1": {
+            "type": "number",
+            "description": "Prix unitaire HT 1 ; absent, celui du type."
+          },
+          "tva1": {
+            "type": "number",
+            "description": "Taux de TVA 1 (fraction) ; absent, celui du type."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code libre, non unique."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1 000 caractères au plus)."
+          }
+        }
+      },
       "ReunionModificationDto": {
         "type": "object",
         "description": "Modification de l'en-tête d'une réunion ; projet et type ne sont pas modifiables.",
@@ -49857,6 +50383,54 @@
           "critereId",
           "niveauId"
         ]
+      },
+      "ModificationRequest": {
+        "type": "object",
+        "description": "Saisie d'une demande de modification ; l'enregistrement remplace tous les champs.",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "dateDemande": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de demande ; absente, aujourd'hui."
+          },
+          "dateValidationTechnique": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateValidationClient": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cout": {
+            "type": "number",
+            "description": "Coût ; absent, 0."
+          },
+          "prixHT": {
+            "type": "number",
+            "description": "Prix de vente HT ; absent, 0."
+          },
+          "prixTTC": {
+            "type": "number",
+            "description": "Prix de vente TTC ; absent, 0."
+          },
+          "etat": {
+            "type": "string",
+            "description": "État ; absent, ENCOURS.",
+            "enum": [
+              "ENCOURS",
+              "REFUSE_PAR_LE_SERVICE_TECHNIQUE",
+              "REFUSE_PAR_LE_CLIENT",
+              "ACCEPTEE",
+              "REALISED"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
       },
       "LigneModeleDto": {
         "type": "object",
@@ -54191,54 +54765,6 @@
             "type": "integer",
             "format": "int32",
             "description": "Nombre de parts (actions), entier ≥ 0."
-          }
-        }
-      },
-      "ModificationRequest": {
-        "type": "object",
-        "description": "Saisie d'une demande de modification ; l'enregistrement remplace tous les champs.",
-        "properties": {
-          "description": {
-            "type": "string"
-          },
-          "dateDemande": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de demande ; absente, aujourd'hui."
-          },
-          "dateValidationTechnique": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateValidationClient": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "cout": {
-            "type": "number",
-            "description": "Coût ; absent, 0."
-          },
-          "prixHT": {
-            "type": "number",
-            "description": "Prix de vente HT ; absent, 0."
-          },
-          "prixTTC": {
-            "type": "number",
-            "description": "Prix de vente TTC ; absent, 0."
-          },
-          "etat": {
-            "type": "string",
-            "description": "État ; absent, ENCOURS.",
-            "enum": [
-              "ENCOURS",
-              "REFUSE_PAR_LE_SERVICE_TECHNIQUE",
-              "REFUSE_PAR_LE_CLIENT",
-              "ACCEPTEE",
-              "REALISED"
-            ]
-          },
-          "notes": {
-            "type": "string"
           }
         }
       },
@@ -63287,6 +63813,61 @@
           "aUneImage": {
             "type": "boolean",
             "description": "Vrai si une image (ImageData) est enregistrée ; non modifiable ici."
+          }
+        }
+      },
+      "JourTravailleFicheDto": {
+        "type": "object",
+        "description": "Fiche « Jour travaillé » : valeurs enregistrées (forme de la saisie), statut et totaux calculés.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "GrhWorkedDay.Pkey."
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutJourTravailleDto"
+          },
+          "valeurs": {
+            "$ref": "#/components/schemas/JourTravailleEcritureDto",
+            "description": "Valeurs enregistrées, aux noms de la saisie (prix et TVA toujours renseignés)."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Calculé : prix unitaire HT × quantité."
+          },
+          "totalHT1": {
+            "type": "number",
+            "description": "Calculé : prix unitaire HT 1 × quantité 1."
+          },
+          "facture": {
+            "type": "string",
+            "description": "Facture (StlInvoiceCode), lecture seule, null si non facturé."
+          },
+          "factureProforma": {
+            "type": "string",
+            "description": "Facture proforma (StlInvoiceProformaCode), lecture seule."
+          }
+        }
+      },
+      "StatutJourTravailleDto": {
+        "type": "object",
+        "description": "Statut (StrStatus) de l'entité « Jour travaillé ».",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrStatus.PKey."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé (StrStatus.Description).",
+            "example": "En cours"
+          },
+          "couleur": {
+            "type": "string",
+            "description": "Couleur nommée OMRAN (StrStatus.ColorName), null si absente.",
+            "example": "Yellow"
           }
         }
       },

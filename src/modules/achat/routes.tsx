@@ -1,12 +1,13 @@
 import { lazy } from 'react';
-import { Building2, Layers, ListTree, ShoppingCart } from 'lucide-react';
+import { Building2, ClipboardList, Layers, ListTree, ShoppingCart } from 'lucide-react';
 import type { ModuleApp } from '../types';
 import { VUES_ACHAT } from '../../lib/vuesAchat';
 import { VUES_RECETTES } from '../../lib/tresorerie';
 import { arbreAchat } from './arbre';
 
 const DocumentsAchatList = lazy(() => import('../../pages/achat/DocumentsAchatList'));
-const StatutsAchatList = lazy(() => import('../../pages/achat/config/StatutsAchatList'));
+const DemandesAchatList = lazy(() => import('../../pages/achat/DemandesAchatList'));
+const StatutsAchatList =lazy(() => import('../../pages/achat/config/StatutsAchatList'));
 const TransitionsAchatList = lazy(() => import('../../pages/achat/config/TransitionsAchatList'));
 const ArticlesAchatList = lazy(() => import('../../pages/achat/config/ArticlesAchatList'));
 const ReferentielAchatPage = lazy(() => import('../../pages/achat/config/ReferentielAchatPage'));
@@ -44,6 +45,9 @@ const achat: ModuleApp = {
     { path: '/achat/etats/retenues-garantie', element: <SuiviRetenues /> },
     { path: '/achat/rapports', element: <ListeRapports module="achat" /> },
     { path: '/achat/rapports/:code', element: <Rapport module="achat" /> },
+    { path: '/achat/demandes-achat', element: <DemandesAchatList /> },
+    { path: '/achat/demandes-achat/:id', element: <DemandesAchatList /> },
+    { path: '/achat/config/procedures', element: <ReferentielAchatPage slug="procedures-achat" titre="Procédures d'achat" icone={<ClipboardList />} /> },
     { path: '/achat/config/statuts', element: <StatutsAchatList /> },
     { path: '/achat/config/transitions', element: <TransitionsAchatList /> },
     { path: '/achat/config/familles', element: <ReferentielAchatPage slug="familles-achat" titre="Familles" icone={<Layers />} /> },
