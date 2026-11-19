@@ -75,11 +75,22 @@ export interface TransitionLotDto {
   statutArriveeId: UUID | null;
   statutArriveeLibelle: string | null;
   statutArriveeCouleur: string | null;
+  avecCommentaire: boolean;
+  avecDateUtilisateur: boolean;
+  avecSecondValideur: boolean;
+}
+
+/** Identifiants Arpent d'un second utilisateur ; jamais conservés. */
+export interface SecondValideur {
+  login: string;
+  motDePasse: string;
 }
 
 export interface ExecutionTransitionLotDto {
   transitionId: UUID;
   notes?: string | null;
+  dateUtilisateur?: string | null;
+  secondValideur?: SecondValideur | null;
 }
 
 export interface LotListItemDto {

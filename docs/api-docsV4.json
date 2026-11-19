@@ -6103,6 +6103,133 @@
         }
       }
     },
+    "/api/achat/demandes-achat/{id}": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Fiche d'une demande interne d'achat",
+        "description": "Ordre des refus : 404 (inconnue ou hors périmètre) puis 403 (droit de lecture). Une demande confidentielle reste lisible sans le droit `IsConfidential` (`confidentielle = true` : le front masque les onglets Présélection, Offres, Modalités, BC, Autres).",
+        "operationId": "fiche_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demande visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeAchatFiche"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit OMRAN manquant."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Modifie l'en-tête d'une demande interne d'achat",
+        "description": "Ordre des refus : 404 → 403 (`toolNew`) → 400 (mêmes règles que la création) → 409. Changer de procédure n'est permis qu'en statut de type Nouveau ; si l'entité de la procédure change, le statut revient au statut de départ de la nouvelle entité (sans historique).",
+        "operationId": "modifier_10",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieDemandeAchat"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Demande modifiée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeAchatFiche"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mêmes cas que la création."
+          },
+          "403": {
+            "description": "Droit toolNew manquant."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Demande qui n'est pas la dernière de son groupe (lecture seule), ou procédure changée hors d'un statut de type Nouveau."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Supprime une demande interne d'achat et ses lignes filles",
+        "description": "Ordre des refus : 404 → 403 (`toolDelete`) → 409. Supprime aussi les lignes filles (bordereau, lignes de stock, groupes, modalités de paiement, fournisseurs). Sans effet sur les prévisions du lot.",
+        "operationId": "supprimer_9",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Demande supprimée."
+          },
+          "403": {
+            "description": "Droit toolDelete manquant."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Demande qui n'est pas la dernière de son groupe ; statut sans suppression permise (`CanDelete = 0`) pour un compte restreint (« Vous ne pouvez pas supprimer cette entité dans le statut : [<statut>] ! ») ; pièce d'achat liée."
+          }
+        }
+      }
+    },
     "/api/achat/config/transitions/{id}": {
       "put": {
         "tags": [
@@ -20374,6 +20501,305 @@
         }
       }
     },
+    "/api/achat/demandes-achat": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Liste des demandes internes d'achat visibles",
+        "description": "Droit `Yes.Buy.Front.CallOfTender.BuySelectionList` (sinon 403). Visibles : société habilitée ET (projet habilité OU sans projet) ET statut visible de l'appelant (aucune restriction pour un compte dont un rôle est libre). Une demande dont la procédure est confidentielle est absente sans le droit `…BuySelectionList.IsConfidential`. `champDate` : `DocDate`, `LaunchOfTenderDate`, `WithdrawalTenderDocumentsDate`, `TenderMaturityDate`, `TendersResortDate`, `BidOpeningDate`, `TendersReportDate`, `TenderDate`, `ContractSignatureDate` (colonnes de la demande), `ServiceOrderDate`, `WorkLaunchDate`, `WorkCompletionDate`, `ReattachmentDate`, `CancellationDate` (colonnes du lot).",
+        "operationId": "lister_22",
+        "parameters": [
+          {
+            "name": "societeIds",
+            "in": "query",
+            "description": "Sociétés (CfgCompany.PKey), paramètre répété ; une société non habilitée est ignorée.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), paramètre répété ; un projet non habilité est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "sansProjet",
+            "in": "query",
+            "description": "true : demandes sans projet seulement.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "procedureId",
+            "in": "query",
+            "description": "Procédure d'achat (BuySelectionKind.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statutIds",
+            "in": "query",
+            "description": "Statuts (StrStatus.PKey), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Date portée par du / au : une des 14 clés OMRAN (défaut DocDate) ; clé inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "DocDate"
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date (champDate) à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date (champDate) jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "fournisseur",
+            "in": "query",
+            "description": "Raison sociale du fournisseur retenu, contient (insensible à la casse).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "description": "Code de la demande, contient.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "montantMin",
+            "in": "query",
+            "description": "Prix estimé TTC supérieur ou égal.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "montantMax",
+            "in": "query",
+            "description": "Prix estimé TTC inférieur ou égal.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Description ou notes, contient.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demandes visibles retenues par les filtres, plus récentes d'abord.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DemandeAchatLigne"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre mal formé ou champDate inconnu."
+          },
+          "403": {
+            "description": "Droit OMRAN manquant."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Crée une demande interne d'achat au statut de départ de l'entité de sa procédure",
+        "description": "Droit `…BuySelectionList.toolNew`. Code `yy/nnnnn` (plus grand numéro de l'année + 1) ; entité = celle de la procédure ; statut = premier statut de type Nouveau (tri `Sorting`) de l'entité visible de l'appelant ; dernière de son groupe ; déclencheur = employé du compte ; module Achat par défaut ; ligne d'historique « Création ». Le corps ne fixe jamais le code, le statut ni l'entité.",
+        "operationId": "creer_29",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieDemandeAchat"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Demande créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeAchatFiche"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Procédure, société ou description absente ; référence inconnue ; société ou projet non habilité ; procédure sans entité fonctionnelle (« Aucun Statut n'est sélectionné ou vous n'avez pas les droits sur les états de création de l'entité en cours ! ») ; montant estimé TTC refusé par la procédure (« La procédure d'achat selectionnée ne gère pas le montant estimé pour cette demande d'achat »)."
+          },
+          "403": {
+            "description": "Droit `toolNew` manquant, ou aucun statut de type Nouveau de l'entité visible de l'appelant (« Vous n'avez pas les droits sur les états de création de l'entité '<entité>' ! »)."
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/transitions": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Transitions de statut exécutables par l'appelant",
+        "description": "Compte restreint : transitions qui partent du statut stocké, ayant un intervenant sans mot de passe qui est un de ses rôles ou lui-même. Compte libre (un rôle sans restriction de séquence) : toutes les transitions de l'entité, une par statut d'arrivée (la première par ordre puis code), sauf vers le statut courant.",
+        "operationId": "transitions_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transitions permises ; vide si aucune.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionDemandeAchat"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit OMRAN manquant."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Exécute une transition de statut",
+        "description": "Même calcul que la liste des transitions. Ordre des refus : 404 → 403 (lecture) → 400 `transitionId` absent → 409 (lecture seule, transition non proposée) → 400 / 403 second valideur → 400 commentaire → 409 (arrivée de type Terminé avec succès sur une demande à lot non multi-fournisseur). Historique : `<transition>: <départ de la transition>=><arrivée>(<login> & <login du second>)` ; notes conservées seulement si la transition exige un commentaire ou une date. Mot de passe du second jamais conservé ni renvoyé.",
+        "operationId": "executerTransition_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionTransitionDemandeAchat"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transition exécutée ; fiche relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeAchatFiche"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`transitionId` absent ; second valideur absent ou identifiants Arpent faux, compte désactivé ou sans identifiant web (« Login ou mot de passe incorrecte ! ») ; commentaire exigé vide (« Veuillez saisir un commentaire obligatoirement ! »)."
+          },
+          "403": {
+            "description": "Droit de lecture manquant ; second valideur identique à l'appelant (« Le 2ème utilisateur doit être différent de l'utilisateur connecté ! ») ou non habilité sur la transition (« Le 2ème utilisateur n'a pas les habilitations requises pour cette action ! »)."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          },
+          "409": {
+            "description": "Transition non proposée à l'appelant (le corps porte `transitionsAutorisees`), demande non dernière, ou génération du bordereau du lot non disponible."
+          }
+        }
+      }
+    },
     "/api/achat/config/transitions": {
       "get": {
         "tags": [
@@ -20381,7 +20807,7 @@
         ],
         "summary": "Transitions des pièces d'achat par gestion, avec rôles et usage réel (lecture seule)",
         "description": "Les transitions sont **propres à une gestion** (`StrEntityId`). Tri : libellé de gestion (la ligne sans gestion, « Sans gestion », en dernier), puis `ordre`, puis `description`. `roles` est vide pour une transition sans rôle. `nombrePassages` compte les lignes d'historique (`BuyDocumentStatusHistory.buyDocumentWorkFlowId`) portant **l'identifiant** de la transition, quelle que soit la gestion actuelle de la pièce ; la ligne de création d'une pièce n'en porte aucune.",
-        "operationId": "transitions_3",
+        "operationId": "transitions_4",
         "parameters": [
           {
             "name": "utilisees",
@@ -20520,7 +20946,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Articles d'achat triés par code, avec la recherche multi-critère",
-        "operationId": "lister_22",
+        "operationId": "lister_23",
         "parameters": [
           {
             "name": "search",
@@ -20553,7 +20979,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Crée un article d'achat",
-        "operationId": "creer_29",
+        "operationId": "creer_30",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20630,7 +21056,7 @@
           "Utilisateurs (admin)"
         ],
         "summary": "Modifie un compte (null = inchangé, \"\" = vidé pour les textes, code ignoré)",
-        "operationId": "modifier_10",
+        "operationId": "modifier_11",
         "parameters": [
           {
             "name": "id",
@@ -20717,7 +21143,7 @@
           "Tranches"
         ],
         "summary": "Supprime une tranche sans article ni autre référence bloquante",
-        "operationId": "supprimer_9",
+        "operationId": "supprimer_10",
         "parameters": [
           {
             "name": "id",
@@ -20751,7 +21177,7 @@
         ],
         "summary": "Modifie une tranche (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé. Pour vider : `champsAVider: [\"dateOctroiTitresFonciers\", \"standingId\"]` — date\net référence → NULL, nombre → 0, case → faux, texte → `\"\"` (jamais NULL là où OMRAN écrit une valeur). Nom inconnu,\nchamp obligatoire (`code`, `description`, `projetId`) ou champ à la fois listé et renseigné → 400 dont le `detail`\nnomme `champsAVider`. Une référence inconnue (standing, niveau, rubrique, personnel, tiers, projet de facturation,\nplan comptable) → 400 nommant le champ. Crédit max > 100 % → 400.",
-        "operationId": "modifier_11",
+        "operationId": "modifier_12",
         "parameters": [
           {
             "name": "id",
@@ -20870,7 +21296,7 @@
         ],
         "summary": "Supprime un terrain et ses frais non validés",
         "description": "Refus 409 : un frais validé (« Suppression impossible : frais <type> du <date> (<montant>) validé. ») ou porté par\nune facture, un terrain occupé, ou encore référencé (prospection, dossier, offre… ; une autre clé étrangère → 409\nnommant la contrainte) ; un sous-terrain ne se supprime que si le statut de son parent autorise les sous-terrains.\nSinon le terrain part avec ses sous-terrains, ses frais non validés, contenances, pièces jointes et notes.",
-        "operationId": "supprimer_10",
+        "operationId": "supprimer_11",
         "parameters": [
           {
             "name": "id",
@@ -20904,7 +21330,7 @@
         ],
         "summary": "Modifie un terrain (champ absent ou null = inchangé)",
         "description": "Mêmes contrôles qu'à la création. Terrain occupé (dossier de vente ou de location) : surfaces, prix au m² HT/TTC,\nTVA et titre foncier → 409, ligne inchangée. `estTermine` ne se modifie pas sur un sous-terrain ou un terrain issu\nd'une prospection foncière (400). `champsAVider` : `niveauId`, `vocationTerrainId`, `orientationId`,\n`categorieChargeId`, `fournisseurId`, les dates et les textes facultatifs.",
-        "operationId": "modifier_12",
+        "operationId": "modifier_13",
         "parameters": [
           {
             "name": "id",
@@ -20988,7 +21414,7 @@
         ],
         "summary": "Supprime un sous-article ; le prix de son article parent est recalculé",
         "description": "Refus 409 : sous-article affecté par défaut à son article (« Vous ne pouvez pas supprimer un sous article affecté\npar défaut à l'article en cours ! » — le désaffecter d'abord), dossier de vente, de location ou de syndic, ou encore\nréférencé (prospection, dossier, offre, historique… ; une autre clé étrangère → 409 nommant la contrainte). Sinon\nsuppression avec vues, contenances, tracés, pièces jointes et notes, audit `Deleted`, prix du parent recalculé.",
-        "operationId": "supprimer_11",
+        "operationId": "supprimer_12",
         "parameters": [
           {
             "name": "id",
@@ -21022,7 +21448,7 @@
         ],
         "summary": "Modifie un sous-article libre (champ absent ou null = inchangé), ou le rattache",
         "description": "Sous-article **libre** seulement : un rattaché → 409 (lecture seule, voir l'en-tête) ; un article principal → 404.\nMêmes champs que `PATCH /api/articles/{id}`, `vocationId` compris. `parentId` rattache le sous-article (mêmes règles\nqu'à la création, prix du parent recalculé) ; `toujoursAffecte` vrai exige `parentId` (400) ; `parentId` dans\n`champsAVider` → 400 (désaffecter par la route de la fiche parent).",
-        "operationId": "modifier_13",
+        "operationId": "modifier_14",
         "parameters": [
           {
             "name": "id",
@@ -21757,7 +22183,7 @@
         ],
         "summary": "Supprime une prospection terrain avec ses zones, son historique, ses pièces jointes et notes",
         "description": "409 : statut sans suppression (« Vous ne pouvez pas supprimer cette entité dans le statut : [X] ! »), terrain issu de la\nprospection (nommé), études de faisabilité liées (nombre), autre clé étrangère (nommée). Sinon part avec ses zones, son\nhistorique de statuts, ses pièces jointes et ses notes.",
-        "operationId": "supprimer_12",
+        "operationId": "supprimer_13",
         "parameters": [
           {
             "name": "id",
@@ -21791,7 +22217,7 @@
         ],
         "summary": "Modifie une prospection terrain (champ absent ou null = inchangé)",
         "description": "Mêmes contrôles sur la valeur résultante (corps sinon base), dont le total des zones ≤ superficie nette (« la\nsuperficies des zones ne doit pas dépasser la superficie nette du terrain ! »). Paire coefficient / montant : un montant\nenvoyé sans son coefficient en dérive le coefficient, sinon le montant suit le coefficient ; `coefEquipements`,\n`superficieNette`, `superficieHabitat` sont ignorés. Statut d'échec ou d'annulation : la prospection est réarchivée, sauf\n`estArchivee` explicite dans le corps. `champsAVider` : références facultatives, dates, textes facultatifs. 409 si le\nstatut courant est en lecture seule (« Cette prospection est en lecture seule dans le statut [X]. »).",
-        "operationId": "modifier_14",
+        "operationId": "modifier_15",
         "parameters": [
           {
             "name": "id",
@@ -21906,7 +22332,7 @@
         ],
         "summary": "Supprime un programme sans tranche ni article",
         "description": "Supprime le programme et, dans la même transaction, ses habilitations, ses zones, ses pièces jointes et ses\nnotes (`AdmAttachedFile` / `AdmMessage` dont `CategoryId` = id), comme OMRAN. 409 si une tranche ou un article\nle référence (le message les compte), ou si une autre table le référence encore (clé étrangère nommée).",
-        "operationId": "supprimer_13",
+        "operationId": "supprimer_14",
         "parameters": [
           {
             "name": "id",
@@ -21940,7 +22366,7 @@
         ],
         "summary": "Modifie un programme (champ absent ou null = inchangé)",
         "description": "Modifie un programme. Champ absent ou `null` = inchangé, `\"\"` = vidé (sauf code et description, obligatoires).\nPour vider une date, le pays, le signataire ou un responsable : `champsAVider: [\"dateDebutTravaux\", \"paysId\"]`\n(NULL en base ; un texte listé est écrit `\"\"`). Nom inconnu, champ obligatoire, ou champ à la fois listé et\nrenseigné → 400 dont le `detail` nomme `champsAVider`. Signataire et responsables : un tiers inconnu → 400 nommant\nle champ. La règle fin ≥ début porte sur la valeur résultante (corps, sinon base). Programme d'une entité inactive\n→ 404, comme toutes les routes `/api/projets/{id}…`.",
-        "operationId": "modifier_15",
+        "operationId": "modifier_16",
         "parameters": [
           {
             "name": "id",
@@ -22271,7 +22697,7 @@
         ],
         "summary": "Supprimer un lot",
         "description": "Supprime un lot visible qui n'est cité nulle part : son bordereau et ses autres enfants partent avec lui. Un lot cité par un\ndécompte, une pièce d'achat ou toute autre référence répond **409** et reste en place. Ordre des refus : 403, 404, 409.",
-        "operationId": "supprimer_14",
+        "operationId": "supprimer_15",
         "parameters": [
           {
             "name": "id",
@@ -22305,7 +22731,7 @@
         ],
         "summary": "Enregistrer la fiche d'un lot (champ absent = inchangé, null = vidé)",
         "description": "Enregistre la fiche (`FEATURE-lot-fiche-parite.md` E6). Le corps ne contient que les champs à changer : **absent =\ninchangé**, `null` explicite = vidé (400 pour `description`, `categorieId`, `typeId`). Taux et ratios en pourcentage 0–100\n(10 → 0,1 en base). Tout autre champ (code, genre, statut, projet, multi-fournisseur, dates prévisionnelles, montants\ncalculés) répond **400** et rien n'est écrit. Ordre des refus : **404** (lot invisible) → **403** (estimation manuelle\nchangée sans le droit `Yes.Prj.Front.Market.MarketMonitoring.ManualEstimationAdministrator` : `montantForfaitaireHT/TTC`,\n`dateDebutBase`, `delaiBaseJours`, `dateFinBase` ; renvoyer la valeur stockée n'est pas un changement) → **409** (statut\ndu lot à `StrStatus.IsReadOnly = 1`) → **400** (contrôles). Chaîne des 12 dates, dans l'ordre lancement AO, retrait du\ndossier, échéance de remise des offres, report AO, ouverture des plis, rapport de dépouillement, adjudication, signature du\nmarché, ordre de service, lancement des travaux, achèvement des travaux, recollement : chaque date renseignée (après\napplication du corps) doit être ≥ chaque date renseignée qui la précède, sinon 400 nommant les deux. Estimation\nconfidentielle comme OMRAN : `montantForfaitaireHT` recalcule TVA et TTC au taux `DefaultVat`, `montantForfaitaireTTC`\nrecalcule HT et TVA, `tvaDefautPct` changé recalcule TVA et TTC depuis le HT stocké ; une valeur renvoyée identique ne\nrecalcule rien. Écrit `UserUpdate` / `UserUpdateDateTime` et une ligne d'audit ; renvoie la fiche.",
-        "operationId": "modifier_16",
+        "operationId": "modifier_17",
         "parameters": [
           {
             "name": "id",
@@ -22438,7 +22864,7 @@
         ],
         "summary": "Supprime un lot avec ses contenances, tracés, notes et pièces jointes",
         "description": "Supprime le lot, ses contenances, tracés de plan, notes, pièces jointes et frais non validés. 409 si le lot est occupé,\nporte un frais validé ou est encore référencé (prospection, offre…), avec la cause dans le message.",
-        "operationId": "supprimer_15",
+        "operationId": "supprimer_16",
         "parameters": [
           {
             "name": "id",
@@ -22472,7 +22898,7 @@
         ],
         "summary": "Modifie un lot de terrain (champ absent ou null = inchangé)",
         "description": "Lot occupé : code, surfaces, prix, TVA, remises, classification, titre foncier et tranche → 409. Changer de tranche\nvide la présentation ; refusé (409) si le lot a des prospections. Une présentation d'une autre tranche → 400.",
-        "operationId": "modifier_17",
+        "operationId": "modifier_18",
         "parameters": [
           {
             "name": "id",
@@ -22702,7 +23128,7 @@
           "Études de faisabilité"
         ],
         "summary": "Fiche d'une étude avec ses grilles",
-        "operationId": "fiche_1",
+        "operationId": "fiche_2",
         "parameters": [
           {
             "name": "id",
@@ -22754,7 +23180,7 @@
         ],
         "summary": "Supprime une étude sans prévision ni financement, avec ses grilles et son historique",
         "description": "409 si l'étude est bloquée, ou porte des prévisions (`FSPrevision`) ou des financements (`FSFunding`). Sinon ventilations,\ntranches, unités et historique sont supprimés avec elle, dans la transaction.",
-        "operationId": "supprimer_16",
+        "operationId": "supprimer_17",
         "parameters": [
           {
             "name": "id",
@@ -22788,7 +23214,7 @@
         ],
         "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
         "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel.\n`pourcentageConcretisation` et `tauxIs` : fractions entre 0 et 1 (400) ; écarts-types ≥ 0,5 (400, message OMRAN « la\nvaleur de l'écart type doit être supérieur ou égal à 0.5 ») ; `nombreArticlesAVendre` reçu est ignoré.",
-        "operationId": "modifier_18",
+        "operationId": "modifier_19",
         "parameters": [
           {
             "name": "id",
@@ -22902,7 +23328,7 @@
           "Entités juridiques"
         ],
         "summary": "Supprime une entité sans programme ni autre référence",
-        "operationId": "supprimer_17",
+        "operationId": "supprimer_18",
         "parameters": [
           {
             "name": "id",
@@ -22935,7 +23361,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_19",
+        "operationId": "modifier_20",
         "parameters": [
           {
             "name": "id",
@@ -23061,7 +23487,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_20",
+        "operationId": "modifier_21",
         "parameters": [
           {
             "name": "id",
@@ -23386,7 +23812,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_18",
+        "operationId": "supprimer_19",
         "parameters": [
           {
             "name": "id",
@@ -23590,7 +24016,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_21",
+        "operationId": "modifier_22",
         "parameters": [
           {
             "name": "id",
@@ -23699,7 +24125,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_19",
+        "operationId": "supprimer_20",
         "parameters": [
           {
             "name": "id",
@@ -23730,7 +24156,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_22",
+        "operationId": "modifier_23",
         "parameters": [
           {
             "name": "id",
@@ -23817,7 +24243,7 @@
           "Désistements"
         ],
         "summary": "Supprime un désistement non validé",
-        "operationId": "supprimer_20",
+        "operationId": "supprimer_21",
         "parameters": [
           {
             "name": "id",
@@ -23851,7 +24277,7 @@
         ],
         "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
         "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` (≥ 0) la conserve au centime et recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` (fraction entre 0 et 1) recalcule la pénalité ; les montants du dossier sont relus, et une pénalité saisie est gardée tant que la base (prix, réglé, taux) ne change pas. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
-        "operationId": "modifier_23",
+        "operationId": "modifier_24",
         "parameters": [
           {
             "name": "id",
@@ -24363,7 +24789,7 @@
         ],
         "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
         "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article ; s'il lui est affecté par défaut → 409 « Vous ne pouvez pas supprimer un sous article affecté par\ndéfaut à l'article en cours ! ».",
-        "operationId": "supprimer_21",
+        "operationId": "supprimer_22",
         "parameters": [
           {
             "name": "id",
@@ -24397,7 +24823,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_24",
+        "operationId": "modifier_25",
         "parameters": [
           {
             "name": "id",
@@ -24517,7 +24943,7 @@
           "Tâches (administration)"
         ],
         "summary": "Supprime une tâche (son historique de statuts est conservé)",
-        "operationId": "supprimer_22",
+        "operationId": "supprimer_23",
         "parameters": [
           {
             "name": "id",
@@ -24547,7 +24973,7 @@
           "Tâches (administration)"
         ],
         "summary": "Modifie une tâche (champ absent ou null = inchangé)",
-        "operationId": "modifier_25",
+        "operationId": "modifier_26",
         "parameters": [
           {
             "name": "id",
@@ -24637,7 +25063,7 @@
         ],
         "summary": "Supprime un rôle libre et ses droits",
         "description": "Refusée en 409 si le rôle est lié à un utilisateur (`AdmUserRole` ou rôle web), un intervenant, un rapport, un workflow ou un droit web : en base, ces liens partiraient en cascade sans prévenir.",
-        "operationId": "supprimer_23",
+        "operationId": "supprimer_24",
         "parameters": [
           {
             "name": "id",
@@ -24670,7 +25096,7 @@
           "Rôles (administration)"
         ],
         "summary": "Modifie description et restrictions (champ absent ou null = inchangé, code ignoré)",
-        "operationId": "modifier_26",
+        "operationId": "modifier_27",
         "parameters": [
           {
             "name": "id",
@@ -24762,7 +25188,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Supprime un rendez-vous",
-        "operationId": "supprimer_24",
+        "operationId": "supprimer_25",
         "parameters": [
           {
             "name": "id",
@@ -24793,7 +25219,7 @@
         ],
         "summary": "Modifie un rendez-vous (champ absent ou null = inchangé)",
         "description": "Les dates comparées sont les valeurs fusionnées : un champ absent vaut la date déjà en base. La source (`sourceId`, `sourceLibelle`, `sourceEntite`) ne bouge jamais.",
-        "operationId": "modifier_27",
+        "operationId": "modifier_28",
         "parameters": [
           {
             "name": "id",
@@ -25085,7 +25511,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Supprime un article d'achat que rien ne cite",
-        "operationId": "supprimer_25",
+        "operationId": "supprimer_26",
         "parameters": [
           {
             "name": "id",
@@ -25118,7 +25544,7 @@
           "Achat — articles (nomenclature)"
         ],
         "summary": "Modifie un article d'achat (champ absent ou null = inchangé)",
-        "operationId": "modifier_28",
+        "operationId": "modifier_29",
         "parameters": [
           {
             "name": "id",
@@ -27072,7 +27498,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_23",
+        "operationId": "lister_24",
         "parameters": [
           {
             "name": "du",
@@ -27756,7 +28182,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_24",
+        "operationId": "lister_25",
         "parameters": [
           {
             "name": "entiteId",
@@ -31177,7 +31603,7 @@
           "Rapports"
         ],
         "summary": "Rapports du module visibles par l'appelant, groupés",
-        "operationId": "lister_25",
+        "operationId": "lister_26",
         "parameters": [
           {
             "name": "module",
@@ -32569,7 +32995,7 @@
         ],
         "summary": "Transitions sortantes du statut courant",
         "description": "Toutes les transitions sortantes du statut courant (`StrWorkFlow.StatusFromId`), sans filtre de rôle.",
-        "operationId": "transitions_4",
+        "operationId": "transitions_5",
         "parameters": [
           {
             "name": "id",
@@ -33118,7 +33544,7 @@
         ],
         "summary": "Transitions de statut exécutables par l'appelant depuis le statut actuel du lot",
         "description": "Transitions OMRAN (`StrWorkFlow`) partant du statut actuel du lot. Si aucun rôle de l'appelant n'est à\n`AdmRole.WithSequenceFreeRestriction = 0`, seules celles dont un intervenant (`StrWorkFlowIntervener`) est son rôle ou lui.\nLes transitions à second valideur (`WithPassword`) ne sont jamais proposées.\nC'est exactement l'ensemble accepté par `POST …/transition`.",
-        "operationId": "transitions_5",
+        "operationId": "transitions_6",
         "parameters": [
           {
             "name": "id",
@@ -34355,7 +34781,7 @@
           "Projet — configuration, onglets"
         ],
         "summary": "Transitions partant du statut courant du projet",
-        "operationId": "transitions_6",
+        "operationId": "transitions_7",
         "parameters": [
           {
             "name": "id",
@@ -35181,7 +35607,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_26",
+        "operationId": "lister_27",
         "parameters": [
           {
             "name": "page",
@@ -36878,7 +37304,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier (frais syndic compris), `alerte` et `sousArticles` : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
-        "operationId": "lister_27",
+        "operationId": "lister_28",
         "parameters": [
           {
             "name": "entiteId",
@@ -40192,7 +40618,7 @@
         ],
         "summary": "Fiche complète du dossier en consultation, par onglet OMRAN",
         "description": "Chaque onglet de l'écran OMRAN est un objet de la réponse. Une date absente vaut `null` (jalon non atteint) ;\nle front l'affiche « — ». Le « Prix contractuel » est `ComFolder.AgreementPrice` (« Σ des montants des lignes\nde schéma de financement qui ne sont pas paramétrées \"Exclure ce montant du prix contractuel\" », aide OMRAN),\net non le total à payer.\n\n`aDesImpayes` alimente le bandeau « Ce dossier possède des pièces de règlement impayées » : vrai dès que le\ndossier a une ligne de l'écran Impayés (`GET /api/impayes`), même règle : catégorie d'encaissement\n(`IsCredit`), statut du dossier « vente effective » (ni réservation, ni annulation, ni désistement), échéance\nau plus tard aujourd'hui et reste dû positif, les règlements annulés ne comptant pas. `instructionNonLue` est vrai seulement pour le commercial destinataire d'une instruction\nqu'il n'a pas encore lue (voir `PATCH /api/dossiers/{id}/instructions/{instructionId}/lue`).",
-        "operationId": "fiche_2",
+        "operationId": "fiche_3",
         "parameters": [
           {
             "name": "id",
@@ -41952,7 +42378,7 @@
         ],
         "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
         "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
-        "operationId": "lister_28",
+        "operationId": "lister_29",
         "parameters": [
           {
             "name": "q",
@@ -43219,7 +43645,7 @@
         ],
         "summary": "Journal d'un objet (patrimoine, prospection, étude, rendez-vous) et de ses lignes enfants",
         "description": "Les lignes sont rendues de la plus récente à la plus ancienne.",
-        "operationId": "lister_29",
+        "operationId": "lister_30",
         "parameters": [
           {
             "name": "objetId",
@@ -43761,7 +44187,7 @@
         ],
         "summary": "Onglet de lecture de la fiche tiers, par date décroissante",
         "description": "Lecture seule. Fournisseurs, contacts et personnels ; conges pour les personnels seuls.",
-        "operationId": "lister_30",
+        "operationId": "lister_31",
         "parameters": [
           {
             "name": "famille",
@@ -44050,7 +44476,7 @@
         ],
         "summary": "Sessions OMRAN, page par page",
         "description": "Lignes triées par date d'ouverture décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`StartDate < dateFin + 1 jour`). `utilisateur` est une égalité exacte sur `UserDesc`. `ip` cherche une sous-chaîne, `%`, `_` et `[` pris à la lettre. `ouverte=true` ne rend que `State = 2`, `ouverte=false` tout le reste, verrouillées comprises. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_31",
+        "operationId": "lister_32",
         "parameters": [
           {
             "name": "dateDebut",
@@ -44381,7 +44807,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes de la période, date décroissante, à date égale par `PKey`. Sans date : les 30 derniers jours. `dateFin` est incluse jusqu'à 23:59:59. `texte` cherche dans `ObjectType` et `ObjectLabel` seulement, `%`, `_` et `[` pris à la lettre ; `utilisateur` est une égalité exacte. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_32",
+        "operationId": "lister_33",
         "parameters": [
           {
             "name": "dateDebut",
@@ -44629,7 +45055,7 @@
           "Fichiers attachés (administration)"
         ],
         "summary": "Fichiers attachés, page par page, du plus récent au plus ancien",
-        "operationId": "lister_33",
+        "operationId": "lister_34",
         "parameters": [
           {
             "name": "recherche",
@@ -44993,7 +45419,7 @@
         ],
         "summary": "Fiches verrouillées par OMRAN, page par page",
         "description": "Lignes triées par date de verrouillage décroissante, à date égale par `PKey` (ordre SQL Server). Sans date : toute la table. `dateFin` est incluse jusqu'au dernier instant du jour (`LockDate < dateFin + 1 jour`). `recherche` cherche une sous-chaîne dans `Code`, `Description` et `UserDesc`, `%`, `_` et `[` pris à la lettre. Une ligne dont la session n'existe plus reste listée, `utilisateur` à null. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_34",
+        "operationId": "lister_35",
         "parameters": [
           {
             "name": "etat",
@@ -45093,7 +45519,7 @@
         ],
         "summary": "Journal des e-mails, page par page",
         "description": "Lignes triées par date décroissante, à date égale par `PKey` croissante. Sans date : tout le journal. `dateFin` est incluse jusqu'au dernier instant du jour (`MailDate < dateFin + 1 jour`). `texte` cherche dans `AdmUserDescription`, `Subject`, `DisplayFromName`, `EmailsTo`, `EmailFrom` et `ObjectLabel`, `%`, `_` et `[` pris à la lettre. `utilisateur` est une égalité exacte. `envoye=false` ne rend que les lignes `EmailsSent = 0`. `totalElements` reflète les filtres ; une page vide n'est pas une erreur.",
-        "operationId": "lister_35",
+        "operationId": "lister_36",
         "parameters": [
           {
             "name": "dateDebut",
@@ -45268,7 +45694,7 @@
         ],
         "summary": "Journal des actions, page par page",
         "description": "Lignes triées par date de création décroissante, les lignes sans date en dernier ; à date égale, par `PKey` puis `action`, ordre stable entre les pages. Sans filtre : toute la vue, aucune période préréglée. Deux lignes de même `PKey` et d'`action` différente restent deux lignes, comptées toutes deux dans `totalElements`. `recherche` cherche une sous-chaîne dans `code`, `action`, `description`, `creePar` et `modifiePar`, espaces ignorés des deux côtés, `%`, `_` et `[` pris à la lettre ; vide ou blanche = pas de filtre. Les périodes de création et de modification se cumulent, leurs bornes sont des jours inclus ; une ligne sans date est exclue dès qu'une borne de sa période est posée. Les valeurs vides sont rendues telles quelles. `id` sert de clé de ligne, il n'ouvre aucun objet.",
-        "operationId": "lister_36",
+        "operationId": "lister_37",
         "parameters": [
           {
             "name": "recherche",
@@ -45377,7 +45803,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_37",
+        "operationId": "lister_38",
         "parameters": [
           {
             "name": "portee",
@@ -46989,6 +47415,225 @@
         }
       }
     },
+    "/api/achat/demandes-achat/{id}/historique": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Historique des statuts de la demande (StrHistory), le plus récent d'abord",
+        "description": "Droit de lecture ; mêmes refus que la fiche.",
+        "operationId": "historique_5",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes d'historique.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoriqueDemandeAchat"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit OMRAN manquant."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors périmètre (société, projet, statut)."
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/export": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Export Excel de la liste des demandes internes d'achat, mêmes filtres",
+        "description": "Droits `…BuySelectionList` et `…BuySelectionList.toolExport` ; mêmes lignes que la liste.",
+        "operationId": "exporter_29",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "societeIds",
+            "in": "query",
+            "description": "Sociétés (CfgCompany.PKey), paramètre répété ; une société non habilitée est ignorée.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetIds",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), paramètre répété ; un projet non habilité est ignoré.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "sansProjet",
+            "in": "query",
+            "description": "true : demandes sans projet seulement.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "procedureId",
+            "in": "query",
+            "description": "Procédure d'achat (BuySelectionKind.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statutIds",
+            "in": "query",
+            "description": "Statuts (StrStatus.PKey), paramètre répété.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Date portée par du / au : une des 14 clés OMRAN (défaut DocDate) ; clé inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "DocDate"
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date (champDate) à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date (champDate) jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "fournisseur",
+            "in": "query",
+            "description": "Raison sociale du fournisseur retenu, contient (insensible à la casse).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "description": "Code de la demande, contient.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "montantMin",
+            "in": "query",
+            "description": "Prix estimé TTC supérieur ou égal.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "montantMax",
+            "in": "query",
+            "description": "Prix estimé TTC inférieur ou égal.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Description ou notes, contient.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille DONNEES.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Filtre mal formé ou format autre que xlsx."
+          },
+          "403": {
+            "description": "Droit de lecture ou d'export manquant."
+          }
+        }
+      }
+    },
     "/api/achat/config/statuts/types": {
       "get": {
         "tags": [
@@ -47153,7 +47798,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_26",
+        "operationId": "supprimer_27",
         "parameters": [
           {
             "name": "porteur",
@@ -47448,7 +48093,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_27",
+        "operationId": "supprimer_28",
         "parameters": [
           {
             "name": "id",
@@ -47692,7 +48337,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_28",
+        "operationId": "supprimer_29",
         "parameters": [
           {
             "name": "id",
@@ -55994,6 +56639,330 @@
           }
         }
       },
+      "DatesDemandeAchat": {
+        "type": "object",
+        "description": "Les 8 dates d'appel d'offre de l'onglet Modalités / dates ; chacune facultative.",
+        "properties": {
+          "lancement": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de lancement (LaunchOfTenderDate)."
+          },
+          "retraitDossier": {
+            "type": "string",
+            "format": "date",
+            "description": "Retrait du dossier de sélection (WithdrawalTenderDocumentsDate)."
+          },
+          "echeanceOffres": {
+            "type": "string",
+            "format": "date",
+            "description": "Échéance de remise des offres (TenderMaturityDate)."
+          },
+          "report": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de report (TendersResortDate)."
+          },
+          "ouverturePlis": {
+            "type": "string",
+            "format": "date",
+            "description": "Ouverture des plis (BidOpeningDate)."
+          },
+          "rapportDepouillement": {
+            "type": "string",
+            "format": "date",
+            "description": "Rapport de dépouillement (TendersReportDate)."
+          },
+          "adjudication": {
+            "type": "string",
+            "format": "date",
+            "description": "Adjudication (TenderDate)."
+          },
+          "signatureMarche": {
+            "type": "string",
+            "format": "date",
+            "description": "Signature du marché (ContractSignatureDate)."
+          }
+        }
+      },
+      "SaisieDemandeAchat": {
+        "type": "object",
+        "description": "En-tête saisi d'une demande interne d'achat (création et modification). Code, statut, entité : jamais lus.",
+        "properties": {
+          "procedureId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Procédure d'achat (BuySelectionKind.PKey), obligatoire."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompany.PKey) habilitée, obligatoire."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description, obligatoire (255 caractères)."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la demande ; défaut aujourd'hui."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet habilité (PrjProject.PKey) ; null = sans projet."
+          },
+          "typeLotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de lot (PrjMarketType.PKey)."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (StlCategory.PKey)."
+          },
+          "deviseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Devise (StlCurrency.PKey)."
+          },
+          "moduleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Module (AdmModule.PKey) ; défaut module Achat (BUY)."
+          },
+          "declencheurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Déclencheur (CfgTier.PKey) ; défaut l'employé du compte connecté."
+          },
+          "descriptionLongue": {
+            "type": "string",
+            "description": "Description longue (500 caractères)."
+          },
+          "tvaDefaut": {
+            "type": "number",
+            "description": "TVA par défaut."
+          },
+          "prixEstimeHT": {
+            "type": "number",
+            "description": "Prix estimé HT."
+          },
+          "prixEstimeTTC": {
+            "type": "number",
+            "description": "Prix estimé TTC ; contrôlé par la procédure (R6)."
+          },
+          "paiementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Mode de paiement (StlSettlementType.PKey)."
+          },
+          "delaiPaiement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de paiement en jours."
+          },
+          "dates": {
+            "$ref": "#/components/schemas/DatesDemandeAchat",
+            "description": "Dates d'appel d'offre ; absent = toutes vides."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1000 caractères)."
+          },
+          "texteLettre": {
+            "type": "string",
+            "description": "Texte de la lettre de sélection."
+          }
+        }
+      },
+      "DemandeAchatFiche": {
+        "type": "object",
+        "description": "Fiche d'une demande interne d'achat : onglets Principal, Modalités / dates et Autres.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuySelection.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code yy/nnnnn, non modifiable."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la demande (DocDate)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "descriptionLongue": {
+            "type": "string",
+            "description": "Description longue (DescriptionLong, 500 caractères)."
+          },
+          "procedure": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Procédure d'achat."
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutDemandeAchat",
+            "description": "Statut stocké."
+          },
+          "societe": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Société (CfgCompany)."
+          },
+          "projet": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Projet ; null sans projet."
+          },
+          "lot": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Lot de marché ; null sans lot."
+          },
+          "typeLot": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Type de lot (PrjMarketType) ; null si absent."
+          },
+          "categorie": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Catégorie (StlCategory) ; null si absente."
+          },
+          "devise": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Devise (StlCurrency) ; null si absente."
+          },
+          "module": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Module (AdmModule)."
+          },
+          "declencheur": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Déclencheur (employé, CfgTier) ; null si absent."
+          },
+          "fournisseur": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Fournisseur retenu, en lecture seule ; null sans offre sélectionnée."
+          },
+          "tvaDefaut": {
+            "type": "number",
+            "description": "TVA par défaut (DefaultVat)."
+          },
+          "prixEstimeHT": {
+            "type": "number",
+            "description": "Prix estimé HT (PriceEstimatedHT)."
+          },
+          "prixEstimeTTC": {
+            "type": "number",
+            "description": "Prix estimé TTC (PriceEstimatedTTC), contrôlé par la procédure (R6)."
+          },
+          "paiement": {
+            "$ref": "#/components/schemas/ElementDemandeAchat",
+            "description": "Mode de paiement (StlSettlementType) ; null si absent."
+          },
+          "delaiPaiement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de paiement en jours (PaymentDelay)."
+          },
+          "dates": {
+            "$ref": "#/components/schemas/DatesDemandeAchat",
+            "description": "Dates d'appel d'offre."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1000 caractères)."
+          },
+          "texteLettre": {
+            "type": "string",
+            "description": "Texte de la lettre de sélection (TextLetterSelection)."
+          },
+          "estDerniere": {
+            "type": "boolean",
+            "description": "Dernière demande de son groupe ; false = toute écriture répond 409."
+          },
+          "procedureModifiable": {
+            "type": "boolean",
+            "description": "Procédure modifiable : statut stocké de type Nouveau et demande dernière (R5)."
+          },
+          "phases": {
+            "$ref": "#/components/schemas/PhasesDemandeAchat",
+            "description": "Phases ouvertes par le statut."
+          },
+          "confidentielle": {
+            "type": "boolean",
+            "description": "Procédure confidentielle (IsConfidential) : sous-onglets masqués sans le droit."
+          },
+          "lotMultiFournisseur": {
+            "type": "boolean",
+            "description": "Lot multi-fournisseur (PrjMarket.IsMultiSupplier) ; false sans lot."
+          }
+        }
+      },
+      "ElementDemandeAchat": {
+        "type": "object",
+        "description": "Référence citée par une demande interne d'achat (procédure, société, projet, lot…).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne citée."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la ligne citée ; null si la table n'en a pas."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé (Description, ou raison sociale d'un tiers)."
+          }
+        }
+      },
+      "PhasesDemandeAchat": {
+        "type": "object",
+        "description": "Phases ouvertes par le statut stocké (BoolField001..004), toutes fausses si la demande n'est pas la dernière.",
+        "properties": {
+          "bordereau": {
+            "type": "boolean",
+            "description": "Bordereau modifiable (BoolField001)."
+          },
+          "preselection": {
+            "type": "boolean",
+            "description": "Présélection des fournisseurs (BoolField002)."
+          },
+          "offres": {
+            "type": "boolean",
+            "description": "Saisie des offres (BoolField003)."
+          },
+          "selection": {
+            "type": "boolean",
+            "description": "Sélection d'une offre (BoolField004)."
+          }
+        }
+      },
+      "StatutDemandeAchat": {
+        "type": "object",
+        "description": "Statut stocké d'une demande interne d'achat (StrStatus).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrStatus.PKey."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "StrStatus.Description."
+          },
+          "couleur": {
+            "type": "string",
+            "description": "StrStatus.ColorName (nom de couleur .NET, ex. LimeGreen) ; null si absent."
+          }
+        }
+      },
       "DocumentTransitionAchatDto": {
         "type": "object",
         "description": "Document à joindre d'une transition d'achat (BuyDocumentWorkFlowDocumentToAttach), toujours obligatoire, en lecture comme en écriture.",
@@ -63331,12 +64300,36 @@
           },
           "notes": {
             "type": "string",
-            "description": "Commentaire, écrit dans StrHistory.Notes ; obligatoire si la transition l'exige."
+            "description": "Commentaire ; obligatoire si avecCommentaire, conservé seulement avec commentaire ou date."
+          },
+          "dateUtilisateur": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date utilisateur (avecDateUtilisateur) ; absente = maintenant."
+          },
+          "secondValideur": {
+            "$ref": "#/components/schemas/SecondValideur",
+            "description": "Second utilisateur, obligatoire si avecSecondValideur."
           }
         },
         "required": [
           "transitionId"
         ]
+      },
+      "SecondValideur": {
+        "type": "object",
+        "description": "Identifiants Arpent d'un second utilisateur, exigés par une transition à second valideur ; jamais conservés.",
+        "properties": {
+          "login": {
+            "type": "string",
+            "description": "Login (AdmUser.Code) du second utilisateur."
+          },
+          "motDePasse": {
+            "type": "string",
+            "format": "password",
+            "description": "Mot de passe Arpent du second utilisateur."
+          }
+        }
       },
       "PropositionPointsDto": {
         "type": "object",
@@ -68653,6 +69646,33 @@
             "format": "date-time"
           }
         }
+      },
+      "ExecutionTransitionDemandeAchat": {
+        "type": "object",
+        "description": "Exécution d'une transition de la demande ; statut et entité relus en base, jamais pris du corps.",
+        "properties": {
+          "transitionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Transition (id d'une TransitionDemandeAchat)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Commentaire ; obligatoire si avecCommentaire, conservé seulement avec commentaire ou date."
+          },
+          "dateUtilisateur": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date utilisateur (avecDateUtilisateur) ; absente = maintenant."
+          },
+          "secondValideur": {
+            "$ref": "#/components/schemas/SecondValideur",
+            "description": "Second utilisateur, obligatoire si avecSecondValideur."
+          }
+        },
+        "required": [
+          "transitionId"
+        ]
       },
       "ArticleAchatEcritureDto": {
         "type": "object",
@@ -76247,6 +77267,18 @@
             "type": "string",
             "description": "Nom de couleur .NET du statut d'arrivée, null si absent.",
             "example": "LimeGreen"
+          },
+          "avecCommentaire": {
+            "type": "boolean",
+            "description": "Commentaire obligatoire (WithComment)."
+          },
+          "avecDateUtilisateur": {
+            "type": "boolean",
+            "description": "Date utilisateur demandée (WithUserDate)."
+          },
+          "avecSecondValideur": {
+            "type": "boolean",
+            "description": "Identifiants d'un second utilisateur exigés (WithPassword)."
           }
         }
       },
@@ -83763,6 +84795,160 @@
             "type": "number",
             "description": "TVA proposée pour une nouvelle ligne, en fraction.",
             "example": 0.2
+          }
+        }
+      },
+      "DemandeAchatLigne": {
+        "type": "object",
+        "description": "Ligne de la liste des demandes internes d'achat (BuySelection).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuySelection.PKey."
+          },
+          "procedure": {
+            "type": "string",
+            "description": "Procédure d'achat (BuySelectionKind.Description)."
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutDemandeAchat",
+            "description": "Statut stocké."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code yy/nnnnn, généré à la création."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la demande (DocDate)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "entite": {
+            "type": "string",
+            "description": "Société (CfgCompany.Description)."
+          },
+          "projet": {
+            "type": "string",
+            "description": "Projet (PrjProject.Description) ; null sans projet."
+          },
+          "lot": {
+            "type": "string",
+            "description": "Lot (PrjMarket.Description) ; null sans lot."
+          },
+          "module": {
+            "type": "string",
+            "description": "Module (AdmModule.Description)."
+          },
+          "fournisseur": {
+            "type": "string",
+            "description": "Fournisseur retenu (raison sociale) ; null tant qu'aucune offre n'est sélectionnée."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégorie (StlCategory.Description)."
+          },
+          "declencheur": {
+            "type": "string",
+            "description": "Déclencheur (raison sociale de l'employé)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "montantEstimeTTC": {
+            "type": "number",
+            "description": "Prix estimé TTC (PriceEstimatedTTC)."
+          },
+          "estDerniere": {
+            "type": "boolean",
+            "description": "Dernière demande de son groupe (IsTheLast) ; false = lecture seule."
+          }
+        }
+      },
+      "StatutCibleDemandeAchat": {
+        "type": "object",
+        "description": "Statut d'arrivée d'une transition (StrStatus).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrStatus.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "StrStatus.Code."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "StrStatus.Description."
+          },
+          "couleur": {
+            "type": "string",
+            "description": "StrStatus.ColorName ; null si absent."
+          }
+        }
+      },
+      "TransitionDemandeAchat": {
+        "type": "object",
+        "description": "Transition (StrWorkFlow) exécutable par l'appelant sur la demande ; même calcul que l'exécution.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrWorkFlow.PKey, à envoyer dans transitionId."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé de la transition."
+          },
+          "statutCible": {
+            "$ref": "#/components/schemas/StatutCibleDemandeAchat",
+            "description": "Statut d'arrivée."
+          },
+          "avecCommentaire": {
+            "type": "boolean",
+            "description": "Commentaire obligatoire (WithComment)."
+          },
+          "avecDateUtilisateur": {
+            "type": "boolean",
+            "description": "Date utilisateur demandée (WithUserDate)."
+          },
+          "avecSecondValideur": {
+            "type": "boolean",
+            "description": "Identifiants d'un second utilisateur exigés (WithPassword)."
+          }
+        }
+      },
+      "HistoriqueDemandeAchat": {
+        "type": "object",
+        "description": "Ligne d'historique de statut de la demande (StrHistory), la plus récente d'abord.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "DocDate : moment de l'écriture."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "AdmUserDescription : nom affiché de l'auteur."
+          },
+          "description": {
+            "type": "string",
+            "description": "« Création », ou « {transition}: {départ}=>{arrivée}({login} & {login du second}) »."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Commentaire de la transition."
+          },
+          "dateUtilisateur": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UserDate."
           }
         }
       },
