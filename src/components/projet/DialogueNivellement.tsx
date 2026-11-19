@@ -8,21 +8,26 @@ import { Input } from '../ui/input';
 import {
   creerNoeudNivellement, listerNivellement, modifierNoeudNivellement, supprimerNoeudNivellement,
 } from '../../lib/apiProjetConfig';
+import { useAuth } from '../../lib/auth';
 import { useConfirm } from '../../lib/confirmContext';
+import { estAdministrateur } from '../../lib/roles';
 import { errorMessage, useApi } from '../../lib/useApi';
 import { cn } from '../../lib/utils';
 import type { UUID } from '../../types';
 import type { NoeudNivellementDto } from '../../types/projetConfig';
 
-/** Liste à plat triée par `ordre` → lignes en parcours profondeur, avec leur profondeur. */
+/** Parcours profondeur, frères triés par `ordre` ; un nœud dont le parent est absent de la liste devient racine. */
 function aplatir(noeuds: NoeudNivellementDto[], parentId: UUID | null = null, profondeur = 0): { noeud: NoeudNivellementDto; profondeur: number }[] {
-  return noeuds.filter((n) => (n.parentId ?? null) === parentId)
+  const ids = new Set(noeuds.map((n) => n.id));
+  return noeuds.filter((n) => (parentId === null ? !n.parentId || !ids.has(n.parentId) : n.parentId === parentId))
+    .sort((a, b) => (a.ordre ?? 0) - (b.ordre ?? 0))
     .flatMap((n) => [{ noeud: n, profondeur }, ...aplatir(noeuds, n.id, profondeur + 1)]);
 }
 
 /** Arbre de nivellement d'un projet ; les 400 et 409 du serveur s'affichent tels quels. */
 export default function DialogueNivellement({ projetId, onClose }: Readonly<{ projetId: UUID; onClose: () => void }>) {
   const confirmer = useConfirm();
+  const ecriture = estAdministrateur(useAuth().user);
   const { data, loading, error, refetch } = useApi(() => listerNivellement(projetId), [projetId]);
   const [selection, setSelection] = useState<UUID | null>(null);
   const [edition, setEdition] = useState<{ id: UUID; code: string } | null>(null);
@@ -56,7 +61,7 @@ export default function DialogueNivellement({ projetId, onClose }: Readonly<{ pr
   const noeudSelectionne = data?.find((n) => n.id === selection);
   return (
     <Modal title="Nivellement" onClose={onClose} width={560}>
-      <BarreIcones className="mb-2 flex items-center gap-1">
+      {ecriture && <BarreIcones className="mb-2 flex items-center gap-1">
         <Button type="button" variant="ghost" size="sm" onClick={() => void agir(() => creerNoeudNivellement(projetId, null))}>
           <Plus /> Ajouter une racine
         </Button>
@@ -71,7 +76,7 @@ export default function DialogueNivellement({ projetId, onClose }: Readonly<{ pr
         <Button type="button" variant="ghost" size="sm" disabled={!selection} onClick={() => void supprimer()}>
           <Trash2 /> Supprimer
         </Button>
-      </BarreIcones>
+      </BarreIcones>}
       {erreur && <p className="mb-2 text-body text-destructive">{erreur}</p>}
       {loading && !data && <LoadingState />}
       {error && <ErrorState message={error} />}
@@ -91,7 +96,7 @@ export default function DialogueNivellement({ projetId, onClose }: Readonly<{ pr
                 <button type="button" aria-pressed={selection === noeud.id}
                   className={cn('block w-full px-2 py-1 text-left text-body hover:bg-muted', selection === noeud.id && 'bg-muted font-medium')}
                   style={{ paddingLeft: 8 + profondeur * 20 }} onClick={() => setSelection(noeud.id)}
-                  onDoubleClick={() => setEdition({ id: noeud.id, code: noeud.code ?? '' })}>
+                  onDoubleClick={() => ecriture && setEdition({ id: noeud.id, code: noeud.code ?? '' })}>
                   {noeud.code}
                 </button>
               )}
