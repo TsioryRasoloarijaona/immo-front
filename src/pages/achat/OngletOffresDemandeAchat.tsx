@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCheck, Columns3, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import { CheckCheck, Columns3, Pencil, Plus, ShoppingCart, Trash2, XCircle } from 'lucide-react';
 import BarreIcones from '../../components/BarreIcones';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import SearchableSelect from '../../components/SearchableSelect';
@@ -16,9 +16,12 @@ import {
   selectionnerOffreDemandeAchat,
   supprimerOffreDemandeAchat,
 } from '../../lib/apiDemandesAchat';
+import { creerPieceAchat, getModelePieceAchat } from '../../lib/apiAchat';
 import { useConfirm } from '../../lib/confirmContext';
 import { formatCurrency, formatDate } from '../../lib/format';
+import { useToast } from '../../lib/toastContext';
 import { errorMessage, refetchAllApis, useApi } from '../../lib/useApi';
+import type { SaisiePieceAchatRequest } from '../../types/achat';
 import type { DemandeAchatFiche, OffreDemandeAchat } from '../../types/demandesAchat';
 import ComparaisonOffresDemandeAchat from './ComparaisonOffresDemandeAchat';
 
@@ -125,6 +128,7 @@ export default function OngletOffresDemandeAchat({ fiche, verrouille }: Readonly
   const { id } = fiche;
   const liste = useApi(() => getOffresDemandeAchat(id), [id]);
   const confirmer = useConfirm();
+  const toast = useToast();
   const [ouvert, setOuvert] = useState<Ouvert>(null);
   const [message, setMessage] = useState<string | null>(null);
   const saisieBloquee = verrouille || !fiche.phases.offres;
@@ -157,6 +161,18 @@ export default function OngletOffresDemandeAchat({ fiche, verrouille }: Readonly
     if (ok) await agir(() => deselectionnerOffreDemandeAchat(id));
   }
 
+  async function genererBonCommande(o: OffreDemandeAchat) {
+    setMessage(null);
+    try {
+      const modele = await getModelePieceAchat('ORDER', [o.id]);
+      await creerPieceAchat({ ...modele, sources: [o.id] } as SaisiePieceAchatRequest);
+      apres();
+      toast('Bon de commande créé.');
+    } catch (err) {
+      setMessage(errorMessage(err));
+    }
+  }
+
   const lignes = liste.data ?? [];
   return (
     <div className="flex flex-col gap-3 pt-3">
@@ -179,13 +195,19 @@ export default function OngletOffresDemandeAchat({ fiche, verrouille }: Readonly
             actions={(o) => (
               <BarreIcones className="flex items-center justify-center gap-1">
                 <Button type="button" variant="ghost" size="sm" disabled={saisieBloquee} onClick={() => setOuvert(o)}><Pencil /> {nom(saisieBloquee, 'Modifier les prix')}</Button>
-                {o.selectionnee ? (
+                {fiche.lot && o.selectionnee && (
                   <Button type="button" variant="ghost" size="sm" disabled={selectionBloquee} onClick={() => void deselectionner()}>
                     <XCircle /> {nom(selectionBloquee, 'Désélectionner')}
                   </Button>
-                ) : (
+                )}
+                {fiche.lot && !o.selectionnee && (
                   <Button type="button" variant="ghost" size="sm" disabled={selectionBloquee || o.ecartee} onClick={() => void agir(() => selectionnerOffreDemandeAchat(id, o.id))}>
                     <CheckCheck /> {nom(selectionBloquee, 'Sélectionner')}
+                  </Button>
+                )}
+                {fiche.phases.bonCommande && o.selectionnee && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => void genererBonCommande(o)}>
+                    <ShoppingCart /> Bon de commande depuis l'offre
                   </Button>
                 )}
                 <Button type="button" variant="ghost" size="sm" disabled={saisieBloquee} onClick={() => void supprimer(o)}><Trash2 /> {nom(saisieBloquee, 'Supprimer')}</Button>

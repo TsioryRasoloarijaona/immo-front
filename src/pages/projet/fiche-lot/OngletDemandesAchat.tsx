@@ -72,18 +72,20 @@ function DialogueAjoutDia({ lotId, onAnnuler }: Readonly<{ lotId: string; onAnnu
   );
 }
 
-export default function OngletDemandesAchat({ lotId }: Readonly<{ lotId: string }>) {
+export default function OngletDemandesAchat({ lotId, peutAjouter }: Readonly<{ lotId: string; peutAjouter: boolean }>) {
   const { data, loading, error } = useApi(() => getDemandesAchatLot(lotId), [lotId]);
   const [ajout, setAjout] = useState(false);
   if (error) return <ErrorState message={error} />;
   if (!data) return loading ? <LoadingState /> : null;
   return (
     <div className="flex flex-col gap-2">
-      <BarreIcones className="flex items-center gap-1">
-        <Button type="button" variant="ghost" size="sm" onClick={() => setAjout(true)}>
-          <Plus /> Ajouter une DIA
-        </Button>
-      </BarreIcones>
+      {peutAjouter && (
+        <BarreIcones className="flex items-center gap-1">
+          <Button type="button" variant="ghost" size="sm" onClick={() => setAjout(true)}>
+            <Plus /> Ajouter une DIA
+          </Button>
+        </BarreIcones>
+      )}
       {data.length === 0 ? (
         <EmptyState title="Aucune demande interne d'achat pour ce lot" />
       ) : (
