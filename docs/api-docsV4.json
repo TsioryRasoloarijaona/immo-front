@@ -328,6 +328,10 @@
       "description": "Les trois routes partagent une seule sélection : dossiers de vente portés par un article **non sous-article** de la tranche\n(`StkItem.ComFolderId`), dont le statut n'est ni une annulation (`BoolField002`) ni un désistement (`BoolField003`) ; un\ndossier sans statut est exclu. Réservées à l'Administrateur (403 avant tout autre refus)."
     },
     {
+      "name": "Projet — configuration, nivellement",
+      "description": "Bouton « Nivellement » de la fiche projet de configuration : arbre des niveaux du projet (`CfgTrancheLevelingDefinition`, `CfgTrancheId` = `PrjProject.PKey`). Lecture : tout compte qui voit le projet (habilitation `AdmUserHabilitation.PrjProjectId`). Écritures : rôle Administrateur (règle d'URL de la configuration projet) et projet visible. Le projet d'un nœud est lu sur la ligne stockée : un nœud d'un autre projet répond 404. Voir `instructions/FEATURE-n9-planification.md` (R4, D6, D7)."
+    },
+    {
       "name": "Encaissements",
       "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...).\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, un encaissement hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les règlements portés par une entité juridique active (`StlSettlement.CfgCompanyId` → `CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Un règlement masqué renvoie 404 sur toutes les routes portant son identifiant."
     },
@@ -12124,6 +12128,115 @@
         }
       }
     },
+    "/api/projet/config/projets/{id}/nivellement": {
+      "get": {
+        "tags": [
+          "Projet — configuration, nivellement"
+        ],
+        "summary": "Nœuds de la définition de nivellement du projet, à plat (parentId), par rang",
+        "description": "Liste à plat, triée par rang : l'arbre se reconstruit avec `parentId` (null = racine). Liste vide = aucun niveau défini.",
+        "operationId": "lister_6",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Projet hors périmètre ou inconnu, ou nœud d'un autre projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoeudNivellementDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet — configuration, nivellement"
+        ],
+        "summary": "Ajoute une racine ou un enfant ; code et rang calculés par le serveur",
+        "description": "Corps `{\"parentId\": uuid|null}`. Le serveur calcule le rang (nombre de frères + 1) et le code : code de la ligne du nivellement du projet (`StkLevelingLine`) dont le rang égale la profondeur du nouveau nœud, suivi du rang (« BLOC 1 », « ETAGE 2 »). 400 « Aucun niveau n'est défini pour ce projet : renseigner le nivellement du projet. » si le projet n'a pas de nivellement ; 400 « Vous ne pouvez pas ajouter un niveau inférieur » au-delà de la profondeur du nivellement. Parent d'un autre projet ou inconnu : 404.",
+        "operationId": "creer_12",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoeudNivellementEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Projet sans nivellement, ou niveau plus profond que le nivellement.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle Administrateur absent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet hors périmètre ou inconnu, ou nœud d'un autre projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projet/config/projets/{id}/criteres": {
       "get": {
         "tags": [
@@ -12513,7 +12626,7 @@
         ],
         "summary": "Crée une pré-prospection (lead brut)",
         "description": "Équivalent de l'écran « Pré-prospection » d'OMRAN, dont la trace d'audit fixe la séquence : code\ntiré du compteur `AdmSequence` « Prospection » (format `AA/NNNNN`, **le même compteur que les\nprospections**), type de document `ComPreProspection`, contact saisi en champs libres\n(`TempDescription`, `TempTel`, `TempEMail`) — **aucune fiche prospect n'est créée**.\n\nSeul `nom` est obligatoire. Posés par le serveur : code, date du document (maintenant), `IsClosed =\nfalse`, auteur (utilisateur connecté), vocation `VENTE` si aucune n'est fournie. Jamais de prospect\nni de commercial : c'est l'objet de `POST /api/pre-prospections/{id}/creer-prospect` puis `POST\n/api/prospections/{id}/transformer`.\n\n**Doublons signalés, jamais refusés.** La réponse liste les prospections existantes au même contact\n(même nom, même téléphone sur ses 9 derniers chiffres, même email — un champ absent des deux côtés\ncompte comme égal). OMRAN enregistre lui aussi une ligne par soumission ; à l'écran d'avertir. Seuls\nles doublons **visibles de l'appelant** (périmètre commercial) sont listés : un contact hors\npérimètre n'est jamais révélé.\n\nLa ligne créée apparaît aussitôt dans `GET /api/pre-prospections` et dans le logiciel de bureau.",
-        "operationId": "creer_12",
+        "operationId": "creer_13",
         "requestBody": {
           "content": {
             "application/json": {
@@ -12953,7 +13066,7 @@
           "Notes"
         ],
         "summary": "Notes d'un objet du patrimoine, d'une prospection terrain ou d'une étude, plus récentes d'abord",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "porteur",
@@ -13023,7 +13136,7 @@
           "Notes"
         ],
         "summary": "Ajoute une note en texte simple (échappée en HTML pour OMRAN)",
-        "operationId": "creer_13",
+        "operationId": "creer_14",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13173,7 +13286,7 @@
           "Modèles de documents"
         ],
         "summary": "Crée un modèle et sa version 1",
-        "operationId": "creer_14",
+        "operationId": "creer_15",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13437,7 +13550,7 @@
         ],
         "summary": "Lots de terrain : terrains d'une tranche, entité « article », vocation autre que PROJET",
         "description": "Lots des tranches visibles (société du programme active). Mêmes filtres que `GET /api/terrains`, plus `trancheId`.",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "search",
@@ -13517,7 +13630,7 @@
         ],
         "summary": "Crée un lot de terrain dans une tranche (nature TER, entité « article », sans statut de workflow)",
         "description": "Tranche obligatoire, visible et d'entité active (sinon 400, sans dire si elle existe). Code unique dans la tranche,\ntoutes natures confondues (409). Vocation obligatoire et jamais PROJET ; catégorie et type obligatoires, de nature TER\nou LOT DE TERRAIN (400 nommant le champ). Prix : un seul calcul, celui des articles (prix au m² HT ou TTC exclusifs).",
-        "operationId": "creer_15",
+        "operationId": "creer_16",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13864,7 +13977,7 @@
           "Études de faisabilité"
         ],
         "summary": "Liste des études des sociétés actives, par code",
-        "operationId": "lister_8",
+        "operationId": "lister_9",
         "parameters": [
           {
             "name": "societeId",
@@ -13918,7 +14031,7 @@
         ],
         "summary": "Crée une étude au statut « En étude »",
         "description": "`code` (unique → 409), `description`, `dateDocument`, `societeId` (société active, sinon 400) obligatoires ;\n`terrainId` : article de nature TER (sinon 400). Statut initial « En étude », une ligne d'historique au nom de\nl'appelant ; `tauxTvaDefaut` 0,20 et `tauxTvaInterets` 0,10 si absents. Bloc A et phases calculés et stockés ;\n`unites` / `tranches` du corps sont ignorés (grilles par les PUT).",
-        "operationId": "creer_16",
+        "operationId": "creer_17",
         "requestBody": {
           "content": {
             "application/json": {
@@ -15059,7 +15172,7 @@
           "Entités juridiques"
         ],
         "summary": "Liste des entités, actives ou non (colonnes de la liste OMRAN)",
-        "operationId": "lister_9",
+        "operationId": "lister_10",
         "parameters": [
           {
             "name": "actif",
@@ -15101,7 +15214,7 @@
           "Entités juridiques"
         ],
         "summary": "Crée une entité (habilitation du créateur et 4 compteurs AdmSequence dans la même transaction)",
-        "operationId": "creer_17",
+        "operationId": "creer_18",
         "requestBody": {
           "content": {
             "application/json": {
@@ -15770,7 +15883,7 @@
           "Dossiers — sous-articles"
         ],
         "summary": "Sous-articles du dossier et prix qui en dépendent",
-        "operationId": "lister_10",
+        "operationId": "lister_11",
         "parameters": [
           {
             "name": "id",
@@ -15959,7 +16072,7 @@
         ],
         "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
         "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
-        "operationId": "lister_11",
+        "operationId": "lister_12",
         "parameters": [
           {
             "name": "id",
@@ -16007,7 +16120,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_18",
+        "operationId": "creer_19",
         "parameters": [
           {
             "name": "id",
@@ -16469,7 +16582,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "id",
@@ -16563,7 +16676,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_13",
+        "operationId": "lister_14",
         "parameters": [
           {
             "name": "id",
@@ -17175,7 +17288,7 @@
         ],
         "summary": "Crée un désistement (brouillon) sur le dossier",
         "description": "Statut du dossier sans « Peut effectuer un désistement » (`StrStatus.BoolField010`) : 409. Un seul désistement non légalisé par dossier : 409. Les montants sont calculés comme la simulation et enregistrés ; le N° de demande vient de la séquence « Désistement ».",
-        "operationId": "creer_19",
+        "operationId": "creer_20",
         "parameters": [
           {
             "name": "id",
@@ -17230,7 +17343,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_14",
+        "operationId": "lister_15",
         "parameters": [
           {
             "name": "id",
@@ -17362,7 +17475,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_15",
+        "operationId": "lister_16",
         "parameters": [
           {
             "name": "id",
@@ -17403,7 +17516,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_20",
+        "operationId": "creer_21",
         "parameters": [
           {
             "name": "id",
@@ -18306,7 +18419,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_16",
+        "operationId": "lister_17",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -18342,7 +18455,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_21",
+        "operationId": "creer_22",
         "requestBody": {
           "content": {
             "application/json": {
@@ -18846,7 +18959,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_22",
+        "operationId": "creer_23",
         "requestBody": {
           "content": {
             "application/json": {
@@ -19236,7 +19349,7 @@
           "Actions d'article"
         ],
         "summary": "Actions portant sur l'article (dossiers compris), plus récentes d'abord",
-        "operationId": "lister_17",
+        "operationId": "lister_18",
         "parameters": [
           {
             "name": "id",
@@ -19283,7 +19396,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_23",
+        "operationId": "creer_24",
         "parameters": [
           {
             "name": "id",
@@ -19452,7 +19565,7 @@
         ],
         "summary": "Tiers d'une famille, par code puis PKey",
         "description": "La recherche est un « contient » sans casse ; `%`, `_` et `[` y sont pris à la lettre ; vide ou faite d'espaces = pas de filtre. Colonnes cherchées : code, description, raison sociale, mobile, téléphone, e-mail, ICE ; banques et organismes : code, description, mobile, téléphones, fax, e-mail, site, notes, adresse ; personnels : les colonnes générales sans l'ICE. `natureId` n'est lu que pour les fournisseurs. `contacts` joint les libellés de `CfgTierContact` par « , ». Personnels : `rib` et `iban` toujours null en liste, lus sur la fiche.",
-        "operationId": "lister_18",
+        "operationId": "lister_19",
         "parameters": [
           {
             "name": "famille",
@@ -19544,7 +19657,7 @@
         ],
         "summary": "Crée un tiers ; code au compteur partagé, saisi pour banques et organismes",
         "description": "Personne morale : `raisonSociale` requise. Personne physique : `prenom`, `nom`, `titreId` et `sexeId` requis, `raisonSociale` et `description` valent « prénom nom ». Toujours requis : `personneMorale`, `paysResidenceId`, `deviseId`, `formeSocialeId`, et `mobile` ou `email`. Un doublon n'est pas refusé.\n\nBanques et organismes : fiche réduite, `code`, `description` et `paysId` seuls requis, compteur jamais utilisé. La description passe en majuscules et la raison sociale la suit, le pays de résidence suit `paysId`, `matriculeFiscal` s'écrit aussi dans `IDNumber`. La forme sociale vient du paramètre OMRAN de la famille, la devise reste vide. Seuls comptent `code`, `description`, `paysId`, `natureId`, `matriculeFiscal`, `registreCommerce`, `ice`, `compteComptableId`, `journalId`, les téléphones et leurs indicatifs, `fax`, `email`, `siteWeb`, les adresses, `codePostal`, `villeId`, `ville`, `notes` ; tout autre champ est ignoré.\n\nPersonnels : personne physique seule, `personneMorale` vrai = 400 ; `formeSocialeId` et `deviseId` facultatifs, contrôlés s'ils sont fournis. `ice`, `matriculeFiscal`, `registreCommerce`, `douane`, `codeComptable`, `codeComptableCollectif`, `tauxRetenue`, `tauxTva`, `delaiPaiement`, `assujettissementId` et `estPrestataire` sont ignorés.",
-        "operationId": "creer_24",
+        "operationId": "creer_25",
         "parameters": [
           {
             "name": "famille",
@@ -19640,7 +19753,7 @@
           "Tâches (administration)"
         ],
         "summary": "Liste paginée des tâches, triée par date prévisionnelle",
-        "operationId": "lister_19",
+        "operationId": "lister_20",
         "parameters": [
           {
             "name": "statutId",
@@ -19711,7 +19824,7 @@
           "Tâches (administration)"
         ],
         "summary": "Crée une tâche",
-        "operationId": "creer_25",
+        "operationId": "creer_26",
         "requestBody": {
           "content": {
             "application/json": {
@@ -19850,7 +19963,7 @@
           "Rôles (administration)"
         ],
         "summary": "Liste paginée des rôles, triée par code",
-        "operationId": "lister_20",
+        "operationId": "lister_21",
         "parameters": [
           {
             "name": "texte",
@@ -19891,7 +20004,7 @@
           "Rôles (administration)"
         ],
         "summary": "Crée un rôle",
-        "operationId": "creer_26",
+        "operationId": "creer_27",
         "requestBody": {
           "content": {
             "application/json": {
@@ -19931,7 +20044,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Liste paginée des rendez-vous, triée par date prévisionnelle puis code",
-        "operationId": "lister_21",
+        "operationId": "lister_22",
         "parameters": [
           {
             "name": "texte",
@@ -20007,7 +20120,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Crée un rendez-vous, code issu de la séquence AdmTask",
-        "operationId": "creer_27",
+        "operationId": "creer_28",
         "requestBody": {
           "content": {
             "application/json": {
@@ -20461,7 +20574,7 @@
         ],
         "summary": "Crée une pièce d'achat (devis, bon de commande, bon de livraison, facture, avoir généré)",
         "description": "Ordre des refus : 400 nature non prise en charge → 404 source, société ou projet non habilité → 403 droit de création (code Achat « Nouveau » ; le code Projet › Lot compte pour une pièce à lot, jamais pour une facture) → 400 champs → 409 génération. Écrit la pièce, ses lignes, la ventilation des catégories (calculée depuis les lignes) et des projets, le numéro de la séquence de la nature, le statut de départ (null sans workflow) et, sauf pour un bon de livraison, une ligne d'historique. Montants sans arrondi : PU net = PU × (1 − remise), PU HT = PU net × (1 + FODEC), total HT = PU HT × quantité, TVA = total HT × taux. Une facture à lot reprend le reste d'avance du lot ; seule une facture générée reprend aussi ses taux de retenue.\n\nAvec `sources` : mêmes contrôles que le modèle, rejoués ; la pièce prend la gestion d'arrivée et la devise de la 1re source et écrit les liens (`BuyQuoteId` du bon de commande, `BuyOrderId`, `BuyInvoiceId` des bons de livraison facturés, une ligne `BuyOrderInvoice` par bon de commande distinct) ; un bon de livraison est contrôlé contre les quantités du bon de commande si `LimitDeliveryAndInvoiceQuantityToOrder`. Un refus ne consomme aucun numéro.\n\nAvoir : `InvoiceSourceId` = la facture, `BuyOrderId` = son bon de commande, numéro de la séquence « Avoir fournisseur », `IsFinancialRefund` = `avoirFinancier` (paramètre `DefaultRefundIsFinancial` si absent). Sans ligne, `montantHT` + `montantTVA` fixent les totaux (TTC = somme) ; avec lignes ils sont ignorés. Le net à payer de la facture source est recalculé (TTC et retenues moins la somme de ses avoirs non financiers), à la création, à la modification et à la suppression de l'avoir.",
-        "operationId": "creer_28",
+        "operationId": "creer_29",
         "requestBody": {
           "content": {
             "application/json": {
@@ -22776,6 +22889,124 @@
           },
           "409": {
             "description": "Statut du lot en lecture seule (StrStatus.IsReadOnly)."
+          }
+        }
+      }
+    },
+    "/api/projet/config/projets/{id}/nivellement/{noeudId}": {
+      "delete": {
+        "tags": [
+          "Projet — configuration, nivellement"
+        ],
+        "summary": "Supprime un nœud et ses descendants",
+        "description": "Supprime le nœud et tous ses descendants. 409 « Suppression impossible : … » avec le nombre de références si le nœud ou un descendant est cité par un lot (`PrjMarketHierarchy.StkHierarchyId`), une journée de travail (`GrhWorkedDay`) ou un avancement de réunion (`BulMeetingPrjProjectProgressCriteriaLine`).",
+        "operationId": "supprimer_15",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "noeudId",
+            "in": "path",
+            "description": "Id du nœud (CfgTrancheLevelingDefinition.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Rôle Administrateur absent."
+          },
+          "404": {
+            "description": "Projet hors périmètre ou inconnu, ou nœud d'un autre projet."
+          },
+          "409": {
+            "description": "Le nœud ou un descendant est cité (lot, journée, avancement)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Projet — configuration, nivellement"
+        ],
+        "summary": "Modifie le code d'un nœud (parent et rang inchangés)",
+        "description": "Corps `{\"code\": \"…\"}` : seul le code change, les autres champs sont ignorés.",
+        "operationId": "modifier_17",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "noeudId",
+            "in": "path",
+            "description": "Id du nœud (CfgTrancheLevelingDefinition.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoeudNivellementEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Code absent, vide ou de plus de 255 caractères.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle Administrateur absent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Projet hors périmètre ou inconnu, ou nœud d'un autre projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoeudNivellementDto"
+                }
+              }
+            }
           }
         }
       }
@@ -64396,6 +64627,47 @@
         "required": [
           "transitionId"
         ]
+      },
+      "NoeudNivellementEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'un nœud de nivellement : parentId à la création, code à la modification.",
+        "properties": {
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Création : nœud parent du même projet ; null = nouvelle racine. Ignoré en modification."
+          },
+          "code": {
+            "type": "string",
+            "description": "Modification : nouveau code (obligatoire, 255 caractères). Ignoré à la création.",
+            "maxLength": 255
+          }
+        }
+      },
+      "NoeudNivellementDto": {
+        "type": "object",
+        "description": "Nœud de la définition de nivellement d'un projet (CfgTrancheLevelingDefinition).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du nœud (PKey)."
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Nœud parent ; null pour une racine."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code affiché dans l'arbre (« BLOC 1 », « ETAGE 2 »…)."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang parmi les frères, à partir de 1 (Sorting)."
+          }
+        }
       },
       "ImportCriteresDto": {
         "type": "object",

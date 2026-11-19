@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { CircleCheck, HardHat, Palette, Users } from 'lucide-react';
+import { CircleCheck, ClipboardCheck, HardHat, ListTodo, PackageCheck, Palette, Users } from 'lucide-react';
 import type { ModuleApp } from '../types';
 import { VUES_RECETTES } from '../../lib/tresorerie';
 import { arbreProjet } from './arbre';
@@ -52,6 +52,9 @@ const projet: ModuleApp = {
     { path: '/projet/config/types-reunion', element: <ReferentielProjetPage slug="types-reunion" titre="Types de réunion" icone={<Users />} /> },
     { path: '/projet/config/statuts-reserves', element: <ReferentielProjetPage slug="statuts-reserves" titre="Statuts des réserves" icone={<CircleCheck />} /> },
     { path: '/projet/config/plages-couleurs', element: <ReferentielProjetPage slug="plages-couleurs" titre="Plages de couleurs" icone={<Palette />} /> },
+    { path: '/projet/config/types-reception', element: <ReferentielProjetPage slug="types-reception" titre="Types de réception" icone={<PackageCheck />} /> },
+    { path: '/projet/config/natures-reception', element: <ReferentielProjetPage slug="natures-reception" titre="Natures de réception" icone={<ClipboardCheck />} /> },
+    { path: '/projet/config/types-tache', element: <ReferentielProjetPage slug="types-tache-planification" titre="Types de tâche" icone={<ListTodo />} /> },
   ],
 };
 

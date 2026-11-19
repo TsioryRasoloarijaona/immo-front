@@ -10,6 +10,8 @@ import type {
   ExecutionTransitionProjetDto,
   HistoriqueProjetDto,
   ImportCriteresDto,
+  NoeudNivellementDto,
+  NoeudNivellementEcritureDto,
   ProjetConfigDto,
   ProjetConfigRequest,
   ReferentielsProjetConfigDto,
@@ -152,4 +154,26 @@ export function deleteCritereProjet(id: UUID, ligneId: UUID): Promise<void> {
 /** Remplace tous les critères ; 409 si un critère actuel est cité par un PV. */
 export function importCriteresProjet(id: UUID, body: ImportCriteresDto): Promise<CritereAvancementDto[]> {
   return request('POST', `${PROJETS}/${id}/criteres/importer`, { body });
+}
+
+// Nivellement (FEATURE-n9-planification.md R4) : lecture pour qui voit le projet, écritures Administrateur.
+
+export function listerNivellement(id: UUID): Promise<NoeudNivellementDto[]> {
+  return request('GET', `${PROJETS}/${id}/nivellement`);
+}
+
+/** 400 projet sans nivellement ou niveau trop profond : message du serveur à afficher tel quel. */
+export function creerNoeudNivellement(id: UUID, parentId: UUID | null): Promise<NoeudNivellementDto> {
+  const body: NoeudNivellementEcritureDto = { parentId };
+  return request('POST', `${PROJETS}/${id}/nivellement`, { body });
+}
+
+export function modifierNoeudNivellement(id: UUID, noeudId: UUID, code: string): Promise<NoeudNivellementDto> {
+  const body: NoeudNivellementEcritureDto = { code };
+  return request('PATCH', `${PROJETS}/${id}/nivellement/${noeudId}`, { body });
+}
+
+/** Supprime aussi les descendants ; 409 si l'un est cité : message du serveur à afficher tel quel. */
+export function supprimerNoeudNivellement(id: UUID, noeudId: UUID): Promise<void> {
+  return request('DELETE', `${PROJETS}/${id}/nivellement/${noeudId}`);
 }
