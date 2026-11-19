@@ -143,6 +143,7 @@ export interface FiltresDemandesAchat {
   sansProjet?: boolean;
   procedureId?: UUID;
   statutIds?: UUID[];
+  moduleId?: UUID;
   champDate?: string;
   du?: string;
   au?: string;
