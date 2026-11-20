@@ -1916,6 +1916,9 @@
           },
           "404": {
             "description": "Jour inconnu, de statut non visible ou de projet non habilité."
+          },
+          "409": {
+            "description": "Statut sans CanDelete et appelant restreint (message OMRAN)."
           }
         }
       }
@@ -11092,6 +11095,100 @@
           },
           "404": {
             "description": "Projet non habilité."
+          }
+        }
+      }
+    },
+    "/api/projet/travaux-chantier/{id}/transitions": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Transitions de statut que l'appelant peut exécuter (vide si aucune)",
+        "operationId": "transitionsJourTravaille",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "GrhWorkedDay.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transitions permises, même calcul que le POST.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionJourTravailleDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.GrhWorkedDayView."
+          },
+          "404": {
+            "description": "Jour inconnu, de statut non visible ou de projet non habilité."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Exécute une transition de statut ; renvoie la fiche relue",
+        "operationId": "executerTransitionJourTravaille",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "GrhWorkedDay.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionTransitionJourTravailleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Fiche relue au nouveau statut, même s'il n'est plus visible de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/JourTravailleFicheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "transitionId absent, commentaire manquant ou identifiants du second faux."
+          },
+          "403": {
+            "description": "Sans droit de lecture, ou second valideur non habilité / identique."
+          },
+          "404": {
+            "description": "Jour inconnu, de statut non visible ou de projet non habilité."
+          },
+          "409": {
+            "description": "Transition non permise ; transitionsAutorisees = codes des statuts permis."
           }
         }
       }
@@ -34879,6 +34976,48 @@
           },
           "404": {
             "description": "Entité introuvable ou inactive."
+          }
+        }
+      }
+    },
+    "/api/projet/travaux-chantier/{id}/historique": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Historique des statuts (StrHistory), le plus récent d'abord",
+        "operationId": "historiqueJourTravaille",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "GrhWorkedDay.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes d'historique ; vide si aucune.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoriqueJourTravailleDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Bul.GrhWorkedDayView."
+          },
+          "404": {
+            "description": "Jour inconnu, de statut non visible ou de projet non habilité."
           }
         }
       }
@@ -65226,6 +65365,48 @@
           }
         }
       },
+      "ExecutionTransitionJourTravailleDto": {
+        "type": "object",
+        "description": "Corps de l'exécution d'une transition du jour travaillé ; statut de départ relu en base.",
+        "properties": {
+          "transitionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "id d'une TransitionJourTravailleDto du GET."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Commentaire (StrHistory.Notes) ; obligatoire quand avecCommentaire."
+          },
+          "dateUtilisateur": {
+            "type": "string",
+            "format": "date-time",
+            "description": "StrHistory.UserDate quand avecDateUtilisateur ; absente = l'instant de l'exécution."
+          },
+          "secondValideur": {
+            "$ref": "#/components/schemas/SecondValideur",
+            "description": "Identifiants du second utilisateur quand avecSecondValideur."
+          }
+        },
+        "required": [
+          "transitionId"
+        ]
+      },
+      "SecondValideur": {
+        "type": "object",
+        "description": "Identifiants Arpent d'un second utilisateur, exigés par une transition à second valideur ; jamais conservés.",
+        "properties": {
+          "login": {
+            "type": "string",
+            "description": "Login (AdmUser.Code) du second utilisateur."
+          },
+          "motDePasse": {
+            "type": "string",
+            "format": "password",
+            "description": "Mot de passe Arpent du second utilisateur."
+          }
+        }
+      },
       "ReunionCreationDto": {
         "type": "object",
         "description": "Création d'une réunion ; le P.V. précédent du même projet et type est reporté.",
@@ -66506,21 +66687,6 @@
         "required": [
           "transitionId"
         ]
-      },
-      "SecondValideur": {
-        "type": "object",
-        "description": "Identifiants Arpent d'un second utilisateur, exigés par une transition à second valideur ; jamais conservés.",
-        "properties": {
-          "login": {
-            "type": "string",
-            "description": "Login (AdmUser.Code) du second utilisateur."
-          },
-          "motDePasse": {
-            "type": "string",
-            "format": "password",
-            "description": "Mot de passe Arpent du second utilisateur."
-          }
-        }
       },
       "PropositionPointsDto": {
         "type": "object",
@@ -78968,6 +79134,88 @@
           "modifieLe": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "StatutCibleJourTravailleDto": {
+        "type": "object",
+        "description": "Statut d'arrivée de la transition (StrStatus du jour travaillé).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrStatus.PKey du statut d'arrivée."
+          },
+          "code": {
+            "type": "string",
+            "description": "StrStatus.Code du statut d'arrivée."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "StrStatus.Description du statut d'arrivée."
+          },
+          "couleur": {
+            "type": "string",
+            "description": "StrStatus.ColorName (nom de couleur .NET) ; null si absent."
+          }
+        }
+      },
+      "TransitionJourTravailleDto": {
+        "type": "object",
+        "description": "Transition (StrWorkFlow) que l'appelant peut exécuter sur le jour travaillé ; même calcul que le POST.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrWorkFlow.PKey : valeur de transitionId à l'exécution."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "StrWorkFlow.Description."
+          },
+          "statutCible": {
+            "$ref": "#/components/schemas/StatutCibleJourTravailleDto",
+            "description": "Statut auquel mène la transition."
+          },
+          "avecCommentaire": {
+            "type": "boolean",
+            "description": "WithComment : notes obligatoires à l'exécution."
+          },
+          "avecDateUtilisateur": {
+            "type": "boolean",
+            "description": "WithUserDate : dateUtilisateur proposée à la saisie."
+          },
+          "avecSecondValideur": {
+            "type": "boolean",
+            "description": "WithPassword : login et mot de passe d'un second utilisateur exigés."
+          }
+        }
+      },
+      "HistoriqueJourTravailleDto": {
+        "type": "object",
+        "description": "Ligne StrHistory du jour travaillé (création et transitions), la plus récente en tête.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "StrHistory.DocDate : instant de l'écriture."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "StrHistory.AdmUserDescription : auteur."
+          },
+          "description": {
+            "type": "string",
+            "description": "« Création » ou « transition: départ=>arrivée(login & second) »."
+          },
+          "notes": {
+            "type": "string",
+            "description": "StrHistory.Notes : commentaire saisi."
+          },
+          "dateUtilisateur": {
+            "type": "string",
+            "format": "date-time",
+            "description": "StrHistory.UserDate."
           }
         }
       },
