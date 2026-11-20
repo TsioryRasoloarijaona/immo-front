@@ -35880,7 +35880,7 @@
           "Projet — planification"
         ],
         "summary": "Tâches d'un lot (bouton Tâches), lecture seule",
-        "description": "Tâches de la planification du projet du lot rattachées à ce lot (`PrjMarketId`). Planification absente : même 404 `PLANIFICATION_ABSENTE` que `lirePlanificationProjet`.",
+        "description": "Tâches de la planification du projet du lot rattachées à ce lot (`PrjMarketId`). Lot lu comme sa fiche : hors projet habilité ou statut invisible = 404. Planification absente : même 404 `PLANIFICATION_ABSENTE` que `lirePlanificationProjet`.",
         "operationId": "listerTachesLot",
         "parameters": [
           {
