@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { ApiError } from '../../lib/api';
+import { toApiDateTime } from '../../lib/format';
 import { getModificationProjet, getReferentielsModifications, modifierModificationProjet } from '../../lib/apiTravauxChantier';
 import type { VoisinsFiche } from '../../lib/fenetreFiche';
 import { errorMessage, refetchAllApis, useApi } from '../../lib/useApi';
@@ -45,8 +46,8 @@ function corpsDepuis(s: Saisie): ModificationRequest {
   const opt = (v: string) => v || undefined;
   const num = (v: string) => (v === '' ? undefined : Number(v.replace(',', '.')));
   return {
-    description: opt(s.description), dateDemande: opt(s.dateDemande), dateValidationTechnique: opt(s.dateValidationTechnique),
-    dateValidationClient: opt(s.dateValidationClient), cout: num(s.cout), prixHT: num(s.montantHT), prixTTC: num(s.montantTTC),
+    description: opt(s.description), dateDemande: toApiDateTime(s.dateDemande),
+    dateValidationTechnique: toApiDateTime(s.dateValidationTechnique), dateValidationClient: toApiDateTime(s.dateValidationClient), cout: num(s.cout), prixHT: num(s.montantHT), prixTTC: num(s.montantTTC),
     etat: opt(s.etat) as EtatModification | undefined, notes: opt(s.notes),
   };
 }
