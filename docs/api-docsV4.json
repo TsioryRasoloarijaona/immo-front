@@ -24,20 +24,8 @@
       "description": "Pièces jointes des articles, tranches et programmes (AdmAttachedFile, CategoryId = PKey du porteur)."
     },
     {
-      "name": "Actions d'article",
-      "description": "Actions et alertes (ComActionMessage) d'un article ; programme et tranche n'en ont pas (aucune colonne)."
-    },
-    {
-      "name": "Fiche article",
-      "description": "Onglet Contenances de l'article et types de présentation de sa tranche."
-    },
-    {
       "name": "Commissions",
       "description": "Commissions des vendeurs — l'écran « Commissions » d'OMRAN Estate (`F_0249`), par tranche. Une ligne de commission (`ComCommissionLine`) se calcule dossier par dossier depuis les règles de l'onglet « Commissions vendeur » de la tranche (`ComSalesCommission`, jamais modifiées ici). Voir `instructions/FEATURE-vente-commissions.md`.\n\n**Droits** : lus dans `AdmRight` à chaque appel (rôles de `AdmUserRole`, jamais le jeton). Lire exige `Yes.Com.Front.Commission.CommissionList` ; générer, modifier un montant et générer un document à payer exigent en plus `…CommissionList.toolNew` ; supprimer `…toolDelete` ; exporter `…toolPrint`. Un droit absent = 403. **Visibilité** : tranche d'une entité inactive ou hors périmètre commercial, et tout dossier ou ligne de cette tranche → 404."
-    },
-    {
-      "name": "Import du patrimoine",
-      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b), et import générique avec mapping (P9e) des entités\njuridiques, programmes, tranches et prospections terrain. Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul.\n\n`fournisseurs` et `contacts` : import générique sans tranche ; `Pivot` se compare au code dans le type, vide ou inconnu =\ncréation avec un code du compteur, trouvé une fois = mise à jour (cellule vide = valeur gardée), plusieurs fois = erreur.\n\n`banques` et `organismes` : même import, colonne `Code` obligatoire : vide = erreur de ligne, inconnu dans le type = création\navec ce code, deux fois dans le fichier = erreur de ligne.\n\n`personnels` : même import que `contacts`, personnes physiques seules : `Prénom` et `Nom` requis, ligne sans eux = erreur de\nligne. Forme sociale et devise facultatives. Aucune colonne de paie : un tel en-tête est ignoré comme tout en-tête inconnu."
     },
     {
       "name": "Projet — statuts et transitions de lot",
@@ -48,20 +36,8 @@
       "description": "Onglet « Actions » du dossier de vente (règle GEN0005 d'OMRAN) et instructions adressées au commercial du dossier. Les actions sont des `ComActionMessage` rattachées au dossier par `ComFolderId` ; leur catégorie est déduite du statut du dossier (Réservation → « Dossier de vente (Réservation) », Annulation ou Désistement → « Désistement et annulation », tout autre statut → « Dossier de vente (Livraison) »), comme `Sale.cs:AttachNotes`. Toute écriture signe le dossier (`UserUpdate`, `UserUpdateDateTime`)."
     },
     {
-      "name": "Projet",
-      "description": "Module Projet (chantier OMRAN) : lots (`PrjMarket`, « marché » dans la base), bordereau, décomptes (`PrjWorkingOut`) et\nleurs factures. Voir `FEATURE-projet-lots-decomptes.md`. Création, suppression et transitions de statut d'un lot, totaux et\nexport de la liste : `FEATURE-lots-liste-parite.md`.\n\n**Droits OMRAN** (`AdmRight.Code`, lus en base à chaque appel ; l'Administrateur les a tous), préfixe\n`Yes.Prj.Front.Market.MarketMonitoringList.` : `toolNew` (créer un lot Entrepreneurs), `toolNewMultiSupplier` (créer un lot\ndes quatre autres genres), `toolDelete` (supprimer), `toolExport` (exporter). Sans le droit : **403**, contrôlé avant le\ncorps et avant l'existence du lot.\n\n**Visibilité, comme OMRAN** : l'appelant voit les projets de ses lignes `AdmUserHabilitation.PrjProjectId`, **quel que soit\nson rôle** (aucune exemption Administrateur ni Direction Générale). Sans ligne d'habilitation, ou appelant non identifiable :\nlistes vides. **Lots** : il faut en plus, comme OMRAN (`StrStatus.GetStatusFilterQueryClauseForListing`), que le statut\ndu lot soit lié (`StrStatusIntervener`) à un intervenant dont le rôle est un rôle de l'appelant ou qui est l'appelant ; seule\nexemption : un rôle de l'appelant à `AdmRole.WithSequenceFreeRestriction = 0` (aucune exemption par le code de rôle). Lot\nsans statut ou statut sans intervenant : invisible. Un lot sans projet, hors périmètre ou au statut invisible répond **404**\ncomme un identifiant inconnu (jamais 403), fiche et sous-routes. Les décomptes (`/api/projet/decomptes`) ne suivent que\nle projet. Voir `FEATURE-visibilite-omran.md` R1, R2, R7."
-    },
-    {
-      "name": "Tâches (administration)",
-      "description": "Écran « Tâches » d'OMRAN : la table `AdmTask` porte aussi les rendez-vous, jamais exposés ici (un rendez-vous répond 404). Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-taches.md`."
-    },
-    {
       "name": "Prospections",
       "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
-    },
-    {
-      "name": "Notifications",
-      "description": "Cloche de l'application : notifications du **compte appelant** uniquement (`AppNotification.AdmUserId`),\njamais celles d'un autre compte. Types : `LEADS_ATTRIBUES` (leads attribués au commercial du compte,\nregroupés par lot), `LEADS_A_DISTRIBUER` (leads importés restés sans commercial, aux chefs du projet ou,\nsans projet, à l'administration) et `RESUME_DEMI_JOURNEE` (09:00 et 14:00, heure de Casablanca).\nL'auteur d'une attribution n'est jamais notifié de son propre geste."
     },
     {
       "name": "Programmes",
@@ -72,48 +48,20 @@
       "description": "Écran OMRAN « PROSPECTIONS TERRAIN » : `LndLand`, terrain repéré avant achat, workflow `Str*` de l'entité `LndLand`.\nLecture pour tout compte connecté, écriture réservée à l'Administrateur ; aucune visibilité par société (la table n'en a\npas) ; aucune portée de clé d'API. Notes et audit : porteur `prospection-terrain` (`/api/notes`, `/api/audit?objetId=`) ;\npièces jointes : `/api/prospections-terrain/{id}/pieces-jointes`. Surfaces et prix calculés par le serveur seul\n(`SurfacesTerrain`, variante marocaine si `AdmParamsString.CountryFormule` vaut `MA` ou est absent)."
     },
     {
-      "name": "Audit",
-      "description": "Journal d'audit OMRAN (AdmWebHistorics) : patrimoine, entités juridiques, prospections terrain, études, rendez-vous."
-    },
-    {
       "name": "Achat",
       "description": "Pièces d'achat (`BuyDocument`) en **lecture seule** : factures, bons de commande, devis, documents à régler, bons de livraison, avoirs. Voir `instructions/FEATURE-achat-lecture-factures.md`.\n\n**Visibilité, comme les listes OMRAN** : une pièce est visible si et seulement si sa société (`CfgCompanyId`) figure dans les habilitations société de l'appelant (`AdmUserHabilitation.CfgCompanyId`) **et** son projet (`PrjProjectId`) dans ses habilitations projet (`AdmUserHabilitation.PrjProjectId`) **ou** la pièce n'a pas de projet ; **pour tous les rôles** (aucune exemption Administrateur / Direction générale). Sans habilitation société : rien. Un filtre `projetIds` exclut les pièces sans projet. Une pièce hors périmètre répond 404, comme un id inconnu. Voir `instructions/FEATURE-visibilite-omran.md` R3.\n\n**Solde** : `montantRegle` = somme des lignes de règlement (`StlSettlementLine.Amount`) de la pièce dont le règlement n'est pas annulé (`CANCELED`) ; `resteARegler` = `montantAPayer` (`AmountToPay`) − réglé, à 2 décimales ; `solde` = |reste| ≤ 0,05 ; `aDeduire` = à payer < −0,05 (récupération d'avance sur décompte, jamais « trop réglée ») ; `tropRegle` = reste < −0,05 sur une pièce qui n'est pas à déduire. « Payé » ne se lit jamais dans le statut. Calcul unique : `SoldeDocumentAchat` (FEATURE-achat-impayes.md §3.1)."
-    },
-    {
-      "name": "Dossiers — visites techniques",
-      "description": "Calendrier des visites techniques (bouton à gauche du champ « Visite technique / réception » de la fiche OMRAN). Une visite est un `AdmEvent` rattaché au dossier (`ComFolderId`) et à la tranche de son article (`CfgTrancheId`) ; les créneaux et le quota sont comptés par tranche."
     },
     {
       "name": "Études de faisabilité — bilan et trésorerie",
       "description": "Onglets « Bilan », « Analyse » et « Données » d'une étude. Le bilan est l'arbre des catégories de trésorerie\n(`StlCategory`) que l'utilisateur renseigne (`FSPrevision`) ; ses totaux donnent le coût global, le chiffre d'affaires,\nles marges et les retours de l'étude. Lecture et aperçus Administrateur + Direction Générale, écriture Administrateur ;\naucune clé d'API (403). Étude inconnue ou de société inactive → 404."
     },
     {
-      "name": "Articles",
-      "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
-    },
-    {
       "name": "Historique (administration)",
       "description": "Journal de toutes les actions (`AdmWebHistorics`), en lecture seule : l'écran « Historique » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). Voir `instructions/FEATURE-admin-historique.md`."
     },
     {
-      "name": "Authentification",
-      "description": "Connexion/déconnexion par cookie JWT httpOnly."
-    },
-    {
-      "name": "Suivi des actions",
-      "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
-    },
-    {
       "name": "Entités juridiques",
       "description": "Écran OMRAN « ENTITES JURIDIQUE » (CfgCompany) et répartition des parts ; écriture Administrateur."
-    },
-    {
-      "name": "Champs spécifiques",
-      "description": "Champs spécifiques d'OMRAN (GEN0007) : l'Administrateur définit des champs libres par porteur (`AdmSpecificField` rattaché\nà la ligne `AdmSpecificFieldEntity` du code de classe OMRAN, créée à la première définition), chaque objet porte ses\nvaleurs (`AdmSpecificFieldValue`, `NameSpaceId` = id de l'objet). Lecture pour tout compte qui voit l'objet (étude :\nAdministrateur et Direction Générale seulement, comme son audit) ; écritures réservées à l'Administrateur."
-    },
-    {
-      "name": "Référentiels du patrimoine",
-      "description": "Listes de choix des fiches programme, tranche et article."
     },
     {
       "name": "KPI commerciaux",
@@ -122,10 +70,6 @@
     {
       "name": "Études de faisabilité — statuts, pièces jointes, export",
       "description": "Statuts et transitions d'une étude (OMRAN `FeasibilityStudyWorkFlow`), historique, pièces jointes (porteur « etude »,\n`AdmAttachedFile.Category` = `Yes.Stk.StkFeasibilityStudy`) et export Excel. Lecture Administrateur + Direction\nGénérale ; dépôt et suppression de pièce Administrateur ; aucune clé d'API (403 `HORS_PORTEE`). Étude inconnue ou de\nsociété inactive → 404."
-    },
-    {
-      "name": "Frais de terrain",
-      "description": "Onglet « Coûts » de la fiche terrain : frais `StkExpense`. Le coût total du terrain en est la somme, calculée à la\nlecture de la fiche. « Valider pour règlement » crée la facture fournisseur du frais (module Achat d'OMRAN) ; son\npaiement reste hors du CRM."
     },
     {
       "name": "Dossiers — sous-articles",
@@ -140,8 +84,8 @@
       "description": "Onglet « Modifications » de la fiche dossier (`ComModification`) : description, dates de demande, de validation technique et de validation client, coût, prix de vente HT et TTC, état, notes. Après chaque écriture, `ComFolder.ModificationsAmount` et `ModificationsAmountHT` = Σ des prix des demandes acceptées ou réalisées (`Sale.cs`) ; si « Intégrer le montant des modifications dans le calcul du prix de vente » est coché, le prix de vente = prix après remise + modifications ; puis le net à payer est recalculé et le dossier signé. Hors prix, `ecartSchema` donne ce qui manque au schéma de financement en lignes « Modifications » : le passage de statut le contrôle (`Sale.cs:VerifSchema`, « Votre schéma de financement pour les modifications ne correspond pas au montant contractuel »). La recopie dans l'écran Modification du module Projet, citée par l'aide, n'est pas reproduite (module hors périmètre)."
     },
     {
-      "name": "Actions récentes",
-      "description": "Le panneau « Actions récentes » : ce qui vient d'être fait sur les prospections, pré-prospections et dossiers, avec de quoi rouvrir la fiche. Détail : `instructions/FEATURE-actions-recentes.md`."
+      "name": "Projet — planification",
+      "description": "Planification Gantt d'OMRAN (`CfgGanttProject`, tâches `CfgGanttTask`, intervenants `CfgGanttOwner`). Trois natures : **modèle** (`ObjectId` et `VersionDate` NULL), **planification d'un projet** (`ObjectId` = projet, au plus une par projet), **version** (copie datée, `VersionDate` renseignée, lecture seule). Lecture : tout compte authentifié pour un modèle ; pour un projet ou une version, le projet (relu sur la ligne stockée) doit être dans le périmètre de l'appelant, sinon 404. Écritures : droit OMRAN `Yes.Cfg.Front.Gantt.GanttProject` (sauvegarde de version : `Yes.Prj.Front.Tdb.ProjectPrevision.toolSaveVersion`) ; ordre des refus 404 → 403 → 409 (version) → 400. Les écritures sur l'arbre renvoient la planification complète : rangs (`Sorting`), profondeurs (`Depth`) et texte des prédécesseurs sont recalculés par le serveur à chaque écriture. Voir `instructions/FEATURE-n9-planification.md` (R5-R14, D5-D7)."
     },
     {
       "name": "Projet — dépenses",
@@ -156,14 +100,6 @@
       "description": "Fiche du dossier de vente modifiable, onglet par onglet, comme l'écran OMRAN (`Yes.Com.Front.Sales/Sale.cs:FilterToolsByRights`). Chaque champ appartient à un groupe de droits (voir `GET /api/dossiers/{id}/edition`). Voir FEATURE-vente-edition.md."
     },
     {
-      "name": "Clients",
-      "description": "Tiers ayant acheté — un `CfgTier` référencé par au moins un dossier de vente. Il n'y a pas d'entité Client distincte dans le schéma : la fiche et ses sous-ressources sont celles de /api/prospects.\n\n**Entités juridiques en exploitation.** La qualité de client se juge sur les seuls dossiers rattachés à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un tier dont tous les dossiers relèvent d'une entité hors exploitation n'est donc plus un client au sens de cet endpoint et disparaît de la liste ; les agrégats `nombreDossiers`, `totalAPayer` et `totalRegle` suivent la même assiette, pour qu'ils concordent avec GET /api/clients/{id}/dossiers."
-    },
-    {
-      "name": "Devis",
-      "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les devis dont la tranche relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un devis sans tranche reste visible."
-    },
-    {
       "name": "Modèles de documents",
       "description": "Modèles de documents modifiables par un administrateur (FEATURE-modeles-documents.md). Un modèle appartient à une\n**catégorie** (type de fiche source, lot 1 : `DOSSIER_VENTE`) ; son contenu est un **HTML restreint** (liste blanche :\n`p`, `h1`–`h3`, `strong`, `em`, `u`, `br`, listes, `hr`, tableaux, images `<img data-image=\"<id>\" alt=\"…\">` **sans\n`src`**, l'id venant de `POST /api/modeles-documents/images`) où les valeurs de la fiche s'écrivent\n`<span data-champ=\"cle\">libellé</span>`, les lignes répétées `data-repeter=\"liste\"` (sur `tr`, `li`, `p`, `span`), les\nblocs conditionnels `data-si=\"cle\"` (+ `data-valeur` pour un booléen), les titres numérotés `<h2 data-numero>` et les\nsauts de page `<div data-saut-page></div>`, les pages répétées `<div data-repeter=\"liste\" data-saut-page>` (une page par\nélément) et les blocs positionnés `<div data-bloc data-x data-y data-l data-h [data-taille] [data-gras] [data-align]>`\n(centimètres décimaux depuis le coin haut gauche de la page A4, x + l ≤ 21 et y + h ≤ 29,7 ; taille 6 à 72 pt, Helvetica,\ngras si `data-gras=\"true\"` ; `data-align` left, center ou right ; texte et champs seulement, ni tableau ni image). Tout autre élément, attribut ou style → 400 qui nomme l'élément fautif ;\ntexte de la version (contenu, en-tête et pied) : 1 Mo au plus. Chaque enregistrement crée une version, jamais\nd'écrasement ; pas de suppression : `actif = false`. Concevoir = rôle `Administrateur` ; imprimer = accès à la fiche\n(404 hors périmètre)."
     },
@@ -176,24 +112,12 @@
       "description": "Comptes AdmUser — réservé au rôle Administrateur : liste, fiche, création, désactivation, rôles, comptes de dépôt, habilitations, réinitialisation du mot de passe Arpent et affectation des projets du périmètre commercial. Un compte créé ici n'ouvre pas OMRAN tant qu'un mot de passe n'y est pas défini. Aucune suppression : on désactive."
     },
     {
-      "name": "Articles — onglets",
-      "description": "Onglets de lecture de la fiche article : prospections, dossiers, historique."
-    },
-    {
       "name": "Synchronisation",
       "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
     },
     {
-      "name": "Études de faisabilité — configuration des statuts et transitions",
-      "description": "Configuration des statuts (`StkFeasibilityStudyStatus`) et des transitions (`StkFeasibilityStudyWorkFlow`) des études de\nfaisabilité (aide OMRAN « STATUTS », « TRANSITIONS »). Lecture Administrateur + Direction Générale, écriture\nAdministrateur ; aucune clé d'API (403 `HORS_PORTEE`). Rôles : `GET /api/referentiels/roles` ; types de document :\n`GET /api/referentiels/types-piece-jointe`. Un changement de rôle ou de champ obligatoire change qui peut faire passer\nune étude d'un statut à l'autre."
-    },
-    {
       "name": "État des ventes",
       "description": "État des ventes (écran OMRAN « Suivi des dossiers de vente ») : une ligne par article racine en vente — `StkItem.ParentId` vide, vocation `VENTE`, tranche `IsForSale = 1` ; les parkings autonomes (`IsUnderItem = 1` sans parent) comptent s'ils portent un dossier non annulé ni désisté (libres : absents de toutes les sorties), les sous-articles rattachés non. `entiteId` (société du projet) ne fait que restreindre le périmètre du compte. Synthèse, liste, groupes, totaux et export partagent exactement les mêmes filtres et la même visibilité (entités actives et périmètre commercial) : la somme des lignes de la liste filtrée égale la cellule de la synthèse."
-    },
-    {
-      "name": "Sous-articles",
-      "description": "Écran OMRAN « SOUS ARTICLES » : sous-articles d'origine (`IsUnderItem = 1 AND IsUnderItemOrigin = 1`), libres ou\nrattachés à un article. Le détail d'un sous-article est `GET /api/articles/{id}`. Un sous-article **rattaché** est en\nlecture seule sur cet écran : la fiche de son article parent le modifie par `PATCH /api/articles/{id}`, le détache par\n`POST /api/articles/{id}/sous-articles/{sousArticleId}/desaffecter`. Changer de parent = désaffecter puis rattacher\n(`PATCH /api/sous-articles/{id}` avec `parentId`)."
     },
     {
       "name": "Dossiers — liste",
@@ -204,28 +128,8 @@
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
     },
     {
-      "name": "Dossiers — modalité de paiement",
-      "description": "Bouton « Modalité de paiement » de la fiche dossier. Aide OMRAN : « Lorsqu'on clic sur \" Modalité de paiement \", le système affiche le schéma de financement initialement créé. Remarque : La création du schéma de financement est manuel. On peut copier le schéma de financement en cliquant sur le bouton \" Copier schéma de financement \". » Les lignes (`ComDocumentPaymentMethod`) gardent date, catégorie, montant, HT, TVA, remise et société de chaque échéance. Une copie est aussi prise automatiquement au premier passage du dossier à un statut de vente effective (drapeau 001), s'il n'a encore aucune ligne (`Sale.cs:CreateDocumentPaymentMethod`)."
-    },
-    {
-      "name": "Mon compte",
-      "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
-    },
-    {
-      "name": "Études de faisabilité — financement",
-      "description": "Onglet « Financement » d'une étude (OMRAN « Déblocage de crédit » `FSFunding`, « Remboursement de crédit »\n`FSReimbursement`). Lecture Administrateur + Direction Générale, écriture et génération Administrateur ; aucune clé\nd'API (403 `HORS_PORTEE`). Étude inconnue ou de société inactive → 404 ; étude bloquée → 409 sur le PUT."
-    },
-    {
       "name": "Impressions de la tranche",
       "description": "Impressions du menu « Imprimer » de la fiche tranche propres à la tranche : la Relance 2 par statut (gabarit OMRAN\n`CfgTrancheFicheRelance2`). La « Fiche de réservation » de ce menu n'a pas de route ici : l'écran fait choisir un dossier\nde la tranche puis ouvre `GET /api/dossiers/{id}/documents/fiche-reservation`. Lecture seule : aucune écriture.\nRéservé à Administrateur et Direction Générale (403 avant tout autre refus) ; clé d'API : 403 `HORS_PORTEE`."
-    },
-    {
-      "name": "Dossiers — réinitialisation",
-      "description": "Bouton « Réinitialiser » de la fiche dossier : « Le système recharge les données de l'article et des sous articles à partir du module stock » (aide OMRAN). Pour l'article : superficie, taux de TVA et prix du m² HT ; pour chaque sous-article : superficie, TVA, prix avant remise HT et descriptifs (code, description, adresse, contenance, catégorie, type, étage, bâtiment…). Comme `Sale.cs:Reinitialise`, les sous-articles du stock (`StkItem.ParentId` = article) absents du dossier sont d'abord ajoutés (ligne `ComFolderItem`, sous-article affecté au dossier) et listés dans `sousArticlesAjoutes` ; un sous-article déjà affecté à un autre dossier n'est pas pris. Puis la remise est recalculée comme `Sale.cs:RecalcDiscount` : le montant de remise HT est conservé, le taux change (« Montant remise / Total HT »), et les prix après remise suivent. Le schéma de financement n'est pas modifié ; une valeur absente du stock laisse celle du dossier. Réservé au rôle Administrateur."
-    },
-    {
-      "name": "Suivi des affectations",
-      "description": "Suivi des affectations (écran OMRAN « Suivi des affectations ») : une ligne par affectation d'une pièce de règlement (`StlSettlement`) à une échéance de vente (`ComDocument`), c'est-à-dire une `StlSettlementLine` dont `ComDocumentId` est renseigné ; une pièce à plusieurs lignes donne plusieurs lignes. Les lignes d'une tranche `IsForSale = 0` sont exclues ; une échéance sans catégorie, un dossier sans statut ou un dossier sans article restent listés. Liste, groupes, totaux et export partagent exactement les mêmes filtres et la même visibilité : entités actives (même pour l'Administrateur) et périmètre commercial, jugés ligne par ligne sur le projet de la tranche de l'article du dossier (ligne sans tranche résolue : visible). Une tranche hors périmètre donne une liste vide, pas un 403."
     },
     {
       "name": "Rendez-vous (administration)",
@@ -236,20 +140,8 @@
       "description": "Fiche complète d'un dossier de vente en consultation, organisée par onglet de l'écran OMRAN (en-tête, statut, autres montants, dates, dates autres, annulation, autres). Lecture seule : la modification des champs est un autre lot. Même périmètre que `GET /api/dossiers/{id}` : un dossier hors périmètre ou rattaché à une entité inactive renvoie 404."
     },
     {
-      "name": "Dossiers — cadeaux",
-      "description": "Onglet « Cadeaux » de la fiche dossier (`ComFolderGift`) : cadeau du catalogue, prix, livré, disponibilité, raison, date du bon d'achat, date de livraison, note. Aide OMRAN : « Si la case livré est coché, le champ date livraison devient obligatoire » (400 sinon). Choisir un cadeau reprend son prix et sa disponibilité (quantités reçues − cadeaux livrés > 0, `FolderGift.cs:SetPrice`). Ajouter et supprimer demandent le droit OMRAN « toolAddDeleteGifts », ouvert ici aux rôles Administrateur et Commercial Chef ; la modification est ouverte au périmètre, mais seul ce droit change la raison. Chaque écriture signe le dossier."
-    },
-    {
       "name": "Projet — configuration, onglets",
       "description": "Onglets de la fiche projet de l'écran de configuration (Administrateur seul, tous projets hors périmètre) : statut et transitions, historique, ventilation par tranches, critères d'avancement. Voir `instructions/FEATURE-projets-config-parite.md`."
-    },
-    {
-      "name": "Suivi des prévisions",
-      "description": "Écran « Suivi des prévisions de vente » (Vente › Tableaux de bord, OMRAN F_0250). Ouvert à tout utilisateur connecté, sans\ndroit par rôle ; les données sont bornées aux tranches visibles de l'appelant (société active, périmètre commercial, tranche\nen vente). Aucune clé d'API n'a accès à ces routes (403 `HORS_PORTEE`). Voir `instructions/FEATURE-tdb-vente-previsions.md`.\n\n**Paramètres de requête** (ceux de `/parametres`) : `annee` (défaut : année courante, [1900 ; 2200]), `trancheId` répété\n(absent = toutes les tranches visibles ; un `trancheId` hors de ces tranches est ignoré, et si aucun n'est visible le\nrésultat est à zéro, jamais « toutes les tranches »), `frais` : `SANS` (défaut), `AVEC` ou `SEULS`.\n\n**Prévu** : aucune prévision n'est saisie aujourd'hui ; les colonnes `base`, `ancienPrevu`, `prevu` valent 0 et\nl'avertissement « Prévu non saisi… » est renvoyé. Un pourcentage dont le dénominateur vaut 0 est `null` (affiché « — »)."
-    },
-    {
-      "name": "Prospections — export",
-      "description": "Exports Excel des listes de prospections et de pré-prospections. Chaque export relit la liste avec ses propres filtres et le périmètre commercial de l'appelant : il ne rend jamais une ligne que la liste ne montrerait pas."
     },
     {
       "name": "Achat — configuration",
@@ -258,14 +150,6 @@
     {
       "name": "EMail Historique (administration)",
       "description": "Journal des e-mails envoyés (`AdmEMailHistory`), en lecture seule : l'écran « EMail Historique » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). La configuration d'envoi (`SmtpHost`, `SmtpPort`, `EnableSsl`) n'est jamais exposée. Voir `instructions/FEATURE-admin-email-historique.md`."
-    },
-    {
-      "name": "Trésorerie",
-      "description": "Écrans de trésorerie des arbres **Projet** (`module=PRJ`) et **Achat** (`module=BUY`), en **lecture seule** : Dépenses ›\nDécaissements, Dépenses › Affectations, Recettes (factures proforma, factures, avoirs, encaissements, affectations).\nVoir `FEATURE-n3-recettes-depenses.md`. Chaque écran exige son droit OMRAN `Yes.Stl.Front.*` (403 sans lui).\n\n**Visibilité** (celle des pièces d'achat) : société habilitée ET (projet habilité OU sans projet). Le projet d'un\nrèglement se lit **à la ligne** : une affectation est visible si sa pièce l'est ; un règlement est visible si sa société\nest habilitée ET (il n'a aucune ligne OU au moins une ligne visible). Une pièce de recette (`StlDocument`) n'a pas de\nprojet : elle suit la règle « sans projet ». `projetIds` restreint aux projets cochés ; `sansProjet=true` ajoute les\npièces et règlements sans projet (seul : uniquement eux).\n\n**Annulés** : listés par défaut (`inclureAnnules` absent = true), **jamais dans les totaux** ; un statut NULL n'est pas\nannulé. Les totaux portent sur toute la liste filtrée, pas sur la page. Tri fixe : date de pièce décroissante puis\nréférence décroissante.\n\n**Période** : `dateSur` choisit la date filtrée par `du` / `au` (jours inclus) : `PIECE` (DocDate), `ECHEANCE`,\n`POINTAGE` (SettlementDate), `POINTAGE_REPORTE` (date de mouvement : `d` = date de pointage, sinon échéance ; si\n`d` ≤ aujourd'hui et non pointé → aujourd'hui, sinon `d`)."
-    },
-    {
-      "name": "Notes",
-      "description": "Notes (AdmMessage) du patrimoine et des prospections terrain ; écriture Administrateur."
     },
     {
       "name": "Pré-prospections",
@@ -296,32 +180,12 @@
       "description": "Hub « Rapports » d'un module (Vente › Tableau de bord › Rapports d'OMRAN Estate). Un rapport est listé s'il est implémenté\npar le serveur, présent dans `AdmReportData` pour le module, et visible par l'appelant. Voir\n`instructions/FEATURE-tdb-vente-rapports-socle.md`.\n\n**Droits** : un compte est libre si l'un de ses rôles (`AdmUserRole`, relu à chaque appel, jamais le jeton) a\n`AdmRole.WithReportRestriction = 0` ; libre, il voit tous les rapports ; sinon il ne voit que ceux liés à l'un de ses rôles\ndans `AdmReportDataRole`. Sans rôle, rien. Un rapport absent de la liste répond 403 sur ses autres routes. Ordre des\ncontrôles : module (404), rapport (404), droit (403), paramètres (400). Aucune clé d'API n'a accès à ces routes.\n\n**Données** : un rapport ne lit que les tranches visibles de l'appelant — société active, périmètre commercial, et en vente\npour le module `vente`. Un `trancheId` hors de ces tranches est ignoré sans erreur ; si aucun `trancheId` donné n'est\nvisible, le résultat est vide (jamais « toutes les tranches »)."
     },
     {
-      "name": "Fiches verrouillées (administration)",
-      "description": "Verrous posés par OMRAN sur les fiches en cours d'édition (`AdmWebLockEntities`) : l'écran « Fiches verrouillées » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). Arpent ne pose ni ne lit aucun verrou. Voir `instructions/FEATURE-admin-fiches-verrouillees.md`."
-    },
-    {
-      "name": "Dossiers — règlements",
-      "description": "Règlements d'un dossier de vente répartis sur plusieurs échéances, comme OMRAN : un règlement (`StlSettlement`) porte une ligne (`StlSettlementLine`) par échéance cochée, et n'appartient au dossier que par ces lignes. Le « reste à affecter » vaut montant − somme des lignes ; il est calculé, jamais stocké (aide OMRAN, page RÈGLEMENTS : « Reste à affecter : Montant base - Montant affecté »). L'ancien `POST .../echeancier/{echeanceId}/reglements` reste disponible : c'est la même écriture avec une seule affectation."
-    },
-    {
-      "name": "Passerelle",
-      "description": "Vérification d'identité appelée par la passerelle (Caddy forward_auth) avant de relayer une requête vers un service annexe /svc/<nom>/*. Pas destinée au frontend."
-    },
-    {
       "name": "Tableau de bord",
       "description": "Agrégats de la page d'accueil : valeur du pipeline, panier moyen, répartition des dossiers par étape, relances en retard et compteurs de prospections.\n\n**Entités juridiques en exploitation.** Tous les agrégats ne portent que sur les entités juridiques actives (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. L'assiette du tableau de bord est donc la même que celle de GET /api/dossiers et de GET /api/prospections ; les totaux ne sont pas comparables à ceux d'avant cette restriction.\n\n**Deux notions de « relance » cohabitent, et elles ne désignent pas la même chose.** `GET /api/dashboard/relances` sert les relances **commerciales** : une échéance posée par un commercial sur une interaction, encore armée — 3 765 en base réelle. Le champ `relancesEnRetard` de `GET /api/dashboard`, lui, parle des *dossiers* via `ComFolder.Revival1`/`Revival2`, colonnes **mortes en base réelle (0 ligne sur 358)** : ce champ est structurellement vide. Voir `instructions/FEATURE-dashboard-relances.md`."
     },
     {
-      "name": "Clés d'API (admin)",
-      "description": "Clés d'API des clients machine (n8n, agents), réservées au rôle Administrateur. Une clé s'envoie dans l'en-tête `X-Api-Key` ; elle authentifie un compte de service et n'autorise que les routes de ses portées. Le secret n'est montré qu'à la création et à la régénération. Voir `FEATURE-cle-api-n8n.md`."
-    },
-    {
       "name": "Projet — configuration",
       "description": "Configuration du module Projet : projets de chantier (`PrjProject`). Les projets sont réservés à l'Administrateur et montrés tous, hors périmètre ; les statuts de lot sont sous le tag « Projet — statuts et transitions de lot ». Les types de lot passent par le moteur `/api/referentiels-admin/types-lot` (famille `PROJET`). Voir `instructions/FEATURE-projet-config.md`."
-    },
-    {
-      "name": "Parcours commercial",
-      "description": "Parcours du commercial : « Ma journée », Boîte de tri des pré-prospections et avancement d'une prospection\ndans le Kanban. « Mes lignes » = les prospections dont `ComProspection.CfgCommercialId` est l'employé du\ncompte appelant, dans son périmètre projet. Administrateur et Direction Générale voient leurs propres lignes ;\n`commercialId` leur permet, ainsi qu'à un chef pour un membre de son équipe, de consulter un autre commercial."
     },
     {
       "name": "Premières relances",
@@ -332,16 +196,8 @@
       "description": "Bouton « Nivellement » de la fiche projet de configuration : arbre des niveaux du projet (`CfgTrancheLevelingDefinition`, `CfgTrancheId` = `PrjProject.PKey`). Lecture : tout compte qui voit le projet (habilitation `AdmUserHabilitation.PrjProjectId`). Écritures : rôle Administrateur (règle d'URL de la configuration projet) et projet visible. Le projet d'un nœud est lu sur la ligne stockée : un nœud d'un autre projet répond 404. Voir `instructions/FEATURE-n9-planification.md` (R4, D6, D7)."
     },
     {
-      "name": "Encaissements",
-      "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...).\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, un encaissement hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les règlements portés par une entité juridique active (`StlSettlement.CfgCompanyId` → `CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Un règlement masqué renvoie 404 sur toutes les routes portant son identifiant."
-    },
-    {
       "name": "Dossiers — schéma de financement",
       "description": "Opérations du schéma de financement de la fiche dossier, comme OMRAN (aide « DOSSIERS DE VENTE », liste du schéma de financement) : « Si on ajoute (ou on augmente son montant) un document paramétré \"Mettre à jour le schéma de financement\" --> Le système soustrait son montant de la ligne \"Autofinancement\" sinon de la linge \"Crédit\". Si on supprime (on diminue son montant) un document paramétré \" Mettre à jour le schéma de financement\" --> Le système ajoute son montant à la ligne \"Autofinancement\" sinon à la ligne \"Crédit\". » Ce report s'applique aussi à `POST` et `PATCH /api/dossiers/{id}/echeancier`. Après chaque écriture, le prix contractuel, le montant d'accord et le net à payer du dossier sont recalculés et le dossier est signé. Comme OMRAN, l'équilibre n'est pas forcé hors de ces reports (ligne sans « mise à jour du schéma », pas de ligne d'autofinancement ni de crédit) : chaque écriture renvoie l'écart restant (`ecartSchema` sur la ligne, `ecart` après suppression), à afficher tant qu'il est non nul.\n\nContrôle à l'enregistrement (`Sale.cs:VerifSchema`, FEATURE-dossier-finitions.md §1) : si le statut courant du dossier est « avec vérification du schéma » (`StrStatus.BoolField012`) et que le dossier n'est ni annulé ni désisté, une écriture de l'échéancier (`POST`, `PATCH`, suppression, périodicité) qui laisse un écart plus grand en valeur absolue que celui d'avant est refusée en 409, avant toute écriture, avec le message d'OMRAN (« Votre schéma de financement ne correspond pas au montant contractuel : vous devez ajouter / soustraire dans le schéma de financement un montant de … ! »). Une écriture qui réduit l'écart ou le laisse inchangé passe : les dossiers déjà déséquilibrés restent modifiables pour être rééquilibrés."
-    },
-    {
-      "name": "Dossiers — acquéreurs",
-      "description": "Onglet « Acquéreurs » de la fiche dossier : le client principal porte sa part sur `ComFolder.PartPercent`, chaque co-acquéreur sur `ComFolderCustomer.PartPercent` (ratio 0–1 en base, pourcentage 0–100 dans l'API). Contrôles d'OMRAN à l'enregistrement (`Sale.cs:Verif`) : « La réparation du client principal doit être > 0 ! », « Le total des répartitions sur les acquéreurs doit être égale à 100% ! », et à l'ajout « Cet tier est déjà affecté en tant que client principal ! »."
     },
     {
       "name": "Tranches",
@@ -360,6 +216,166 @@
       "description": "Écran OMRAN « Réajuster les superficies », lancé depuis la liste des dossiers pour une tranche. « Le système n'effectue des modifications que lorsqu'on change la superficie » (aide OMRAN) : un dossier est proposé quand la superficie de son article principal, ou d'un de ses sous-articles, diffère du stock (arrondie à 2 décimales). La remise est recalculée comme pour la réinitialisation (montant conservé, taux recalculé) ; un sous-article dont la superficie change reprend aussi son prix (prix TTC du stock / (1 + TVA)). Dossiers annulés ou désistés exclus. Réservé au rôle Administrateur."
     },
     {
+      "name": "Projet — configuration, prévisions chantier",
+      "description": "Bouton « Prévisions chantier » de la fiche projet de configuration : prévisions de main-d'œuvre du projet par type de travaux (`PrjProjectBuildingPrevision` × `GrhWorkedDayType`). Administrateur seul (règle d'URL de la configuration projet) **et** droit OMRAN `Yes.Prj.Front.Definition.Project.ProjectList.BuildingPrevision`. Ordre des refus : 404 projet inconnu, puis 403. Voir `instructions/FEATURE-n4-previsions-chantier.md` (N4b)."
+    },
+    {
+      "name": "Plans des tranches",
+      "description": "Plans d'étage interactifs : méta, image, tracés colorés par statut, import SVG et purge (Administrateur)."
+    },
+    {
+      "name": "Désistements",
+      "description": "Désistements des dossiers de vente — l'écran « Désistements » d'OMRAN Estate (`ComSaleWithdrawalCancellation`). Un désistement est un **brouillon** tant que sa date de validation est vide, **validé** ensuite, **légalisé** quand sa date de légalisation est posée ; il n'a pas de colonne statut. Le lien au dossier est `ComSaleId`. Voir `instructions/FEATURE-desistements.md`.\n\n**Calcul (R3-R5)** : `penaliteApresRemise` = taux × base × (1 − remise), au centime ; taux = `CfgTranche.CancellationPenalityPercent` ; base = prix de vente (`ComFolder.Price`) si la tranche a `CancellationPenalityBasedOnItemPrice`, sinon le total réglé ; remise = `CancellationPenalityPercentDiscount` de la tranche pour un ancien client, sinon 0. Total réglé = réglé signé (décaissements déduits, règlements annulés exclus) des échéances d'avance, de crédit et d'autofinancement. Reste frais à régler = Σ reste dû des échéances dont la catégorie est « toujours payée », au crédit et de frais, pénalité ou modification. À rembourser = max(0, total réglé − pénalité après remise − reste frais à régler).\n\n**Droits** : toutes les écritures sont réservées à Administrateur, Direction Générale et Commercial Chef ; la lecture suit le périmètre commercial de `GET /api/dossiers` (un désistement est visible si son dossier l'est)."
+    },
+    {
+      "name": "Actions d'article",
+      "description": "Actions et alertes (ComActionMessage) d'un article ; programme et tranche n'en ont pas (aucune colonne)."
+    },
+    {
+      "name": "Fiche article",
+      "description": "Onglet Contenances de l'article et types de présentation de sa tranche."
+    },
+    {
+      "name": "Import du patrimoine",
+      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b), et import générique avec mapping (P9e) des entités\njuridiques, programmes, tranches et prospections terrain. Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul.\n\n`fournisseurs` et `contacts` : import générique sans tranche ; `Pivot` se compare au code dans le type, vide ou inconnu =\ncréation avec un code du compteur, trouvé une fois = mise à jour (cellule vide = valeur gardée), plusieurs fois = erreur.\n\n`banques` et `organismes` : même import, colonne `Code` obligatoire : vide = erreur de ligne, inconnu dans le type = création\navec ce code, deux fois dans le fichier = erreur de ligne.\n\n`personnels` : même import que `contacts`, personnes physiques seules : `Prénom` et `Nom` requis, ligne sans eux = erreur de\nligne. Forme sociale et devise facultatives. Aucune colonne de paie : un tel en-tête est ignoré comme tout en-tête inconnu."
+    },
+    {
+      "name": "Projet",
+      "description": "Module Projet (chantier OMRAN) : lots (`PrjMarket`, « marché » dans la base), bordereau, décomptes (`PrjWorkingOut`) et\nleurs factures. Voir `FEATURE-projet-lots-decomptes.md`. Création, suppression et transitions de statut d'un lot, totaux et\nexport de la liste : `FEATURE-lots-liste-parite.md`.\n\n**Droits OMRAN** (`AdmRight.Code`, lus en base à chaque appel ; l'Administrateur les a tous), préfixe\n`Yes.Prj.Front.Market.MarketMonitoringList.` : `toolNew` (créer un lot Entrepreneurs), `toolNewMultiSupplier` (créer un lot\ndes quatre autres genres), `toolDelete` (supprimer), `toolExport` (exporter). Sans le droit : **403**, contrôlé avant le\ncorps et avant l'existence du lot.\n\n**Visibilité, comme OMRAN** : l'appelant voit les projets de ses lignes `AdmUserHabilitation.PrjProjectId`, **quel que soit\nson rôle** (aucune exemption Administrateur ni Direction Générale). Sans ligne d'habilitation, ou appelant non identifiable :\nlistes vides. **Lots** : il faut en plus, comme OMRAN (`StrStatus.GetStatusFilterQueryClauseForListing`), que le statut\ndu lot soit lié (`StrStatusIntervener`) à un intervenant dont le rôle est un rôle de l'appelant ou qui est l'appelant ; seule\nexemption : un rôle de l'appelant à `AdmRole.WithSequenceFreeRestriction = 0` (aucune exemption par le code de rôle). Lot\nsans statut ou statut sans intervenant : invisible. Un lot sans projet, hors périmètre ou au statut invisible répond **404**\ncomme un identifiant inconnu (jamais 403), fiche et sous-routes. Les décomptes (`/api/projet/decomptes`) ne suivent que\nle projet. Voir `FEATURE-visibilite-omran.md` R1, R2, R7."
+    },
+    {
+      "name": "Tâches (administration)",
+      "description": "Écran « Tâches » d'OMRAN : la table `AdmTask` porte aussi les rendez-vous, jamais exposés ici (un rendez-vous répond 404). Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-taches.md`."
+    },
+    {
+      "name": "Notifications",
+      "description": "Cloche de l'application : notifications du **compte appelant** uniquement (`AppNotification.AdmUserId`),\njamais celles d'un autre compte. Types : `LEADS_ATTRIBUES` (leads attribués au commercial du compte,\nregroupés par lot), `LEADS_A_DISTRIBUER` (leads importés restés sans commercial, aux chefs du projet ou,\nsans projet, à l'administration) et `RESUME_DEMI_JOURNEE` (09:00 et 14:00, heure de Casablanca).\nL'auteur d'une attribution n'est jamais notifié de son propre geste."
+    },
+    {
+      "name": "Audit",
+      "description": "Journal d'audit OMRAN (AdmWebHistorics) : patrimoine, entités juridiques, prospections terrain, études, rendez-vous."
+    },
+    {
+      "name": "Dossiers — visites techniques",
+      "description": "Calendrier des visites techniques (bouton à gauche du champ « Visite technique / réception » de la fiche OMRAN). Une visite est un `AdmEvent` rattaché au dossier (`ComFolderId`) et à la tranche de son article (`CfgTrancheId`) ; les créneaux et le quota sont comptés par tranche."
+    },
+    {
+      "name": "Articles",
+      "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
+    },
+    {
+      "name": "Authentification",
+      "description": "Connexion/déconnexion par cookie JWT httpOnly."
+    },
+    {
+      "name": "Suivi des actions",
+      "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
+    },
+    {
+      "name": "Champs spécifiques",
+      "description": "Champs spécifiques d'OMRAN (GEN0007) : l'Administrateur définit des champs libres par porteur (`AdmSpecificField` rattaché\nà la ligne `AdmSpecificFieldEntity` du code de classe OMRAN, créée à la première définition), chaque objet porte ses\nvaleurs (`AdmSpecificFieldValue`, `NameSpaceId` = id de l'objet). Lecture pour tout compte qui voit l'objet (étude :\nAdministrateur et Direction Générale seulement, comme son audit) ; écritures réservées à l'Administrateur."
+    },
+    {
+      "name": "Référentiels du patrimoine",
+      "description": "Listes de choix des fiches programme, tranche et article."
+    },
+    {
+      "name": "Frais de terrain",
+      "description": "Onglet « Coûts » de la fiche terrain : frais `StkExpense`. Le coût total du terrain en est la somme, calculée à la\nlecture de la fiche. « Valider pour règlement » crée la facture fournisseur du frais (module Achat d'OMRAN) ; son\npaiement reste hors du CRM."
+    },
+    {
+      "name": "Actions récentes",
+      "description": "Le panneau « Actions récentes » : ce qui vient d'être fait sur les prospections, pré-prospections et dossiers, avec de quoi rouvrir la fiche. Détail : `instructions/FEATURE-actions-recentes.md`."
+    },
+    {
+      "name": "Clients",
+      "description": "Tiers ayant acheté — un `CfgTier` référencé par au moins un dossier de vente. Il n'y a pas d'entité Client distincte dans le schéma : la fiche et ses sous-ressources sont celles de /api/prospects.\n\n**Entités juridiques en exploitation.** La qualité de client se juge sur les seuls dossiers rattachés à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un tier dont tous les dossiers relèvent d'une entité hors exploitation n'est donc plus un client au sens de cet endpoint et disparaît de la liste ; les agrégats `nombreDossiers`, `totalAPayer` et `totalRegle` suivent la même assiette, pour qu'ils concordent avec GET /api/clients/{id}/dossiers."
+    },
+    {
+      "name": "Devis",
+      "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les devis dont la tranche relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un devis sans tranche reste visible."
+    },
+    {
+      "name": "Articles — onglets",
+      "description": "Onglets de lecture de la fiche article : prospections, dossiers, historique."
+    },
+    {
+      "name": "Études de faisabilité — configuration des statuts et transitions",
+      "description": "Configuration des statuts (`StkFeasibilityStudyStatus`) et des transitions (`StkFeasibilityStudyWorkFlow`) des études de\nfaisabilité (aide OMRAN « STATUTS », « TRANSITIONS »). Lecture Administrateur + Direction Générale, écriture\nAdministrateur ; aucune clé d'API (403 `HORS_PORTEE`). Rôles : `GET /api/referentiels/roles` ; types de document :\n`GET /api/referentiels/types-piece-jointe`. Un changement de rôle ou de champ obligatoire change qui peut faire passer\nune étude d'un statut à l'autre."
+    },
+    {
+      "name": "Sous-articles",
+      "description": "Écran OMRAN « SOUS ARTICLES » : sous-articles d'origine (`IsUnderItem = 1 AND IsUnderItemOrigin = 1`), libres ou\nrattachés à un article. Le détail d'un sous-article est `GET /api/articles/{id}`. Un sous-article **rattaché** est en\nlecture seule sur cet écran : la fiche de son article parent le modifie par `PATCH /api/articles/{id}`, le détache par\n`POST /api/articles/{id}/sous-articles/{sousArticleId}/desaffecter`. Changer de parent = désaffecter puis rattacher\n(`PATCH /api/sous-articles/{id}` avec `parentId`)."
+    },
+    {
+      "name": "Dossiers — modalité de paiement",
+      "description": "Bouton « Modalité de paiement » de la fiche dossier. Aide OMRAN : « Lorsqu'on clic sur \" Modalité de paiement \", le système affiche le schéma de financement initialement créé. Remarque : La création du schéma de financement est manuel. On peut copier le schéma de financement en cliquant sur le bouton \" Copier schéma de financement \". » Les lignes (`ComDocumentPaymentMethod`) gardent date, catégorie, montant, HT, TVA, remise et société de chaque échéance. Une copie est aussi prise automatiquement au premier passage du dossier à un statut de vente effective (drapeau 001), s'il n'a encore aucune ligne (`Sale.cs:CreateDocumentPaymentMethod`)."
+    },
+    {
+      "name": "Mon compte",
+      "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
+    },
+    {
+      "name": "Études de faisabilité — financement",
+      "description": "Onglet « Financement » d'une étude (OMRAN « Déblocage de crédit » `FSFunding`, « Remboursement de crédit »\n`FSReimbursement`). Lecture Administrateur + Direction Générale, écriture et génération Administrateur ; aucune clé\nd'API (403 `HORS_PORTEE`). Étude inconnue ou de société inactive → 404 ; étude bloquée → 409 sur le PUT."
+    },
+    {
+      "name": "Dossiers — réinitialisation",
+      "description": "Bouton « Réinitialiser » de la fiche dossier : « Le système recharge les données de l'article et des sous articles à partir du module stock » (aide OMRAN). Pour l'article : superficie, taux de TVA et prix du m² HT ; pour chaque sous-article : superficie, TVA, prix avant remise HT et descriptifs (code, description, adresse, contenance, catégorie, type, étage, bâtiment…). Comme `Sale.cs:Reinitialise`, les sous-articles du stock (`StkItem.ParentId` = article) absents du dossier sont d'abord ajoutés (ligne `ComFolderItem`, sous-article affecté au dossier) et listés dans `sousArticlesAjoutes` ; un sous-article déjà affecté à un autre dossier n'est pas pris. Puis la remise est recalculée comme `Sale.cs:RecalcDiscount` : le montant de remise HT est conservé, le taux change (« Montant remise / Total HT »), et les prix après remise suivent. Le schéma de financement n'est pas modifié ; une valeur absente du stock laisse celle du dossier. Réservé au rôle Administrateur."
+    },
+    {
+      "name": "Suivi des affectations",
+      "description": "Suivi des affectations (écran OMRAN « Suivi des affectations ») : une ligne par affectation d'une pièce de règlement (`StlSettlement`) à une échéance de vente (`ComDocument`), c'est-à-dire une `StlSettlementLine` dont `ComDocumentId` est renseigné ; une pièce à plusieurs lignes donne plusieurs lignes. Les lignes d'une tranche `IsForSale = 0` sont exclues ; une échéance sans catégorie, un dossier sans statut ou un dossier sans article restent listés. Liste, groupes, totaux et export partagent exactement les mêmes filtres et la même visibilité : entités actives (même pour l'Administrateur) et périmètre commercial, jugés ligne par ligne sur le projet de la tranche de l'article du dossier (ligne sans tranche résolue : visible). Une tranche hors périmètre donne une liste vide, pas un 403."
+    },
+    {
+      "name": "Dossiers — cadeaux",
+      "description": "Onglet « Cadeaux » de la fiche dossier (`ComFolderGift`) : cadeau du catalogue, prix, livré, disponibilité, raison, date du bon d'achat, date de livraison, note. Aide OMRAN : « Si la case livré est coché, le champ date livraison devient obligatoire » (400 sinon). Choisir un cadeau reprend son prix et sa disponibilité (quantités reçues − cadeaux livrés > 0, `FolderGift.cs:SetPrice`). Ajouter et supprimer demandent le droit OMRAN « toolAddDeleteGifts », ouvert ici aux rôles Administrateur et Commercial Chef ; la modification est ouverte au périmètre, mais seul ce droit change la raison. Chaque écriture signe le dossier."
+    },
+    {
+      "name": "Suivi des prévisions",
+      "description": "Écran « Suivi des prévisions de vente » (Vente › Tableaux de bord, OMRAN F_0250). Ouvert à tout utilisateur connecté, sans\ndroit par rôle ; les données sont bornées aux tranches visibles de l'appelant (société active, périmètre commercial, tranche\nen vente). Aucune clé d'API n'a accès à ces routes (403 `HORS_PORTEE`). Voir `instructions/FEATURE-tdb-vente-previsions.md`.\n\n**Paramètres de requête** (ceux de `/parametres`) : `annee` (défaut : année courante, [1900 ; 2200]), `trancheId` répété\n(absent = toutes les tranches visibles ; un `trancheId` hors de ces tranches est ignoré, et si aucun n'est visible le\nrésultat est à zéro, jamais « toutes les tranches »), `frais` : `SANS` (défaut), `AVEC` ou `SEULS`.\n\n**Prévu** : aucune prévision n'est saisie aujourd'hui ; les colonnes `base`, `ancienPrevu`, `prevu` valent 0 et\nl'avertissement « Prévu non saisi… » est renvoyé. Un pourcentage dont le dénominateur vaut 0 est `null` (affiché « — »)."
+    },
+    {
+      "name": "Prospections — export",
+      "description": "Exports Excel des listes de prospections et de pré-prospections. Chaque export relit la liste avec ses propres filtres et le périmètre commercial de l'appelant : il ne rend jamais une ligne que la liste ne montrerait pas."
+    },
+    {
+      "name": "Trésorerie",
+      "description": "Écrans de trésorerie des arbres **Projet** (`module=PRJ`) et **Achat** (`module=BUY`), en **lecture seule** : Dépenses ›\nDécaissements, Dépenses › Affectations, Recettes (factures proforma, factures, avoirs, encaissements, affectations).\nVoir `FEATURE-n3-recettes-depenses.md`. Chaque écran exige son droit OMRAN `Yes.Stl.Front.*` (403 sans lui).\n\n**Visibilité** (celle des pièces d'achat) : société habilitée ET (projet habilité OU sans projet). Le projet d'un\nrèglement se lit **à la ligne** : une affectation est visible si sa pièce l'est ; un règlement est visible si sa société\nest habilitée ET (il n'a aucune ligne OU au moins une ligne visible). Une pièce de recette (`StlDocument`) n'a pas de\nprojet : elle suit la règle « sans projet ». `projetIds` restreint aux projets cochés ; `sansProjet=true` ajoute les\npièces et règlements sans projet (seul : uniquement eux).\n\n**Annulés** : listés par défaut (`inclureAnnules` absent = true), **jamais dans les totaux** ; un statut NULL n'est pas\nannulé. Les totaux portent sur toute la liste filtrée, pas sur la page. Tri fixe : date de pièce décroissante puis\nréférence décroissante.\n\n**Période** : `dateSur` choisit la date filtrée par `du` / `au` (jours inclus) : `PIECE` (DocDate), `ECHEANCE`,\n`POINTAGE` (SettlementDate), `POINTAGE_REPORTE` (date de mouvement : `d` = date de pointage, sinon échéance ; si\n`d` ≤ aujourd'hui et non pointé → aujourd'hui, sinon `d`)."
+    },
+    {
+      "name": "Notes",
+      "description": "Notes (AdmMessage) du patrimoine et des prospections terrain ; écriture Administrateur."
+    },
+    {
+      "name": "Fiches verrouillées (administration)",
+      "description": "Verrous posés par OMRAN sur les fiches en cours d'édition (`AdmWebLockEntities`) : l'écran « Fiches verrouillées » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). Arpent ne pose ni ne lit aucun verrou. Voir `instructions/FEATURE-admin-fiches-verrouillees.md`."
+    },
+    {
+      "name": "Dossiers — règlements",
+      "description": "Règlements d'un dossier de vente répartis sur plusieurs échéances, comme OMRAN : un règlement (`StlSettlement`) porte une ligne (`StlSettlementLine`) par échéance cochée, et n'appartient au dossier que par ces lignes. Le « reste à affecter » vaut montant − somme des lignes ; il est calculé, jamais stocké (aide OMRAN, page RÈGLEMENTS : « Reste à affecter : Montant base - Montant affecté »). L'ancien `POST .../echeancier/{echeanceId}/reglements` reste disponible : c'est la même écriture avec une seule affectation."
+    },
+    {
+      "name": "Passerelle",
+      "description": "Vérification d'identité appelée par la passerelle (Caddy forward_auth) avant de relayer une requête vers un service annexe /svc/<nom>/*. Pas destinée au frontend."
+    },
+    {
+      "name": "Clés d'API (admin)",
+      "description": "Clés d'API des clients machine (n8n, agents), réservées au rôle Administrateur. Une clé s'envoie dans l'en-tête `X-Api-Key` ; elle authentifie un compte de service et n'autorise que les routes de ses portées. Le secret n'est montré qu'à la création et à la régénération. Voir `FEATURE-cle-api-n8n.md`."
+    },
+    {
+      "name": "Parcours commercial",
+      "description": "Parcours du commercial : « Ma journée », Boîte de tri des pré-prospections et avancement d'une prospection\ndans le Kanban. « Mes lignes » = les prospections dont `ComProspection.CfgCommercialId` est l'employé du\ncompte appelant, dans son périmètre projet. Administrateur et Direction Générale voient leurs propres lignes ;\n`commercialId` leur permet, ainsi qu'à un chef pour un membre de son équipe, de consulter un autre commercial."
+    },
+    {
+      "name": "Encaissements",
+      "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...).\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, un encaissement hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les règlements portés par une entité juridique active (`StlSettlement.CfgCompanyId` → `CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Un règlement masqué renvoie 404 sur toutes les routes portant son identifiant."
+    },
+    {
+      "name": "Dossiers — acquéreurs",
+      "description": "Onglet « Acquéreurs » de la fiche dossier : le client principal porte sa part sur `ComFolder.PartPercent`, chaque co-acquéreur sur `ComFolderCustomer.PartPercent` (ratio 0–1 en base, pourcentage 0–100 dans l'API). Contrôles d'OMRAN à l'enregistrement (`Sale.cs:Verif`) : « La réparation du client principal doit être > 0 ! », « Le total des répartitions sur les acquéreurs doit être égale à 100% ! », et à l'ajout « Cet tier est déjà affecté en tant que client principal ! »."
+    },
+    {
       "name": "Tiers (administration)",
       "description": "Fournisseurs (`CfgTierType` FOU), contacts (CNT), banques (BAN), organismes (ORG) et personnels (EMP) d'OMRAN, une famille par segment d'URL : une autre valeur répond 404, un identifiant d'un autre type aussi. Aucune donnée de paie n'est lue ni écrite. Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-tiers.md`, `instructions/FEATURE-admin-banques-organismes.md` et `instructions/FEATURE-admin-personnels.md`."
     },
@@ -376,20 +392,8 @@
       "description": "Compteurs eau, électricité et gaz de l'article du dossier (bouton « Compteurs »)."
     },
     {
-      "name": "Projet — configuration, prévisions chantier",
-      "description": "Bouton « Prévisions chantier » de la fiche projet de configuration : prévisions de main-d'œuvre du projet par type de travaux (`PrjProjectBuildingPrevision` × `GrhWorkedDayType`). Administrateur seul (règle d'URL de la configuration projet) **et** droit OMRAN `Yes.Prj.Front.Definition.Project.ProjectList.BuildingPrevision`. Ordre des refus : 404 projet inconnu, puis 403. Voir `instructions/FEATURE-n4-previsions-chantier.md` (N4b)."
-    },
-    {
       "name": "Sessions (administration)",
       "description": "Sessions OMRAN (`AdmWebSessions`) : l'écran « Sessions » du groupe Sécurité d'OMRAN Estate. Réservé au rôle Administrateur (403 avant tout 400). L'identifiant de session (`WebSession`) n'est jamais exposé. Voir `instructions/FEATURE-admin-sessions.md`."
-    },
-    {
-      "name": "Plans des tranches",
-      "description": "Plans d'étage interactifs : méta, image, tracés colorés par statut, import SVG et purge (Administrateur)."
-    },
-    {
-      "name": "Désistements",
-      "description": "Désistements des dossiers de vente — l'écran « Désistements » d'OMRAN Estate (`ComSaleWithdrawalCancellation`). Un désistement est un **brouillon** tant que sa date de validation est vide, **validé** ensuite, **légalisé** quand sa date de légalisation est posée ; il n'a pas de colonne statut. Le lien au dossier est `ComSaleId`. Voir `instructions/FEATURE-desistements.md`.\n\n**Calcul (R3-R5)** : `penaliteApresRemise` = taux × base × (1 − remise), au centime ; taux = `CfgTranche.CancellationPenalityPercent` ; base = prix de vente (`ComFolder.Price`) si la tranche a `CancellationPenalityBasedOnItemPrice`, sinon le total réglé ; remise = `CancellationPenalityPercentDiscount` de la tranche pour un ancien client, sinon 0. Total réglé = réglé signé (décaissements déduits, règlements annulés exclus) des échéances d'avance, de crédit et d'autofinancement. Reste frais à régler = Σ reste dû des échéances dont la catégorie est « toujours payée », au crédit et de frais, pénalité ou modification. À rembourser = max(0, total réglé − pénalité après remise − reste frais à régler).\n\n**Droits** : toutes les écritures sont réservées à Administrateur, Direction Générale et Commercial Chef ; la lecture suit le périmètre commercial de `GET /api/dossiers` (un désistement est visible si son dossier l'est)."
     },
     {
       "name": "Études de faisabilité",
@@ -2353,6 +2357,52 @@
           },
           "404": {
             "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      }
+    },
+    "/api/projet/planification/{id}/taches/ordre": {
+      "put": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Réordonne les sœurs d'un même parent",
+        "description": "Corps `{tacheIds}` : toutes les sœurs d'un même parent, dans l'ordre voulu (chaque sœur garde son sous-arbre). 400 si la liste n'est pas exactement l'ensemble des sœurs d'un parent.",
+        "operationId": "ordonnerTachesPlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrdreTachesPlanification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "La liste n'est pas exactement l'ensemble des sœurs d'un parent."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Planification inconnue ou d'un projet hors périmètre."
+          },
+          "409": {
+            "description": "La planification est une version (lecture seule)."
           }
         }
       }
@@ -11405,6 +11455,328 @@
           },
           "404": {
             "description": "Réunion ou ligne inconnue, ou réunion de projet non habilité."
+          }
+        }
+      }
+    },
+    "/api/projet/projets/{projetId}/planification": {
+      "get": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Planification d'un projet (bouton Planification)",
+        "description": "Planification principale du projet. Absente : 404 avec `code` = `PLANIFICATION_ABSENTE` et `detail` = « Aucune planification n'est définie pour le projet en cours ! » — le front propose alors de la créer depuis un modèle.",
+        "operationId": "lirePlanificationProjet",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Projet hors périmètre, ou code PLANIFICATION_ABSENTE."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Crée la planification d'un projet en clonant un modèle",
+        "description": "Corps `{modeleId}`. Copie le modèle vers le projet : code « <code du projet> - dd/MM/yyyy HH:mm:ss », description « Version principale », notes copiées, début aujourd'hui ; tâches et intervenants copiés avec parents et intervenants remappés ; chaque tâche est rattachée au lot du projet de même catégorie de dépense, sinon à aucun.",
+        "operationId": "clonerPlanificationProjet",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "path",
+            "description": "Id du projet (PrjProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClonagePlanification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanificationDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Modèle absent, inconnu ou qui n'est pas un modèle."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Projet inconnu ou hors périmètre."
+          },
+          "409": {
+            "description": "Le projet a déjà une planification, ou code de clone déjà pris."
+          }
+        }
+      }
+    },
+    "/api/projet/planification/{id}/versions": {
+      "get": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Versions sauvegardées d'une planification, la plus récente d'abord",
+        "operationId": "listerVersionsPlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Planification inconnue ou d'un projet hors périmètre."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Sauvegarde une version datée de la planification d'un projet",
+        "description": "Copie datée de la planification d'un projet (clone OMRAN `Clone(null, null, maintenant)`) : code « <code> - dd/MM/yyyy HH:mm:ss », description = date courte, tâches et intervenants copiés, lots non rattachés. 409 sur un modèle ou une version, ou si une version porte déjà ce code (deux sauvegardes dans la même seconde). `message` = « Version '<description>' sauvegardée correctement. ».",
+        "operationId": "sauvegarderVersionPlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionSauvegardeeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Prj.Front.Tdb.ProjectPrevision.toolSaveVersion."
+          },
+          "404": {
+            "description": "Planification inconnue ou d'un projet hors périmètre."
+          },
+          "409": {
+            "description": "Modèle ou version : seule la planification d'un projet se versionne."
+          }
+        }
+      }
+    },
+    "/api/projet/planification/{id}/taches": {
+      "post": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Ajoute une tâche racine ou une sous-tâche",
+        "description": "Corps facultatif (mêmes champs que la modification). Sans `parentId` : racine, code = nombre de racines + 1, « Tâche <code> », durée 1, début de la planification. Avec `parentId` : dernier enfant, code « <code du parent>.<n> », « Sous-tâche <code> », durée et début du parent. 400 si le parent n'est pas une tâche de cette planification.",
+        "operationId": "creerTachePlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TacheEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanificationDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Saisie invalide (message dans detail)."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Planification inconnue ou d'un projet hors périmètre."
+          },
+          "409": {
+            "description": "La planification est une version (lecture seule)."
+          }
+        }
+      }
+    },
+    "/api/projet/planification/{id}/intervenants": {
+      "post": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Ajoute un intervenant à la planification",
+        "operationId": "creerIntervenantPlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntervenantPlanificationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanificationDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Saisie invalide (message dans detail)."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Planification inconnue ou d'un projet hors périmètre."
+          },
+          "409": {
+            "description": "La planification est une version (lecture seule)."
+          }
+        }
+      }
+    },
+    "/api/projet/planification/modeles": {
+      "get": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Modèles de planification, par code",
+        "operationId": "listerModelesPlanification",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanificationListItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Crée un modèle de planification",
+        "description": "Corps `{code, description, notes?, dateDebut?}` ; date de début absente = aujourd'hui. Code unique parmi toutes les planifications (409).",
+        "operationId": "creerModelePlanification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanificationEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanificationDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code ou description absent, ou texte trop long."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "409": {
+            "description": "Code déjà pris par une autre planification."
           }
         }
       }
@@ -24046,6 +24418,321 @@
         }
       }
     },
+    "/api/projet/planification/{id}/taches/{tacheId}": {
+      "delete": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Supprime une tâche et ses descendants",
+        "description": "Supprime la tâche et tous ses descendants ; ils disparaissent des prédécesseurs des autres tâches.",
+        "operationId": "supprimerTachePlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tacheId",
+            "in": "path",
+            "description": "Id de la tâche (CfgGanttTask.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Planification ou tâche inconnue, ou hors périmètre."
+          },
+          "409": {
+            "description": "La planification est une version (lecture seule)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Modifie une tâche (champs présents seulement)",
+        "description": "Champs absents ou null : inchangés. `parentId` déplace la tâche (indenter) ; `racine: true` la remonte en racine. 400 : code vide, durée ou alerte négative, avancement hors 0-100, parent d'une autre planification ou créant un cycle, prédécesseur inconnu ou égal à la tâche, intervenant étranger à la planification, type de tâche inconnu. Un type de dépendance absent vaut `FIN_DEBUT`.",
+        "operationId": "modifierTachePlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "tacheId",
+            "in": "path",
+            "description": "Id de la tâche (CfgGanttTask.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TacheEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Saisie invalide (message dans detail)."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Planification ou tâche inconnue, ou hors périmètre."
+          },
+          "409": {
+            "description": "La planification est une version (lecture seule)."
+          }
+        }
+      }
+    },
+    "/api/projet/planification/{id}/intervenants/{intervenantId}": {
+      "delete": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Supprime un intervenant et le retire des tâches",
+        "description": "L'intervenant est retiré des intervenants (`ResourceNames`) de toutes les tâches.",
+        "operationId": "supprimerIntervenantPlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "intervenantId",
+            "in": "path",
+            "description": "Id de l'intervenant (CfgGanttOwner.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Planification inconnue ou d'un projet hors périmètre."
+          },
+          "409": {
+            "description": "La planification est une version (lecture seule)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Modifie un intervenant (champs présents seulement)",
+        "operationId": "modifierIntervenantPlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "intervenantId",
+            "in": "path",
+            "description": "Id de l'intervenant (CfgGanttOwner.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntervenantPlanificationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Saisie invalide (message dans detail)."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Planification inconnue ou d'un projet hors périmètre."
+          },
+          "409": {
+            "description": "La planification est une version (lecture seule)."
+          }
+        }
+      }
+    },
+    "/api/projet/planification/{id}/date-debut": {
+      "patch": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Modifie la date de début et décale les tâches de l'écart",
+        "description": "Corps `{dateDebut}`. Décale début et date de contrainte de toutes les tâches de l'écart entre l'ancienne et la nouvelle date ; l'échéance n'est décalée que si elle est postérieure à la **nouvelle** date de début (parité `GanttEditor.cs:ModifyStartDate`).",
+        "operationId": "modifierDateDebutPlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DateDebutPlanification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Date de début absente."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Planification inconnue ou d'un projet hors périmètre."
+          },
+          "409": {
+            "description": "La planification est une version (lecture seule)."
+          }
+        }
+      }
+    },
+    "/api/projet/planification/modeles/{id}": {
+      "delete": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Supprime un modèle, ses versions, tâches et intervenants",
+        "description": "Supprime aussi les versions du modèle, leurs tâches et intervenants. Jamais refusé : un clone est une copie sans lien.",
+        "operationId": "supprimerModelePlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Modèle inconnu."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Modifie l'en-tête d'un modèle de planification",
+        "operationId": "modifierModelePlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanificationEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Saisie invalide (message dans detail)."
+          },
+          "403": {
+            "description": "Sans le droit OMRAN Yes.Cfg.Front.Gantt.GanttProject."
+          },
+          "404": {
+            "description": "Modèle inconnu."
+          },
+          "409": {
+            "description": "Code déjà pris par une autre planification."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}": {
       "get": {
         "tags": [
@@ -35072,6 +35759,33 @@
         }
       }
     },
+    "/api/projet/planification/{id}": {
+      "get": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Planification complète : en-tête, tâches, intervenants, versions",
+        "description": "Ouvre un modèle, la planification d'un projet ou une version (`nature` = VERSION : lecture seule). Tâches triées par rang ; `predecesseurs` en liste `{tacheId, type}`, `intervenants` en liste d'ids.",
+        "operationId": "lirePlanification",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la planification (CfgGanttProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Planification inconnue ou d'un projet hors périmètre."
+          }
+        }
+      }
+    },
     "/api/projet/modifications": {
       "get": {
         "tags": [
@@ -35156,6 +35870,33 @@
         "responses": {
           "403": {
             "description": "Sans le droit OMRAN Yes.Prj.Front.Modification.ModificationList."
+          }
+        }
+      }
+    },
+    "/api/projet/lots/{lotId}/taches": {
+      "get": {
+        "tags": [
+          "Projet — planification"
+        ],
+        "summary": "Tâches d'un lot (bouton Tâches), lecture seule",
+        "description": "Tâches de la planification du projet du lot rattachées à ce lot (`PrjMarketId`). Planification absente : même 404 `PLANIFICATION_ABSENTE` que `lirePlanificationProjet`.",
+        "operationId": "listerTachesLot",
+        "parameters": [
+          {
+            "name": "lotId",
+            "in": "path",
+            "description": "Id du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Lot inconnu ou hors périmètre, ou code PLANIFICATION_ABSENTE."
           }
         }
       }
@@ -51537,6 +52278,20 @@
           "niveauId"
         ]
       },
+      "OrdreTachesPlanification": {
+        "type": "object",
+        "description": "Nouvel ordre des sœurs d'un même parent.",
+        "properties": {
+          "tacheIds": {
+            "type": "array",
+            "description": "Ids de toutes les sœurs, dans l'ordre voulu.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
       "ModificationRequest": {
         "type": "object",
         "description": "Saisie d'une demande de modification ; l'enregistrement remplace tous les champs.",
@@ -65587,6 +66342,427 @@
           "contactIds"
         ]
       },
+      "ClonagePlanification": {
+        "type": "object",
+        "description": "Clonage d'un modèle vers un projet.",
+        "properties": {
+          "modeleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Modèle source (CfgGanttProject.PKey), obligatoire."
+          }
+        }
+      },
+      "IntervenantPlanificationDto": {
+        "type": "object",
+        "description": "Intervenant d'une planification (CfgGanttOwner) ; en saisie, un champ absent reste inchangé.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'intervenant (PKey) ; ignoré en saisie."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, obligatoire à la création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "visible": {
+            "type": "boolean",
+            "description": "Visible dans le diagramme ; défaut vrai."
+          },
+          "tiersId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers associé (CfgTier.PKey), facultatif."
+          }
+        }
+      },
+      "PlanificationDetailDto": {
+        "type": "object",
+        "description": "Planification Gantt complète : en-tête, tâches dans l'ordre de l'arbre, intervenants et versions.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la planification (PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code unique."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de début (StartDate)."
+          },
+          "dateVersion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date et heure de la version ; null hors version."
+          },
+          "nature": {
+            "type": "string",
+            "description": "Nature : une VERSION est en lecture seule (toute écriture répond 409).",
+            "enum": [
+              "MODELE",
+              "PROJET",
+              "VERSION"
+            ]
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet (PrjProject.PKey) ; pour une version, celui de sa planification principale ; null pour un modèle."
+          },
+          "principaleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Planification principale d'une version ; null sinon."
+          },
+          "taches": {
+            "type": "array",
+            "description": "Tâches triées par rang (ordre de l'arbre en profondeur).",
+            "items": {
+              "$ref": "#/components/schemas/TachePlanificationDto"
+            }
+          },
+          "intervenants": {
+            "type": "array",
+            "description": "Intervenants de la planification, par code.",
+            "items": {
+              "$ref": "#/components/schemas/IntervenantPlanificationDto"
+            }
+          },
+          "versions": {
+            "type": "array",
+            "description": "Versions sauvegardées, la plus récente d'abord ; vide pour une version.",
+            "items": {
+              "$ref": "#/components/schemas/PlanificationListItemDto"
+            }
+          }
+        }
+      },
+      "PlanificationListItemDto": {
+        "type": "object",
+        "description": "Ligne de liste d'un modèle ou d'une version de planification (CfgGanttProject).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la planification (PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code unique."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description ; pour une version, sa date courte."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1 000 caractères au plus)."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de début de la planification (StartDate)."
+          },
+          "dateVersion": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date et heure de la version ; null pour un modèle ou la planification d'un projet."
+          }
+        }
+      },
+      "PredecesseurDto": {
+        "type": "object",
+        "description": "Prédécesseur d'une tâche ; stocké en « <rang>|<type> », réécrit par le serveur quand les rangs changent.",
+        "properties": {
+          "tacheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tâche prédécesseur, de la même planification."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type de dépendance ; absent = FIN_DEBUT.",
+            "enum": [
+              "FIN_DEBUT",
+              "DEBUT_DEBUT",
+              "FIN_FIN",
+              "DEBUT_FIN"
+            ]
+          }
+        }
+      },
+      "TachePlanificationDto": {
+        "type": "object",
+        "description": "Tâche d'une planification (CfgGanttTask).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la tâche (PKey)."
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tâche parente ; null pour une racine."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code (« 1 », « 1.2 »…)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "rang": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de ligne, à partir de 1, recalculé par le serveur (Sorting)."
+          },
+          "profondeur": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Niveau dans l'arbre, 0 pour une racine (Depth)."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de début."
+          },
+          "duree": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée en jours entiers."
+          },
+          "dateFin": {
+            "type": "string",
+            "format": "date",
+            "description": "Fin calculée = début + durée (jamais stockée)."
+          },
+          "avancement": {
+            "type": "number",
+            "description": "Avancement en pourcentage (0 à 100), stocké tel quel."
+          },
+          "alerteAvantJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Alerte, en jours avant le début."
+          },
+          "contrainte": {
+            "type": "string",
+            "description": "Contrainte de planification.",
+            "enum": [
+              "AU_PLUS_TARD",
+              "AU_PLUS_TOT",
+              "FIN_PAS_AVANT",
+              "FIN_PAS_APRES",
+              "DOIT_FINIR_LE",
+              "DOIT_COMMENCER_LE",
+              "DEBUT_PAS_AVANT",
+              "DEBUT_PAS_APRES"
+            ]
+          },
+          "dateContrainte": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la contrainte."
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date",
+            "description": "Échéance (Deadline)."
+          },
+          "jalon": {
+            "type": "boolean",
+            "description": "Jalon (losange dans le diagramme)."
+          },
+          "predecesseurs": {
+            "type": "array",
+            "description": "Prédécesseurs de la tâche.",
+            "items": {
+              "$ref": "#/components/schemas/PredecesseurDto"
+            }
+          },
+          "intervenants": {
+            "type": "array",
+            "description": "Ids des intervenants de la tâche (ResourceNames).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "typeTacheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de tâche (CfgGanttTaskType.PKey)."
+          },
+          "lotId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lot du projet rattaché au clonage (PrjMarket.PKey) ; null pour un modèle."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de dépense (StlCategory.PKey), recopiée du modèle."
+          }
+        }
+      },
+      "VersionSauvegardeeDto": {
+        "type": "object",
+        "description": "Version sauvegardée et message OMRAN à afficher.",
+        "properties": {
+          "version": {
+            "$ref": "#/components/schemas/PlanificationListItemDto",
+            "description": "La version créée."
+          },
+          "message": {
+            "type": "string",
+            "description": "« Version '<description>' sauvegardée correctement. »"
+          }
+        }
+      },
+      "TacheEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'une tâche : tout champ absent (ou null) reste inchangé, ou prend sa valeur par défaut à la création.",
+        "properties": {
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Nouveau parent, de la même planification (indenter) ; ni la tâche ni un descendant."
+          },
+          "racine": {
+            "type": "boolean",
+            "description": "true = remonter la tâche en racine (désindenter) ; parentId alors ignoré."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, non vide ; défaut « n » (racine) ou « <parent>.<n> »."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description ; défaut « Tâche <code> » ou « Sous-tâche <code> »."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date",
+            "description": "Début ; défaut début de la planification (racine) ou du parent."
+          },
+          "duree": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée en jours entiers, ≥ 0 ; défaut 1 (racine) ou durée du parent."
+          },
+          "avancement": {
+            "type": "number",
+            "description": "Avancement de 0 à 100."
+          },
+          "alerteAvantJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Alerte, en jours avant le début, ≥ 0."
+          },
+          "contrainte": {
+            "type": "string",
+            "description": "Contrainte ; défaut AU_PLUS_TOT.",
+            "enum": [
+              "AU_PLUS_TARD",
+              "AU_PLUS_TOT",
+              "FIN_PAS_AVANT",
+              "FIN_PAS_APRES",
+              "DOIT_FINIR_LE",
+              "DOIT_COMMENCER_LE",
+              "DEBUT_PAS_AVANT",
+              "DEBUT_PAS_APRES"
+            ]
+          },
+          "dateContrainte": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de la contrainte."
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date",
+            "description": "Échéance."
+          },
+          "jalon": {
+            "type": "boolean",
+            "description": "Jalon."
+          },
+          "predecesseurs": {
+            "type": "array",
+            "description": "Prédécesseurs (remplace la liste ; [] = aucun).",
+            "items": {
+              "$ref": "#/components/schemas/PredecesseurDto"
+            }
+          },
+          "intervenants": {
+            "type": "array",
+            "description": "Ids d'intervenants de la planification (remplace la liste ; [] = aucun).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "typeTacheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de tâche (CfgGanttTaskType.PKey)."
+          }
+        }
+      },
+      "PlanificationEcritureDto": {
+        "type": "object",
+        "description": "Saisie d'un modèle de planification ; en modification, un champ absent reste inchangé.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code unique, obligatoire à la création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description, obligatoire à la création."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1 000 caractères au plus)."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de début ; absente à la création = aujourd'hui."
+          }
+        }
+      },
       "ModeleSimulationDetailDto": {
         "type": "object",
         "description": "Fiche d'un modèle de simulation lot.",
@@ -71374,90 +72550,6 @@
           }
         }
       },
-      "TacheEcritureDto": {
-        "type": "object",
-        "description": "Saisie d'une tâche. En modification, champ absent ou null = inchangé. Code et statut n'en font pas partie.",
-        "properties": {
-          "description": {
-            "type": "string",
-            "description": "Obligatoire à la création, 255 caractères au plus."
-          },
-          "typeId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Type de tâche (AdmTaskType) ; inconnu = 400."
-          },
-          "declencheurId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Tiers déclencheur (CfgTier) ; inconnu = 400."
-          },
-          "datePrevue": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date prévisionnelle."
-          },
-          "dureePrevue": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Durée prévisionnelle."
-          },
-          "dateFinPrevue": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de fin prévisionnelle, jamais calculée."
-          },
-          "dateDebut": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de début réelle."
-          },
-          "duree": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Durée réelle."
-          },
-          "dateFin": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de fin réelle."
-          },
-          "moduleId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Module (AdmModule) ; inconnu = 400."
-          },
-          "prioriteId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Priorité (AdmTaskPriority) ; inconnue = 400."
-          },
-          "gestionnaireId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Tiers gestionnaire (CfgTier) ; inconnu = 400."
-          },
-          "assigneId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Tiers assigné (CfgTier) ; inconnu = 400."
-          },
-          "entiteId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Entité (CfgCompany) ; inconnue = 400."
-          },
-          "projetId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Projet (PrjProject) ; inconnu = 400."
-          },
-          "notes": {
-            "type": "string",
-            "description": "Notes, 1000 caractères au plus."
-          }
-        }
-      },
       "TacheDto": {
         "type": "object",
         "description": "Tâche d'administration (AdmTask de l'entité AdmTask, jamais un rendez-vous).",
@@ -72330,6 +73422,17 @@
           },
           "raisonTexte": {
             "type": "string"
+          }
+        }
+      },
+      "DateDebutPlanification": {
+        "type": "object",
+        "description": "« Modifier la date de début » de la planification.",
+        "properties": {
+          "dateDebut": {
+            "type": "string",
+            "format": "date",
+            "description": "Nouvelle date de début, obligatoire."
           }
         }
       },
