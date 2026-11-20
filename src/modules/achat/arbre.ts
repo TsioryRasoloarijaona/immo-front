@@ -1,5 +1,5 @@
 import {
-  BadgeCheck, Banknote, Building2, Coins, FileBarChart, FileMinus, FileText, HandCoins, Layers, Link2, ListTree, Package, Percent, Receipt,
+  BadgeCheck, Banknote, Building2, ClipboardList, Coins, FileBarChart, FileMinus, FileText, HandCoins, Layers, Link2, ListTree, Package, Percent, Receipt,
   ShieldCheck, Tags, Truck, Users, Wallet, Workflow,
 } from 'lucide-react';
 import type { ArbreModule } from '../arbre';
@@ -15,6 +15,7 @@ export const arbreAchat: ArbreModule = () => [
     cle: 'pieces',
     titre: 'Pièces',
     entrees: [
+      { to: '/achat/demandes-achat', libelle: "Demandes d'achat", Icone: ClipboardList },
       { to: '/achat/devis', libelle: 'Devis', Icone: FileText },
       { to: '/achat/bons-de-commande', libelle: 'Bons de commande', Icone: Receipt },
       { to: '/achat/bons-de-livraison', libelle: 'Bons de livraison', Icone: Truck },
@@ -67,6 +68,7 @@ export const arbreAchat: ArbreModule = () => [
     cle: 'configuration',
     titre: 'Configuration',
     entrees: [
+      { to: '/achat/config/procedures', libelle: "Procédures d'achat", Icone: ClipboardList },
       { to: '/achat/config/statuts', libelle: 'Statuts', Icone: Tags },
       { to: '/achat/config/transitions', libelle: 'Transitions', Icone: Workflow },
       { to: '/achat/config/familles', libelle: 'Familles', Icone: Layers },
