@@ -22,6 +22,8 @@ const ProjetsConfigList = lazy(() => import('../../pages/projet/config/ProjetsCo
 const ReferentielTypesLotPage = lazy(() => import('../../pages/projet/config/ReferentielTypesLotPage'));
 const StatutsLotList = lazy(() => import('../../pages/projet/config/StatutsLotList'));
 const ModelesSimulationList = lazy(() => import('../../pages/projet/config/ModelesSimulationList'));
+const ModelesPlanificationList = lazy(() => import('../../pages/projet/config/ModelesPlanificationList'));
+const PlanificationEditeur = lazy(() => import('../../pages/projet/PlanificationEditeur'));
 
 const projet: ModuleApp = {
   slug: 'projet',
@@ -53,6 +55,8 @@ const projet: ModuleApp = {
     { path: '/projet/config/types-lot', element: <ReferentielTypesLotPage /> },
     { path: '/projet/config/statuts-lot', element: <StatutsLotList /> },
     { path: '/projet/config/modeles-simulation', element: <ModelesSimulationList /> },
+    { path: '/projet/config/planification/modeles', element: <ModelesPlanificationList /> },
+    { path: '/projet/planification/:id', element: <PlanificationEditeur /> },
     { path: '/projet/config/types-reunion', element: <ReferentielProjetPage slug="types-reunion" titre="Types de réunion" icone={<Users />} /> },
     { path: '/projet/config/statuts-reserves', element: <ReferentielProjetPage slug="statuts-reserves" titre="Statuts des réserves" icone={<CircleCheck />} /> },
     { path: '/projet/config/plages-couleurs', element: <ReferentielProjetPage slug="plages-couleurs" titre="Plages de couleurs" icone={<Palette />} /> },

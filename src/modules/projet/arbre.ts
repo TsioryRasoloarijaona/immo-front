@@ -58,6 +58,7 @@ export const arbreProjet: ArbreModule = ({ user }) => [
       { to: '/projet/config/types-reception', libelle: 'Types réception', Icone: PackageCheck, couleur: COULEUR },
       { to: '/projet/config/natures-reception', libelle: 'Natures réception', Icone: ClipboardCheck, couleur: COULEUR },
       { to: '/projet/config/types-tache', libelle: 'Type de tâche', Icone: ListTodo, couleur: COULEUR },
+      { to: '/projet/config/planification/modeles', libelle: 'Modèles Planification', Icone: CalendarClock, couleur: COULEUR },
     ],
   },
 ];
