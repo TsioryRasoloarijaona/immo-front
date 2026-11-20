@@ -3,8 +3,11 @@ import { request } from './api';
 import type { UUID } from '../types';
 import type { ModificationRequest } from '../types/dossierSousListes';
 import type {
+  ExecutionTransitionJourTravaille,
   FiltresModifications,
   FiltresTravaux,
+  HistoriqueJourTravaille,
+  TransitionJourTravaille,
   JourTravailleEcritureDto,
   JourTravailleFicheDto,
   JourTravailleLigneDto,
@@ -40,8 +43,23 @@ export function modifierJourTravaille(id: UUID, corps: JourTravailleEcritureDto)
   return request('PUT', `${TRAVAUX}/${id}`, { body: corps });
 }
 
+/** 409 « Vous ne pouvez pas supprimer cette entité dans le statut : [...] ! » pour un restreint hors CanDelete. */
 export function supprimerJourTravaille(id: UUID): Promise<void> {
   return request('DELETE', `${TRAVAUX}/${id}`);
+}
+
+/** Transitions exécutables par l'appelant ; vide si aucune. */
+export function getTransitionsJourTravaille(id: UUID): Promise<TransitionJourTravaille[]> {
+  return request('GET', `${TRAVAUX}/${id}/transitions`);
+}
+
+/** Fiche relue au nouveau statut ; 409 (corps `transitionsAutorisees`) si la transition n'est pas permise. */
+export function executerTransitionJourTravaille(id: UUID, corps: ExecutionTransitionJourTravaille): Promise<JourTravailleFicheDto> {
+  return request('POST', `${TRAVAUX}/${id}/transitions`, { body: corps });
+}
+
+export function getHistoriqueJourTravaille(id: UUID): Promise<HistoriqueJourTravaille[]> {
+  return request('GET', `${TRAVAUX}/${id}/historique`);
 }
 
 /** Tranches habilitées seulement ; 403 sans `Yes.Prj.Front.Modification.ModificationList`. */
