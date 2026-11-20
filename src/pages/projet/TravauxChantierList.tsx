@@ -22,7 +22,7 @@ import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
 import { referentielItems } from '../../lib/referentiels';
 import { MESSAGE_SUPPRESSION } from '../../lib/saisieReunion';
 import {
-  ACCES_REFUSE_TRAVAUX, exporterTravauxCsv, lireTravaux, NOUVEAU_JOUR,
+  ACCES_REFUSE_TRAVAUX, exporterTravauxCsv, lireTravaux, NOUVEAU_JOUR, REFUS_CREATION_JOUR,
 } from '../../lib/saisieTravauxChantier';
 import { useToast } from '../../lib/toastContext';
 import { errorMessage, refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
@@ -31,7 +31,6 @@ import { useReferentielsProjet } from './hooks';
 import JourTravailleDetail from './JourTravailleDetail';
 
 const RACINE = '/projet/travaux-chantier';
-const REFUS_CREATION = "Vous n'avez pas les droits sur les états de création de l'entité 'Jour travaillé' !";
 
 const COLONNES: ColonneGrille<JourTravailleLigneDto>[] = [
   { nom: 'statut', libelle: 'Statut', largeur: 6, valeur: (l) => l.statut?.libelle ?? '', rendu: (l) => <StatutPastille statut={l.statut} /> },
@@ -113,7 +112,7 @@ export default function TravauxChantierList() {
 
   function ajouter() {
     if (choix.data?.departAutorise === false) {
-      showToast({ texte: REFUS_CREATION, variante: 'erreur' });
+      showToast({ texte: REFUS_CREATION_JOUR, variante: 'erreur' });
       return;
     }
     void navigate(`${RACINE}/${NOUVEAU_JOUR}`);

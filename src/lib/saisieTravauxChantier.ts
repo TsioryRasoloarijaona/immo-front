@@ -6,6 +6,7 @@ import type {
 
 export const NOUVEAU_JOUR = 'nouveau';
 export const ACCES_REFUSE_TRAVAUX = "Vous n'avez pas accès aux travaux de chantier.";
+export const REFUS_CREATION_JOUR = "Vous n'avez pas les droits sur les états de création de l'entité 'Jour travaillé' !";
 
 /** `useApi` ne garde que le message : le 403 reçoit un texte fixe pour que la liste le reconnaisse. */
 export async function lireTravaux<T>(appel: () => Promise<T>): Promise<T> {
@@ -43,6 +44,13 @@ const CLES: CleChamp[] = [
   'quantite', 'quantite1', 'unite', 'prixUnitaireHT', 'tva', 'unite1', 'prixUnitaireHT1', 'tva1', 'code', 'description', 'notes',
 ];
 const NOMBRES: CleChamp[] = ['quantite', 'quantite1', 'prixUnitaireHT', 'tva', 'prixUnitaireHT1', 'tva1'];
+const TAUX: CleChamp[] = ['tva', 'tva1'];
+
+/** L'API porte la TVA en fraction (0.2) ; la saisie l'affiche en pourcentage (20). */
+function enPourcent(v: number | string | null | undefined): string {
+  if (v === null || v === undefined || v === '') return '';
+  return String(Math.round(Number(v) * 100 * 1e6) / 1e6);
+}
 
 export function saisieVide(): SaisieJour {
   return { ...(Object.fromEntries(CLES.map((c) => [c, ''])) as SaisieJour), date: todayISO(), quantite: '1', quantite1: '1' };
@@ -50,7 +58,7 @@ export function saisieVide(): SaisieJour {
 
 export function saisieDepuis(f: JourTravailleFicheDto): SaisieJour {
   const saisie = Object.fromEntries(CLES.map((c) => [c, String(f.valeurs[c] ?? '')])) as SaisieJour;
-  return { ...saisie, date: saisie.date.slice(0, 10) };
+  return { ...saisie, date: saisie.date.slice(0, 10), tva: enPourcent(f.valeurs.tva), tva1: enPourcent(f.valeurs.tva1) };
 }
 
 /** Choisir un type recopie unités, prix et TVA dans les deux blocs (modifiables ensuite). */
@@ -58,8 +66,8 @@ export function appliquerType(s: SaisieJour, t: TypeTravauxDto | undefined): Sai
   if (!t) return s;
   const texte = (v: number | string | null) => String(v ?? '');
   return {
-    ...s, typeId: t.id, unite: texte(t.unite), prixUnitaireHT: texte(t.prixUnitaireHT), tva: texte(t.tva),
-    unite1: texte(t.unite1), prixUnitaireHT1: texte(t.prixUnitaireHT1), tva1: texte(t.tva1),
+    ...s, typeId: t.id, unite: texte(t.unite), prixUnitaireHT: texte(t.prixUnitaireHT), tva: enPourcent(t.tva),
+    unite1: texte(t.unite1), prixUnitaireHT1: texte(t.prixUnitaireHT1), tva1: enPourcent(t.tva1),
   };
 }
 
@@ -70,7 +78,11 @@ function nombre(v: string): number | null {
 
 /** Texte vide = `null` ; les nombres sont convertis. */
 export function corpsDepuis(s: SaisieJour): JourTravailleEcritureDto {
-  const corps = Object.fromEntries(CLES.map((c) => [c, NOMBRES.includes(c) ? nombre(s[c]) : s[c].trim() || null]));
+  const valeur = (c: CleChamp) => {
+    const n = nombre(s[c]);
+    return TAUX.includes(c) && n !== null ? n / 100 : n;
+  };
+  const corps = Object.fromEntries(CLES.map((c) => [c, NOMBRES.includes(c) ? valeur(c) : s[c].trim() || null]));
   return corps as unknown as JourTravailleEcritureDto;
 }
 

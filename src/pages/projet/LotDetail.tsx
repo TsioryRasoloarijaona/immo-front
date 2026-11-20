@@ -107,7 +107,7 @@ function FicheLot({ lotInitial }: Readonly<{ lotInitial: LotDetailDto }>) {
             <TabsTrigger value="autres">Autres</TabsTrigger>
           </TabsList>
           <TabsContent value="general"><OngletGeneral lot={lot} {...onglet} /></TabsContent>
-          <TabsContent value="demandes"><OngletDemandesAchat lotId={lot.id} /></TabsContent>
+          <TabsContent value="demandes"><OngletDemandesAchat lotId={lot.id} peutAjouter={lot.peutAjouterDia} /></TabsContent>
           <TabsContent value="suivi"><EtatFiche etat={suivi}>{(s) => <OngletSuivi suivi={s} />}</EtatFiche></TabsContent>
           <TabsContent value="retenues"><EtatFiche etat={suivi}>{(s) => <OngletRetenues suivi={s} />}</EtatFiche></TabsContent>
           <TabsContent value="dates"><OngletDates {...onglet} /></TabsContent>
