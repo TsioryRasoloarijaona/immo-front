@@ -65376,7 +65376,7 @@
           },
           "notes": {
             "type": "string",
-            "description": "Commentaire (StrHistory.Notes) ; obligatoire quand avecCommentaire."
+            "description": "StrHistory.Notes ; obligatoire si avecCommentaire, ignoré sauf avecCommentaire ou avecDateUtilisateur."
           },
           "dateUtilisateur": {
             "type": "string",

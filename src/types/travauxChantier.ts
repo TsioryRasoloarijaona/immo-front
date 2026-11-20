@@ -31,7 +31,7 @@ export interface TransitionJourTravaille {
   avecSecondValideur: boolean;
 }
 
-/** `notes` obligatoire si `avecCommentaire` ; `secondValideur` si `avecSecondValideur`. */
+/** `notes` obligatoire si `avecCommentaire`, ignoré sauf `avecCommentaire` ou `avecDateUtilisateur` ; `secondValideur` si `avecSecondValideur`. */
 export interface ExecutionTransitionJourTravaille {
   transitionId: UUID;
   notes?: string | null;
