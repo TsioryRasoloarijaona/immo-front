@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Shuffle } from 'lucide-react';
 import FenetreFiche from '../../components/fiche/FenetreFiche';
 import RubanFiche from '../../components/fiche/RubanFiche';
 import SearchableSelect from '../../components/SearchableSelect';
 import Champ from '../../components/dossier/echeancier/Champ';
 import BlocQuantitePrix from '../../components/projet/travaux/BlocQuantitePrix';
+import DialogueTransitionJourTravaille from '../../components/projet/travaux/DialogueTransitionJourTravaille';
+import HistoriqueJourTravaille from '../../components/projet/travaux/HistoriqueJourTravaille';
 import StatutPastille from '../../components/projet/travaux/StatutPastille';
 import { ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -44,6 +46,7 @@ function FenetreJour({ initiale, voisins, onFermer, onCree }: Props & Readonly<{
   const [saisie, setSaisie] = useState(base);
   const [erreurs, setErreurs] = useState<Partial<Record<CleChamp, string>>>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [dialogueStatut, setDialogueStatut] = useState(false);
   const confirmer = useConfirm();
   const { executer } = useEcriture();
   const entites = useApi(() => listEntitesJuridiques('true'), [], 'projet-travaux-entites');
@@ -109,8 +112,13 @@ function FenetreJour({ initiale, voisins, onFermer, onCree }: Props & Readonly<{
   return (
     <FenetreFiche nature="Jour travaillé" titre={fiche ? 'Jour travaillé' : 'Nouveau jour travaillé'} voisins={voisins} onFermer={onFermer}
       enEdition={modifiee(saisie, base)}>
-      <RubanFiche enregistrer={{ onClick: () => void enregistrer(), disabled: !!fiche && !modifiee(saisie, base) }} propres={[]}
+      <RubanFiche enregistrer={{ onClick: () => void enregistrer(), disabled: !!fiche && !modifiee(saisie, base) }}
+        propres={fiche ? [{ id: 'statut', libelle: 'Changer le statut', icone: Shuffle, onClick: () => setDialogueStatut(true) }] : []}
         supprimer={fiche ? { onClick: () => void supprimer() } : undefined} />
+      {fiche && dialogueStatut && (
+        <DialogueTransitionJourTravaille id={fiche.id} statut={fiche.statut?.libelle ?? '—'} onAnnuler={() => setDialogueStatut(false)}
+          onFait={(r) => { setFiche(r); setDialogueStatut(false); refetchAllApis(); }} />
+      )}
       {message && <p role="alert" className="shrink-0 px-4 pt-2 text-label text-destructive">{message}</p>}
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
         {fiche && <StatutPastille statut={fiche.statut} />}
@@ -147,6 +155,7 @@ function FenetreJour({ initiale, voisins, onFermer, onCree }: Props & Readonly<{
             </Champ>
           </div>
         </div>
+        {fiche && <HistoriqueJourTravaille id={fiche.id} version={fiche.statut?.id ?? null} />}
       </div>
     </FenetreFiche>
   );

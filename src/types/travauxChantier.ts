@@ -1,6 +1,7 @@
 // Travaux chantier et Modifications (FEATURE-n2-travaux-chantier.md), noms du fil de /api/projet/*.
 import type { ReferentielItemDto, UUID } from '../types';
 import type { EtatModification } from './dossierSousListes';
+import type { SecondValideur } from './projet';
 
 export interface FiltresTravaux {
   societeId?: UUID;
@@ -18,6 +19,33 @@ export interface StatutJourTravailleDto {
   id: UUID;
   libelle: string | null;
   couleur: string | null;
+}
+
+/** N2b : `GET …/{id}/transitions`, même calcul que l'exécution. */
+export interface TransitionJourTravaille {
+  id: UUID;
+  libelle: string | null;
+  statutCible: (StatutJourTravailleDto & { code: string | null }) | null;
+  avecCommentaire: boolean;
+  avecDateUtilisateur: boolean;
+  avecSecondValideur: boolean;
+}
+
+/** `notes` obligatoire si `avecCommentaire`, ignoré sauf `avecCommentaire` ou `avecDateUtilisateur` ; `secondValideur` si `avecSecondValideur`. */
+export interface ExecutionTransitionJourTravaille {
+  transitionId: UUID;
+  notes?: string | null;
+  dateUtilisateur?: string | null;
+  secondValideur?: SecondValideur | null;
+}
+
+/** Ligne StrHistory, la plus récente en tête. */
+export interface HistoriqueJourTravaille {
+  date: string | null;
+  utilisateur: string | null;
+  description: string | null;
+  notes: string | null;
+  dateUtilisateur: string | null;
 }
 
 export interface JourTravailleLigneDto {
