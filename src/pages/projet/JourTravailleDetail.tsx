@@ -20,7 +20,7 @@ import type { VoisinsFiche } from '../../lib/fenetreFiche';
 import { referentielItems } from '../../lib/referentiels';
 import { MESSAGE_SUPPRESSION } from '../../lib/saisieReunion';
 import {
-  appliquerType, corpsDepuis, erreurParChamp, erreursObligatoires, modifiee, NOUVEAU_JOUR, saisieDepuis, saisieVide, type CleChamp,
+  appliquerType, corpsDepuis, erreurParChamp, erreursObligatoires, modifiee, NOUVEAU_JOUR, REFUS_CREATION_JOUR, saisieDepuis, saisieVide, type CleChamp,
 } from '../../lib/saisieTravauxChantier';
 import { avecValeur } from '../../lib/useChoixRendezVous';
 import { useEcriture } from '../../lib/useEcriture';
@@ -156,8 +156,17 @@ function FenetreJour({ initiale, voisins, onFermer, onCree }: Props & Readonly<{
 export default function JourTravailleDetail({ id, ...props }: Props & Readonly<{ id: string }>) {
   const creation = id === NOUVEAU_JOUR;
   const jour = useApi(() => (creation ? Promise.resolve(null) : getJourTravaille(id)), [id]);
+  // Ouverte par URL directe, la création doit refuser comme le bouton « Ajouter » de la liste.
+  const depart = useApi(() => (creation ? getReferentielsTravaux() : Promise.resolve(null)), [creation]);
 
-  if (jour.error || (!creation && !jour.data)) {
+  if (creation && depart.data?.departAutorise === false) {
+    return (
+      <FenetreFiche nature="Jour travaillé" titre="Jour travaillé" voisins={props.voisins} onFermer={props.onFermer}>
+        <div className="p-4"><ErrorState message={REFUS_CREATION_JOUR} /></div>
+      </FenetreFiche>
+    );
+  }
+  if (jour.error || (!creation && !jour.data) || (creation && !depart.data && !depart.error)) {
     return (
       <FenetreFiche nature="Jour travaillé" titre="Jour travaillé" voisins={props.voisins} onFermer={props.onFermer}>
         {jour.error ? (
