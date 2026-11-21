@@ -1,6 +1,10 @@
 import { useState } from 'react';
+import { ListTodo } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import BarreIcones from '../../components/BarreIcones';
 import PageShell from '../../components/PageShell';
+import PlanificationProjet from '../../components/projet/planification/PlanificationProjet';
+import { Button } from '../../components/ui/button';
 import BarreFicheLot from '../../components/projet/BarreFicheLot';
 import ModaleTransitionLot from '../../components/projet/ModaleTransitionLot';
 import BarreSousFenetresLot from '../../components/projet/sousfenetres/BarreSousFenetresLot';
@@ -45,6 +49,7 @@ function FicheLot({ lotInitial }: Readonly<{ lotInitial: LotDetailDto }>) {
   const [transition, setTransition] = useState(false);
   const [sousFenetre, setSousFenetre] = useState<SousFenetre | null>(null);
   const [suiviDemande, setSuiviDemande] = useState(false);
+  const [tachesOuvertes, setTachesOuvertes] = useState(false);
   const suivi = useSuiviLot(lot.id, suiviDemande);
 
   function adopter(nouveau: LotDetailDto) {
@@ -92,7 +97,15 @@ function FicheLot({ lotInitial }: Readonly<{ lotInitial: LotDetailDto }>) {
       />
       {message && <p role="alert" className="px-4 pt-2 text-body text-destructive md:px-7">{message}</p>}
       <div className="flex flex-col gap-3 p-4 md:px-7">
-        <BarreSousFenetresLot onOuvrir={setSousFenetre} />
+        <div className="flex items-center gap-1">
+          <BarreSousFenetresLot onOuvrir={setSousFenetre} />
+          {lot.projetId && (
+            <BarreIcones className="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setTachesOuvertes(true)}><ListTodo /> Tâches</Button>
+            </BarreIcones>
+          )}
+        </div>
+        {tachesOuvertes && lot.projetId && <PlanificationProjet projetId={lot.projetId} lotId={lot.id} onClose={() => setTachesOuvertes(false)} />}
         <EnteteLot lot={lot} referentiels={referentiels.data} {...onglet} />
         <Tabs defaultValue="general" onValueChange={(v) => v === 'suivi' || v === 'retenues' ? setSuiviDemande(true) : undefined}>
           <TabsList>

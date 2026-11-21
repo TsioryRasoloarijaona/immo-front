@@ -12,7 +12,8 @@ import {
   createProjetConfig, getChoixProjet, getReferentielsProjetConfig, listProjetsConfig, updateProjetConfig,
 } from '../../lib/apiProjetConfig';
 import { brouillonDepuis, corpsDepuis, useSaisie, type ChampDef } from '../../lib/saisiePatrimoine';
-import { Layers } from 'lucide-react';
+import { CalendarClock, Layers } from 'lucide-react';
+import PlanificationProjet from './planification/PlanificationProjet';
 import BarreIcones from '../BarreIcones';
 import BoutonPrevisionsChantier from './BoutonPrevisionsChantier';
 import DialogueNivellement from './DialogueNivellement';
@@ -65,6 +66,7 @@ export default function DialogueProjetConfig({ projet, onClose, onSaved }: Reado
   const [statut, setStatut] = useState(projet?.statutCode);
   const [statutChange, setStatutChange] = useState(false);
   const [nivellementOuvert, setNivellementOuvert] = useState(false);
+  const [planificationOuverte, setPlanificationOuverte] = useState(false);
   const [depart] = useState(() => brouillonDepuis(CHAMPS, projet));
   const { brouillon, modifier, envoi, erreur, champErreur, envoyer } = useSaisie(CHAMPS, depart);
   const texte = (nom: string) => String(brouillon[nom] ?? '');
@@ -171,10 +173,14 @@ export default function DialogueProjetConfig({ projet, onClose, onSaved }: Reado
               <Button type="button" variant="ghost" size="sm" onClick={() => setNivellementOuvert(true)}>
                 <Layers /> Nivellement
               </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPlanificationOuverte(true)}>
+                <CalendarClock /> Planification
+              </Button>
             </BarreIcones>
             <BoutonPrevisionsChantier projetId={projet.id} />
           </div>
           {nivellementOuvert && <DialogueNivellement projetId={projet.id} onClose={() => setNivellementOuvert(false)} />}
+          {planificationOuverte && <PlanificationProjet projetId={projet.id} onClose={() => setPlanificationOuverte(false)} />}
           {choixProjet.error && <ErrorState message={choixProjet.error} />}
           <Tabs defaultValue="general">
             <TabsList>
