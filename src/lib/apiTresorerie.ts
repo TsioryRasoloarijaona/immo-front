@@ -7,7 +7,11 @@ import type {
   DecaissementLigneDto,
   FiltresTresorerie,
   ListeTresorerieDto,
+  ModuleTresorerie,
+  PieceAAffecterDto,
   RecettesDto,
+  ReferentielsDecaissementDto,
+  SaisieDecaissementDto,
   SensTresorerie,
   TotauxAffectationsDto,
   TotauxDecaissementsDto,
@@ -32,6 +36,35 @@ export function getAffectations(
   filtres: FiltresTresorerie,
 ): Promise<ListeTresorerieDto<AffectationLigneDto, TotauxAffectationsDto>> {
   return request('GET', `${RACINE}/affectations`, { query: { ...filtres, sens } });
+}
+
+// Saisie (FEATURE-n3bis-saisie-reglements.md) : 400 / 409 portent le message OMRAN dans ApiError.
+export function creerDecaissement(saisie: SaisieDecaissementDto): Promise<DecaissementFicheDto> {
+  return request('POST', `${RACINE}/decaissements`, { body: saisie });
+}
+
+export function modifierDecaissement(id: UUID, saisie: SaisieDecaissementDto): Promise<DecaissementFicheDto> {
+  return request('PUT', `${RACINE}/decaissements/${id}`, { body: saisie });
+}
+
+export function supprimerDecaissement(id: UUID): Promise<void> {
+  return request('DELETE', `${RACINE}/decaissements/${id}`);
+}
+
+export function lireReferentielsDecaissement(module: ModuleTresorerie): Promise<ReferentielsDecaissementDto> {
+  return request('GET', `${RACINE}/decaissements/referentiels`, { query: { module } });
+}
+
+/** `reglementId` : en modification, ses propres lignes ne comptent pas dans le réglé. */
+export function listerPiecesAAffecter(
+  module: ModuleTresorerie,
+  fournisseurId: UUID,
+  societeId: UUID,
+  reglementId?: UUID,
+): Promise<PieceAAffecterDto[]> {
+  return request('GET', `${RACINE}/decaissements/pieces-a-affecter`, {
+    query: { module, fournisseurId, societeId, reglementId },
+  });
 }
 
 export function getRecettes(vue: VueRecette, filtres: FiltresTresorerie): Promise<RecettesDto> {

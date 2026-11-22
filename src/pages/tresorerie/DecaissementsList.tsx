@@ -1,12 +1,17 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
+import type { ActionOutil } from '../../components/liste/BarreOutilsFlottante';
 import EtatReglement from '../../components/tresorerie/EtatReglement';
 import FicheDecaissementFenetre from '../../components/tresorerie/FicheDecaissementFenetre';
+import FormulaireDecaissementFenetre from '../../components/tresorerie/FormulaireDecaissementFenetre';
 import PageTresorerie from '../../components/tresorerie/PageTresorerie';
-import { getDecaissements } from '../../lib/apiTresorerie';
+import { getDecaissements, lireReferentielsDecaissement, supprimerDecaissement } from '../../lib/apiTresorerie';
+import { useConfirm } from '../../lib/confirmContext';
 import { voisinsDe } from '../../lib/fenetreFiche';
+import { useToast } from '../../lib/toastContext';
 import { accesRefuse, libelleStatutTresorerie, useFiltresTresorerie } from '../../lib/tresorerie';
-import { useApi } from '../../lib/useApi';
+import { errorMessage, refetchAllApis, useApi } from '../../lib/useApi';
 import type { DecaissementLigneDto, ModuleTresorerie } from '../../types/tresorerie';
 
 const COLONNES: ColonneGrille<DecaissementLigneDto>[] = [
@@ -32,6 +37,8 @@ const COLONNES: ColonneGrille<DecaissementLigneDto>[] = [
   { nom: 'comptabilise', libelle: 'Compta', type: 'BOOLEEN', largeur: 5 },
 ];
 
+const NOUVEAU = 'nouveau';
+
 const classeLigne = (r: DecaissementLigneDto) => (r.statut === 'CANCELED' ? 'text-muted-foreground line-through' : undefined);
 
 export default function DecaissementsList({ module }: Readonly<{ module: ModuleTresorerie }>) {
@@ -43,9 +50,39 @@ export default function DecaissementsList({ module }: Readonly<{ module: ModuleT
   const lignes = liste.data?.lignes ?? [];
   const totaux = liste.data?.totaux;
   const ouvrir = (cible: string) => void navigate(`${racine}/${cible}`);
+  const confirmer = useConfirm();
+  const showToast = useToast();
+  const referentiels = useApi(() => lireReferentielsDecaissement(module), [module], `decaissement-ref-${module}`);
+  const droits = referentiels.data?.droits;
+  const [selectionne, setSelectionne] = useState<string | null>(null);
+  const [edition, setEdition] = useState<string | null>(null);
+  const ligne = lignes.find((l) => l.id === selectionne);
+
+  async function supprimer() {
+    if (!ligne || !(await confirmer({ title: 'Supprimer', message: `Supprimer le décaissement ${ligne.code ?? ''} ?`, confirmLabel: 'Supprimer' }))) return;
+    try {
+      await supprimerDecaissement(ligne.id);
+      setSelectionne(null);
+      refetchAllApis();
+    } catch (err) {
+      showToast({ texte: errorMessage(err), variante: 'erreur' });
+    }
+  }
+
+  const actions: ActionOutil[] = [
+    ...(droits?.peutCreer ? [{ id: 'modifier' as const, onClick: () => setEdition(ligne?.id ?? null) }] : []),
+    ...(droits?.peutSupprimer ? [{ id: 'supprimer' as const, onClick: () => void supprimer() }] : []),
+    { id: 'rafraichir', onClick: () => void liste.refetch() },
+  ];
+  const creation = id === NOUVEAU;
+  const formulaire = creation || edition;
 
   return (
     <PageTresorerie
+      actions={actions}
+      ligneSelectionnee={!!ligne}
+      selection={ligne?.code ?? 'aucune'}
+      nouveau={droits?.peutCreer ? { libelle: 'Nouveau décaissement', onClick: () => ouvrir(NOUVEAU) } : undefined}
       cle={`tresorerie-decaissements-${module}`}
       titre="Décaissements"
       unite="décaissement"
@@ -58,9 +95,19 @@ export default function DecaissementsList({ module }: Readonly<{ module: ModuleT
         { libelle: 'Affecté', valeur: totaux?.montantAffecte ?? 0 },
         { libelle: 'Reste à affecter', valeur: totaux?.resteAAffecter ?? 0 },
       ]}
-      grille={<DataGrid rows={lignes} colonnes={COLONNES} cleOrdre={`tresorerie-decaissements-${module}`} classeLigne={classeLigne} onOuvrir={ouvrir} bandeauRegroupement={false} />}
+      grille={<DataGrid rows={lignes} colonnes={COLONNES} cleOrdre={`tresorerie-decaissements-${module}`} classeLigne={classeLigne} onOuvrir={ouvrir} bandeauRegroupement={false} selection={{
+        ids: new Set(selectionne ? [selectionne] : []),
+        onToggle: (cle) => setSelectionne((s) => (s === cle ? null : cle)),
+        onToggleAll: () => setSelectionne(null),
+      }} />}
       fiche={
-        id && (
+        formulaire ? (
+          <FormulaireDecaissementFenetre
+            module={module}
+            id={creation ? undefined : edition ?? undefined}
+            onFermer={() => { setEdition(null); if (creation) void navigate(racine); }}
+          />
+        ) : id && (
           <FicheDecaissementFenetre
             key={id}
             id={id}

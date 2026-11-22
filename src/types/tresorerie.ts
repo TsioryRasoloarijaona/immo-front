@@ -105,6 +105,8 @@ export interface DecaissementFicheDto {
   /** Affectations dont la pièce est visible seulement. */
   lignes: LigneDecaissementDto[];
   lignesMasquees: number;
+  /** Corps exact d'un PUT (lignes visibles seulement). */
+  saisie: SaisieDecaissementDto;
 }
 
 export interface AffectationLigneDto {
@@ -153,4 +155,94 @@ export interface RecettesDto {
   lignes: Record<string, unknown>[];
   total: number;
   totaux: TotauxRecettesDto;
+}
+
+// Saisie des décaissements (FEATURE-n3bis-saisie-reglements.md §3-§4).
+/** CANCELED se lit mais n'est pas proposé à la saisie (400). */
+export type StatutSaisieDecaissement = 'IN_WORK' | 'POINTED' | 'NOTPAYED' | 'CANCELED';
+
+export interface LigneSaisieDecaissementDto {
+  pieceId: UUID;
+  montant: number;
+}
+
+export interface SaisieDecaissementDto {
+  /** Requis à la création, ignoré au PUT. */
+  module?: ModuleTresorerie | null;
+  societeId: UUID | null;
+  /** yyyy-MM-dd ; absente = jour. */
+  dateDocument?: string | null;
+  /** Absente = date pièce. */
+  dateEcheance?: string | null;
+  typeId: UUID | null;
+  reference?: string | null;
+  compteId?: UUID | null;
+  banqueId?: UUID | null;
+  montant: number;
+  fournisseurId: UUID | null;
+  payeurId?: UUID | null;
+  notaireId?: UUID | null;
+  tiersAutruiId?: UUID | null;
+  notes?: string | null;
+  /** Date de pointage (SettlementDate). */
+  dateDecaissement?: string | null;
+  statut: StatutSaisieDecaissement;
+  codeRecu?: string | null;
+  codeFeuillePaiement?: string | null;
+  codeFeuilleRs?: string | null;
+  /** PUT : remplace les lignes visibles ; les masquées sont gardées. */
+  lignes: LigneSaisieDecaissementDto[];
+}
+
+export interface TypeDecaissementDto {
+  id: UUID;
+  code: string | null;
+  libelle: string | null;
+  referenceObligatoire: boolean;
+  referenceUnique: boolean;
+  banqueObligatoire: boolean;
+  notaireObligatoire: boolean;
+  tiersUnique: boolean;
+  exclu: boolean;
+}
+
+export interface SocieteDecaissementDto {
+  id: UUID;
+  code: string | null;
+  libelle: string | null;
+}
+
+export interface CompteDecaissementDto {
+  id: UUID;
+  code: string | null;
+  societeId: UUID | null;
+  devise: string | null;
+}
+
+export interface DroitsDecaissementDto {
+  peutCreer: boolean;
+  peutSupprimer: boolean;
+  peutEnregistrerSansAffectation: boolean;
+  peutChangerSociete: boolean;
+}
+
+export interface ReferentielsDecaissementDto {
+  types: TypeDecaissementDto[];
+  societes: SocieteDecaissementDto[];
+  comptes: CompteDecaissementDto[];
+  devise: string | null;
+  statuts: string[];
+  droits: DroitsDecaissementDto;
+}
+
+export interface PieceAAffecterDto {
+  id: UUID;
+  code: string | null;
+  dateDocument: string | null;
+  dateEcheance: string | null;
+  description: string | null;
+  netAPayer: number;
+  regle: number;
+  resteAPayer: number;
+  deviseCode: string | null;
 }
