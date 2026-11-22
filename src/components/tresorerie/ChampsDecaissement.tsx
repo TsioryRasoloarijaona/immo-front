@@ -27,7 +27,8 @@ function Lecture({ id, libelle, valeur }: Readonly<{ id: string; libelle: string
 }
 
 /** Champs de l'en-tête d'un décaissement ; l'état et les listes viennent de la fenêtre. */
-export default function ChampsDecaissement({ b, maj, listes, societeModifiable, codes }: Readonly<{
+export default function ChampsDecaissement({ b, maj, listes, societeModifiable, codes, masquee }: Readonly<{
+  masquee: number;
   b: SaisieDecaissementDto;
   maj: Maj;
   listes: ListesDecaissement;
@@ -57,13 +58,13 @@ export default function ChampsDecaissement({ b, maj, listes, societeModifiable, 
       {liste('dec-notaire', 'Notaire', 'notaireId', listes.tiers)}
       {liste('dec-banque', 'Banque', 'banqueId', listes.banques)}
       {liste('dec-compte', 'Compte', 'compteId', listes.comptes)}
-      <ChampListe id="dec-statut" libelle="État" items={STATUTS_SAISIE} valeur={b.statut} onChange={(v) => v && maj({ statut: v as SaisieDecaissementDto['statut'] })} requis />
+      <ChampListe id="dec-statut" libelle="État" items={b.statut === 'CANCELED' ? [...STATUTS_SAISIE, { value: 'CANCELED', label: 'Annulé' }] : STATUTS_SAISIE} valeur={b.statut} onChange={(v) => v && maj({ statut: v as SaisieDecaissementDto['statut'] })} requis />
       {texte('dec-pointage', 'Date de pointage', 'dateDecaissement', 'date')}
       <Lecture id="dec-recu" libelle="Reçu" valeur={codes.codeRecu ?? ''} />
       <Lecture id="dec-pp" libelle="Code P.P" valeur={codes.codeFeuillePaiement ?? ''} />
       <Lecture id="dec-cras" libelle="Code C.R.A.S" valeur={codes.codeFeuilleRs ?? ''} />
-      <Lecture id="dec-affecte" libelle="Montant affecté" valeur={formatCurrency(totalAffecte(b.lignes))} />
-      <Lecture id="dec-reste" libelle="Reste à affecter" valeur={formatCurrency(resteAAffecter(b))} />
+      <Lecture id="dec-affecte" libelle="Montant affecté" valeur={formatCurrency(totalAffecte(b.lignes) + masquee)} />
+      <Lecture id="dec-reste" libelle="Reste à affecter" valeur={formatCurrency(resteAAffecter(b, masquee))} />
       <div className="md:col-span-3">{texte('dec-notes', 'Notes', 'notes')}</div>
     </div>
   );

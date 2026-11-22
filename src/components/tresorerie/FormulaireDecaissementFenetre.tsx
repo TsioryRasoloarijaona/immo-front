@@ -10,7 +10,7 @@ import { getBanques, oublierLecturesRecentes } from '../../lib/api';
 import { getReferentielsAchat } from '../../lib/apiAchat';
 import { getReferentielPatrimoine } from '../../lib/apiPatrimoine';
 import { getDecaissement, creerDecaissement, lireReferentielsDecaissement, modifierDecaissement } from '../../lib/apiTresorerie';
-import { brouillonVide, verifier, versRequete } from '../../lib/saisieDecaissement';
+import { brouillonVide, partMasquee, verifier, versRequete } from '../../lib/saisieDecaissement';
 import { errorMessage, refetchAllApis, useApi } from '../../lib/useApi';
 import type { UUID } from '../../types';
 import type { DecaissementFicheDto, ModuleTresorerie, ReferentielsDecaissementDto, SaisieDecaissementDto } from '../../types/tresorerie';
@@ -31,6 +31,7 @@ function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui,
   const [b, setB] = useState<SaisieDecaissementDto>(
     () => fiche?.saisie ?? brouillonVide(ref.societes.length === 1 ? ref.societes[0].id : null),
   );
+  const [masquee] = useState(() => (fiche ? partMasquee(fiche.decaissement.montantAffecte, fiche.saisie.lignes) : 0));
   const [message, setMessage] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
   const [pieces, setPieces] = useState(false);
@@ -40,7 +41,7 @@ function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui,
   const type = ref.types.find((t) => t.id === b.typeId);
   const listes = {
     societes: ref.societes.map((s) => option(s.id, s.libelle ?? s.code)),
-    types: ref.types.filter((t) => !t.exclu).map((t) => option(t.id, t.libelle ?? t.code)),
+    types: ref.types.map((t) => option(t.id, t.libelle ?? t.code)),
     comptes: ref.comptes.filter((c) => !b.societeId || c.societeId === b.societeId).map((c) => option(c.id, c.code)),
     banques: banques.map((x) => option(x.id, x.description)),
     tiers: tiers.map((t) => option(t.id, t.nom)),
@@ -48,7 +49,7 @@ function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui,
   };
 
   async function enregistrer(fermer: boolean) {
-    const erreur = verifier(b, type);
+    const erreur = verifier(b, type, masquee);
     setMessage(erreur);
     if (erreur) return;
     setEnCours(true);
@@ -80,6 +81,7 @@ function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui,
           b={b}
           maj={maj}
           listes={listes}
+          masquee={masquee}
           societeModifiable={!id || ref.droits.peutChangerSociete}
           codes={{ codeRecu: b.codeRecu ?? null, codeFeuillePaiement: b.codeFeuillePaiement ?? null, codeFeuilleRs: b.codeFeuilleRs ?? null }}
         />

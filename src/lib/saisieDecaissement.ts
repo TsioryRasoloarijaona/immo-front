@@ -16,16 +16,23 @@ export function brouillonVide(societeId: string | null): SaisieDecaissementDto {
   return { societeId, typeId: null, fournisseurId: null, montant: 0, statut: 'IN_WORK', lignes: [] };
 }
 
+const auCentime = (x: number) => Math.round(x * 100) / 100;
+
 export function totalAffecte(lignes: LigneSaisieDecaissementDto[]): number {
-  return lignes.reduce((somme, l) => somme + (l.montant || 0), 0);
+  return auCentime(lignes.reduce((somme, l) => somme + (l.montant || 0), 0));
 }
 
-export function resteAAffecter(saisie: SaisieDecaissementDto): number {
-  return saisie.montant - totalAffecte(saisie.lignes);
+/** Part déjà affectée par des lignes que la saisie ne montre pas (0 en création). */
+export function partMasquee(montantAffecte: number | null | undefined, lignesVisibles: LigneSaisieDecaissementDto[]): number {
+  return Math.max(0, auCentime((montantAffecte ?? 0) - totalAffecte(lignesVisibles)));
+}
+
+export function resteAAffecter(saisie: SaisieDecaissementDto, masquee = 0): number {
+  return auCentime(saisie.montant - totalAffecte(saisie.lignes) - masquee);
 }
 
 /** Première erreur bloquante, ou null. */
-export function verifier(saisie: SaisieDecaissementDto, type: TypeDecaissementDto | undefined): string | null {
+export function verifier(saisie: SaisieDecaissementDto, type: TypeDecaissementDto | undefined, masquee = 0): string | null {
   if (!saisie.societeId) return 'La société est obligatoire.';
   if (!saisie.typeId) return 'Le type est obligatoire.';
   if (!saisie.fournisseurId) return 'Le fournisseur est obligatoire.';
@@ -36,7 +43,7 @@ export function verifier(saisie: SaisieDecaissementDto, type: TypeDecaissementDt
   const pointe = saisie.statut === 'POINTED';
   if (pointe && !saisie.dateDecaissement) return 'La date de pointage est obligatoire pour un décaissement pointé.';
   if (!pointe && saisie.dateDecaissement) return 'La date de pointage n’est permise que pour un décaissement pointé.';
-  if (resteAAffecter(saisie) < 0) return 'Le montant affecté dépasse le montant du décaissement.';
+  if (resteAAffecter(saisie, masquee) < 0) return 'Le montant affecté dépasse le montant du décaissement.';
   return null;
 }
 
