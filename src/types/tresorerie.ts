@@ -105,6 +105,8 @@ export interface DecaissementFicheDto {
   /** Affectations dont la pièce est visible seulement. */
   lignes: LigneDecaissementDto[];
   lignesMasquees: number;
+  /** Corps exact d'un PUT (lignes visibles seulement). */
+  saisie: SaisieDecaissementDto;
 }
 
 export interface AffectationLigneDto {

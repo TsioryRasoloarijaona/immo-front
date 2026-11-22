@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { RotateCcw } from 'lucide-react';
 import Pagination from '../Pagination';
 import BarreEtatListe from '../liste/BarreEtatListe';
-import BarreOutilsFlottante from '../liste/BarreOutilsFlottante';
+import BarreOutilsFlottante, { type ActionOutil } from '../liste/BarreOutilsFlottante';
 import EnteteListe from '../liste/EnteteListe';
 import PageListe from '../liste/PageListe';
 import { EmptyState, ErrorState, ResultsRegion } from '../ui';
@@ -27,7 +27,16 @@ export default function PageTresorerie({
   totaux,
   grille,
   fiche,
+  nouveau,
+  actions,
+  ligneSelectionnee = false,
+  selection = 'aucune',
 }: Readonly<{
+  nouveau?: { libelle: string; onClick: () => void };
+  /** Remplace les actions par défaut (rafraîchir). */
+  actions?: ActionOutil[];
+  ligneSelectionnee?: boolean;
+  selection?: string;
   cle: string;
   titre: string;
   /** Nom au singulier de la ligne, pour les décomptes. */
@@ -73,8 +82,13 @@ export default function PageTresorerie({
           </ResultsRegion>
         )}
       </div>
-      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" />
-      <BarreOutilsFlottante cle={cle} ligneSelectionnee={false} actions={[{ id: 'rafraichir', onClick: () => void liste.refetch() }]} />
+      <BarreEtatListe lignes={decompte ?? '—'} selection={selection} />
+      <BarreOutilsFlottante
+        cle={cle}
+        ligneSelectionnee={ligneSelectionnee}
+        nouveau={nouveau}
+        actions={actions ?? [{ id: 'rafraichir', onClick: () => void liste.refetch() }]}
+      />
       {fiche}
     </PageListe>
   );
