@@ -1,5 +1,8 @@
 import { Link } from 'react-router-dom';
+import { Pencil } from 'lucide-react';
+import BarreIcones from '../BarreIcones';
 import FenetreFiche from '../fiche/FenetreFiche';
+import { Button } from '../ui/button';
 import { Card, Field, FieldGrid } from '../ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import EtatReglement from './EtatReglement';
@@ -30,7 +33,8 @@ export default function FicheDecaissementFenetre({
   module,
   voisins,
   onFermer,
-}: Readonly<{ id: string; module: ModuleTresorerie; voisins?: VoisinsFiche; onFermer: () => void }>) {
+  onModifier,
+}: Readonly<{ id: string; module: ModuleTresorerie; voisins?: VoisinsFiche; onFermer: () => void; onModifier?: () => void }>) {
   const etat = useFiche(() => accesRefuse(getDecaissement(id)), id);
   const d = etat.data?.decaissement;
   return (
@@ -41,6 +45,11 @@ export default function FicheDecaissementFenetre({
       voisins={voisins}
       onFermer={onFermer}
     >
+      {onModifier && d && (
+        <BarreIcones className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
+          <Button type="button" variant="ghost" size="sm" onClick={onModifier}><Pencil /> Modifier</Button>
+        </BarreIcones>
+      )}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4">
         <EtatFiche etat={etat}>
           {(f) => (

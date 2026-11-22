@@ -103,9 +103,11 @@ export default function DecaissementsList({ module }: Readonly<{ module: ModuleT
       fiche={
         formulaire ? (
           <FormulaireDecaissementFenetre
+            key={creation ? NOUVEAU : edition ?? undefined}
             module={module}
             id={creation ? undefined : edition ?? undefined}
             onFermer={() => { setEdition(null); if (creation) void navigate(racine); }}
+            onCree={(nouveau) => { setEdition(nouveau); void navigate(racine); }}
           />
         ) : id && (
           <FicheDecaissementFenetre
@@ -114,6 +116,7 @@ export default function DecaissementsList({ module }: Readonly<{ module: ModuleT
             module={module}
             voisins={voisinsDe(lignes.map((l) => l.id), id, ouvrir)}
             onFermer={() => void navigate(racine)}
+            onModifier={droits?.peutCreer ? () => setEdition(id) : undefined}
           />
         )
       }
