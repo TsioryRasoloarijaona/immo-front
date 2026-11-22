@@ -228,6 +228,10 @@
       "description": "Désistements des dossiers de vente — l'écran « Désistements » d'OMRAN Estate (`ComSaleWithdrawalCancellation`). Un désistement est un **brouillon** tant que sa date de validation est vide, **validé** ensuite, **légalisé** quand sa date de légalisation est posée ; il n'a pas de colonne statut. Le lien au dossier est `ComSaleId`. Voir `instructions/FEATURE-desistements.md`.\n\n**Calcul (R3-R5)** : `penaliteApresRemise` = taux × base × (1 − remise), au centime ; taux = `CfgTranche.CancellationPenalityPercent` ; base = prix de vente (`ComFolder.Price`) si la tranche a `CancellationPenalityBasedOnItemPrice`, sinon le total réglé ; remise = `CancellationPenalityPercentDiscount` de la tranche pour un ancien client, sinon 0. Total réglé = réglé signé (décaissements déduits, règlements annulés exclus) des échéances d'avance, de crédit et d'autofinancement. Reste frais à régler = Σ reste dû des échéances dont la catégorie est « toujours payée », au crédit et de frais, pénalité ou modification. À rembourser = max(0, total réglé − pénalité après remise − reste frais à régler).\n\n**Droits** : toutes les écritures sont réservées à Administrateur, Direction Générale et Commercial Chef ; la lecture suit le périmètre commercial de `GET /api/dossiers` (un désistement est visible si son dossier l'est)."
     },
     {
+      "name": "Projet — trésorerie",
+      "description": "Tableau de bord **Trésorerie** du module Projet (OMRAN `Yes.Prj.Front.Tdb.ExpensesByYear`), en lecture seule. Voir\n`FEATURE-n5-tableaux-de-bord-projet.md`.\n\n**Droit** : `Yes.Prj.Front.Tdb.ExpensesByYear`, sinon 403. **Visibilité** : les lignes n'entrent que par les projets\ndemandés ∩ projets habilités, et par une société habilitée. Un projet hors périmètre est ignoré (jamais 403) ; si\n`projets` est absent ou ne contient aucun projet habilité : 400 « Veuillez sélectionner au moins un projet ! ».\n\n**Sources** (prévisions seulement) : échéances de lot `PrjMarketPaymentPrevision` (montant × taux de ventilation de la\ntranche, une ligne par tranche ventilée, au débit) et reste à payer des pièces d'achat `BuyDocument` rattachées à un lot\n(`CanBePayed`, reste = à payer − Σ lignes de règlement, **règlements `CANCELED` exclus** — écart à OMRAN, qui ne filtre\npas le statut ; avoir `REFUND` au crédit, montant positif). **Aucun réel** : parité OMRAN, dont la lecture du réglé\nréel par projet ne ramène rien. Une ligne datée au plus tard à la fin du mois courant est **reportée à aujourd'hui**\n(`reporte = true`, `dateOrigine` conservée), y compris celles des années antérieures, comptées dans l'année courante."
+    },
+    {
       "name": "Actions d'article",
       "description": "Actions et alertes (ComActionMessage) d'un article ; programme et tranche n'en ont pas (aucune colonne)."
     },
@@ -398,6 +402,10 @@
     {
       "name": "Études de faisabilité",
       "description": "Écran OMRAN « ETUDES DE FAISABILITE » (`StkFeasibilityStudy`), lot P8a : fiche, bloc A (surfaces, coûts du terrain et de\nconstruction), phases, unités de base, tranches, Bloquer / Débloquer. **Lecture réservée à Administrateur et Direction\nGénérale** (coûts, marges, prix d'achat), écriture à l'Administrateur ; aucune clé d'API n'y a accès (403 `HORS_PORTEE`).\nUne étude d'une société inactive est introuvable (404). Les valeurs calculées viennent toutes du serveur (`POST /calcul`\npour l'aperçu) : le front ne réimplémente aucune formule. Le bilan (chiffre d'affaires, coûts globaux, marges) est en\nlecture seule : toute écriture de l'étude (création, PATCH, unités, tranches, Bloquer, financement, prévisions) le\nrecalcule dans la même transaction depuis les prévisions et le financement (P8b-1). Une étude sans aucune ligne de\nprévision garde les colonnes de bilan stockées. `nombreArticlesAVendre` est calculé (Σ quantités des unités portant une\ncatégorie d'article hors sous-article, non surface)."
+    },
+    {
+      "name": "Projet — bilans",
+      "description": "Tableau de bord **Bilans** du module Projet (OMRAN `Yes.Prj.Front.Tdb.ProjectReview`), en lecture seule. Voir\n`FEATURE-n5-tableaux-de-bord-projet.md` § Bilans.\n\n**Droit** : `Yes.Prj.Front.Tdb.ProjectReview`, sinon 403. **Visibilité** : projets demandés ∩ projets habilités ; un\nprojet hors périmètre est ignoré (jamais 403) ; si `projets` est absent ou ne contient aucun projet habilité : 400\n« Veuillez sélectionner au moins un projet ! »."
     }
   ],
   "paths": {
@@ -35918,6 +35926,232 @@
         }
       }
     },
+    "/api/projet/tresorerie": {
+      "get": {
+        "tags": [
+          "Projet — trésorerie"
+        ],
+        "summary": "Arbre mensuel des prévisions des projets demandés (onglets Projet et Fournisseur)",
+        "description": "Année civile `annee` (défaut : année du jour), mois m = Σ des lignes de date en (annee, m). Onglet `projet` : racines\n« Encaissement » (`estCredit = true`) / « Décaissement » → projet (`PrjProject.Description`) → fournisseur (nom du\nfournisseur, sinon description du lot ou fournisseur saisi). Onglet `fournisseur` : mêmes lignes regroupées directement\npar fournisseur sous les racines ; le total d'un onglet égale celui de l'autre. Un nœud dont les 12 mois sont nuls est\nabsent. `regle` = Σ des lignes dont la date retenue (reportée) est avant aujourd'hui. `projets` = choix du sélecteur\n(projets habilités de la société). Pas de ligne Solde ni Cumulé (absentes de l'écran Projet d'OMRAN).",
+        "operationId": "tresorerie",
+        "parameters": [
+          {
+            "name": "annee",
+            "in": "query",
+            "description": "Année civile ; absente = année du jour.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 2026
+          },
+          {
+            "name": "projets",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), répété ; au moins un projet habilité, sinon 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "societe",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey) ; absente = toutes les sociétés habilitées.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Arbre de l'année ; racines absentes si aucune prévision.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TresorerieProjetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Veuillez sélectionner au moins un projet ! (aucun projet habilité demandé)."
+          },
+          "403": {
+            "description": "Droit Yes.Prj.Front.Tdb.ExpensesByYear absent."
+          }
+        }
+      }
+    },
+    "/api/projet/tresorerie/export": {
+      "get": {
+        "tags": [
+          "Projet — trésorerie"
+        ],
+        "summary": "Export Excel de l'arbre de la Trésorerie projet, mêmes filtres que l'arbre",
+        "description": "Classeur xlsx de l'arbre (onglet Projet) avec les mêmes filtres, mêmes refus (400, 403) et mêmes lignes visibles.",
+        "operationId": "exporter_12",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "annee",
+            "in": "query",
+            "description": "Année civile ; absente = année du jour.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 2026
+          },
+          {
+            "name": "projets",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), répété ; au moins un projet habilité, sinon 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "societe",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey) ; absente = toutes les sociétés habilitées.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Veuillez sélectionner au moins un projet ! (aucun projet habilité demandé)."
+          },
+          "403": {
+            "description": "Droit Yes.Prj.Front.Tdb.ExpensesByYear absent."
+          }
+        }
+      }
+    },
+    "/api/projet/tresorerie/cellule": {
+      "get": {
+        "tags": [
+          "Projet — trésorerie"
+        ],
+        "summary": "Lignes sources d'une cellule (nœud × mois), triées par date ; leur somme = la cellule",
+        "description": "Lignes sources de la cellule (`noeud` = `cle` lue dans l'arbre, `mois` de 1 à 12), mêmes filtres que l'arbre, triées par\ndate. Leur somme égale la valeur de la cellule. `objetId` = PKey de la source (échéance de lot ou pièce d'achat).",
+        "operationId": "cellule",
+        "parameters": [
+          {
+            "name": "annee",
+            "in": "query",
+            "description": "Année civile ; absente = année du jour.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 2026
+          },
+          {
+            "name": "projets",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), répété ; au moins un projet habilité, sinon 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "societe",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey) ; absente = toutes les sociétés habilitées.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mois",
+            "in": "query",
+            "description": "Mois de 1 (janvier) à 12.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 6
+          },
+          {
+            "name": "noeud",
+            "in": "query",
+            "description": "Clé `cle` du nœud, lue dans l'arbre.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tableau des lignes ; vide si la cellule vaut 0.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneCelluleTresorerieDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Veuillez sélectionner au moins un projet ! (aucun projet habilité demandé)."
+          },
+          "403": {
+            "description": "Droit Yes.Prj.Front.Tdb.ExpensesByYear absent."
+          }
+        }
+      }
+    },
     "/api/projet/travaux-chantier/{id}/historique": {
       "get": {
         "tags": [
@@ -36758,7 +36992,7 @@
         ],
         "summary": "Export Excel de la liste des lots, mêmes filtres et lignes que la liste, ligne Total en bas",
         "description": "Classeur Excel : colonnes de la liste dans le même ordre, toutes les lignes des filtres donnés (sans pagination), triées\ncomme la liste, et une ligne « Total » en bas égale à `GET /api/projet/lots/totaux`. Droit `toolExport` exigé.",
-        "operationId": "exporter_12",
+        "operationId": "exporter_13",
         "parameters": [
           {
             "name": "format",
@@ -37311,7 +37545,7 @@
           "Projet"
         ],
         "summary": "Export Excel de la liste des décomptes, mêmes filtres et mêmes lignes que la liste",
-        "operationId": "exporter_13",
+        "operationId": "exporter_14",
         "parameters": [
           {
             "name": "format",
@@ -37626,6 +37860,161 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/projet/bilans": {
+      "get": {
+        "tags": [
+          "Projet — bilans"
+        ],
+        "summary": "Arbre des catégories de dépenses des projets demandés × 8 colonnes, avec écart",
+        "description": "Arbre des catégories de dépenses `StlCategory` (racines sans parent, tri `Sorting` puis `Description`). Chaque nœud\n**cumule sa catégorie et ses descendants** ; une catégorie nulle sur les 8 colonnes avec tous ses descendants est\nmasquée. Colonnes (codes) : `etudeFaisabilite`, `estimationBase`, `estimationConfidentielle`, `marche`, `marcheAjuste`,\n`previsions`, `coutPrevisionnel`, `coutReel`, en HT ou TTC selon `ttc`. Étude de faisabilité = prévisions de l'étude\nventilées sur les projets non communs de la tranche ; les 7 autres = montants des lots répartis par catégorie\n(`PrjMarketVentilationCategory`), un lot de projet commun étant réparti sur les projets non communs de ses tranches.\nUn lot annulé ou résilié multiplie toutes ses colonnes, sauf Marché, par son ratio d'avancement. Règlements `CANCELED`\nhors totaux. Le défaut d'OMRAN sur la colonne Marché des racines n'est pas reproduit.\n`ecart` = colonne1 − colonne2, calculé seulement si les deux sont fournis (sinon 0 partout) ; `ecart1` / `ecart2`\nrenvoient les codes reçus, null pour un paramètre absent.",
+        "operationId": "bilans",
+        "parameters": [
+          {
+            "name": "projets",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), répété ; au moins un projet habilité, sinon 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "ttc",
+            "in": "query",
+            "description": "true : montants TTC ; absent ou false : HT.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "colonne1",
+            "in": "query",
+            "description": "Code de la colonne 1 de l'écart (un des 8 codes de `colonnes`).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "marche"
+          },
+          {
+            "name": "colonne2",
+            "in": "query",
+            "description": "Code de la colonne 2 de l'écart, soustraite de la colonne 1.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "estimationBase"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bilan ; `lignes` vide si aucune catégorie non nulle.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanProjetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Veuillez sélectionner au moins un projet ! (aucun projet habilité demandé)."
+          },
+          "403": {
+            "description": "Droit Yes.Prj.Front.Tdb.ProjectReview absent."
+          }
+        }
+      }
+    },
+    "/api/projet/bilans/export": {
+      "get": {
+        "tags": [
+          "Projet — bilans"
+        ],
+        "summary": "Export Excel du Bilan projet, mêmes filtres que l'arbre",
+        "description": "Classeur xlsx de l'arbre du bilan avec les mêmes filtres, mêmes refus (400, 403) et mêmes projets visibles.",
+        "operationId": "exporter_15",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "projets",
+            "in": "query",
+            "description": "Projets (PrjProject.PKey), répété ; au moins un projet habilité, sinon 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "ttc",
+            "in": "query",
+            "description": "true : montants TTC ; absent ou false : HT.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "colonne1",
+            "in": "query",
+            "description": "Code de la colonne 1 de l'écart (un des 8 codes de `colonnes`).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "marche"
+          },
+          {
+            "name": "colonne2",
+            "in": "query",
+            "description": "Code de la colonne 2 de l'écart, soustraite de la colonne 1.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "estimationBase"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Veuillez sélectionner au moins un projet ! (aucun projet habilité demandé)."
+          },
+          "403": {
+            "description": "Droit Yes.Prj.Front.Tdb.ProjectReview absent."
           }
         }
       }
@@ -38826,7 +39215,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des lots de terrain",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_14",
+        "operationId": "exporter_16",
         "parameters": [
           {
             "name": "search",
@@ -39384,7 +39773,7 @@
         ],
         "summary": "Export Excel de la liste des impayés, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres et même tri que `GET /api/impayes`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Fichier `impayes_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_15",
+        "operationId": "exporter_17",
         "parameters": [
           {
             "name": "format",
@@ -39612,7 +40001,7 @@
         ],
         "summary": "Courbe mensuelle et lignes de trésorerie enregistrées de l'étude",
         "description": "Lignes de trésorerie enregistrées par le dernier recalcul (montants > 0) : concrétisation et finalisation (crédit,\nréparties par une loi normale sur leurs fenêtres en nombre d'articles), dépense d'exécution hors indivis et retenue de\ngarantie (débit), dépenses indivises à leur date, déblocages (crédit) et remboursements (débit). `mois` : chaque mois\ndu premier au dernier, `solde` = cumul des crédits − débits. Sans financement : déblocages et remboursements exclus.",
-        "operationId": "tresorerie",
+        "operationId": "tresorerie_1",
         "parameters": [
           {
             "name": "id",
@@ -39781,7 +40170,7 @@
         ],
         "summary": "Export Excel de l'étude en 11 feuilles (étude bloquée comprise)",
         "description": "11 feuilles : Identité, Bilan, Terrain, Exécution, Délais, Financement, Données, Unités, Tranches, Unités par tranche,\nBilan détaillé. Valeurs du calcul partagé (bilan stocké, prévisions, trésorerie), jamais recalculées dans l'export.\nSans tranche, « Tranches » et « Unités par tranche » n'ont que leurs titres. Permis sur une étude bloquée.",
-        "operationId": "exporter_16",
+        "operationId": "exporter_18",
         "parameters": [
           {
             "name": "id",
@@ -39838,7 +40227,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des études, mêmes droits que la liste",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_17",
+        "operationId": "exporter_19",
         "parameters": [
           {
             "name": "format",
@@ -40842,7 +41231,7 @@
           "État des ventes"
         ],
         "summary": "Export Excel de l'état des ventes, filtres et colonnes appliqués",
-        "operationId": "exporter_18",
+        "operationId": "exporter_20",
         "parameters": [
           {
             "name": "format",
@@ -41495,7 +41884,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des entités (même droit que la liste)",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_19",
+        "operationId": "exporter_21",
         "parameters": [
           {
             "name": "format",
@@ -42560,7 +42949,7 @@
         ],
         "summary": "Export Excel de la liste des encaissements, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/encaissements`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Encaissements », fichier `encaissements_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_20",
+        "operationId": "exporter_22",
         "parameters": [
           {
             "name": "format",
@@ -44680,7 +45069,7 @@
         ],
         "summary": "Export Excel de la liste des dossiers, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/dossiers`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Auteur du classeur = utilisateur connecté, titre « Dossiers de vente », fichier `dossiers_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_21",
+        "operationId": "exporter_23",
         "parameters": [
           {
             "name": "format",
@@ -46699,7 +47088,7 @@
         ],
         "summary": "Export xlsx ou pdf du catalogue des articles, colonnes du catalogue",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_22",
+        "operationId": "exporter_24",
         "parameters": [
           {
             "name": "search",
@@ -47042,7 +47431,7 @@
         ],
         "summary": "Imprimer (pdf) ou exporter (xlsx) la liste filtrée, par code",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_23",
+        "operationId": "exporter_25",
         "parameters": [
           {
             "name": "famille",
@@ -47322,7 +47711,7 @@
           "Rôles (administration)"
         ],
         "summary": "Export Excel des rôles filtrés, triés par code",
-        "operationId": "exporter_24",
+        "operationId": "exporter_26",
         "parameters": [
           {
             "name": "texte",
@@ -47385,7 +47774,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Export Excel des rendez-vous filtrés, date croissante",
-        "operationId": "exporter_25",
+        "operationId": "exporter_27",
         "parameters": [
           {
             "name": "texte",
@@ -47685,7 +48074,7 @@
         ],
         "summary": "Export Excel des lignes filtrées",
         "description": "Mêmes filtres et même tri que la liste, sans pagination : au plus 20 000 lignes. Date au format `dd/MM/yyyy HH:mm` ; `Details` et `Description` ne sont pas exportés.",
-        "operationId": "exporter_26",
+        "operationId": "exporter_28",
         "parameters": [
           {
             "name": "dateDebut",
@@ -47992,7 +48381,7 @@
           "Fichiers attachés (administration)"
         ],
         "summary": "Export Excel des lignes filtrées, dans l'ordre de la liste",
-        "operationId": "exporter_27",
+        "operationId": "exporter_29",
         "parameters": [
           {
             "name": "recherche",
@@ -49857,7 +50246,7 @@
           "Achat"
         ],
         "summary": "Export Excel de la liste des pièces d'achat, mêmes filtres et même requête que la liste",
-        "operationId": "exporter_28",
+        "operationId": "exporter_30",
         "parameters": [
           {
             "name": "format",
@@ -50322,7 +50711,7 @@
         ],
         "summary": "Export Excel de la liste des demandes internes d'achat, mêmes filtres",
         "description": "Droits `…BuySelectionList` et `…BuySelectionList.toolExport` ; mêmes lignes que la liste.",
-        "operationId": "exporter_29",
+        "operationId": "exporter_31",
         "parameters": [
           {
             "name": "format",
@@ -80815,6 +81204,166 @@
           }
         }
       },
+      "NoeudTresorerieDto": {
+        "type": "object",
+        "description": "Nœud de l'arbre mensuel de la Trésorerie projet (racine, projet ou fournisseur).",
+        "properties": {
+          "cle": {
+            "type": "string",
+            "description": "Clé opaque du nœud, à renvoyer telle quelle dans `noeud` de /cellule."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé : « Encaissement » / « Décaissement », projet ou fournisseur."
+          },
+          "estCredit": {
+            "type": "boolean",
+            "description": "true sous la racine Encaissement (avoirs), false sous Décaissement."
+          },
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Profondeur dans l'arbre, 0 pour les racines."
+          },
+          "montants": {
+            "type": "array",
+            "description": "12 montants, janvier en premier, positifs quel que soit le sens.",
+            "items": {
+              "type": "number"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Somme des 12 mois."
+          },
+          "regle": {
+            "type": "number",
+            "description": "Réglé : Σ des lignes dont la date (reportée) est avant aujourd'hui."
+          },
+          "enfants": {
+            "type": "array",
+            "description": "Nœuds enfants ; vide pour une feuille.",
+            "items": {
+              "$ref": "#/components/schemas/NoeudTresorerieDto"
+            }
+          }
+        }
+      },
+      "OngletsTresorerieDto": {
+        "type": "object",
+        "description": "Onglets de la Trésorerie projet ; mêmes lignes, total identique.",
+        "properties": {
+          "projet": {
+            "type": "array",
+            "description": "Racines Encaissement / Décaissement → projet → fournisseur.",
+            "items": {
+              "$ref": "#/components/schemas/NoeudTresorerieDto"
+            }
+          },
+          "fournisseur": {
+            "type": "array",
+            "description": "Racines Encaissement / Décaissement → fournisseur, sans niveau projet.",
+            "items": {
+              "$ref": "#/components/schemas/NoeudTresorerieDto"
+            }
+          }
+        }
+      },
+      "ProjetChoixDto": {
+        "type": "object",
+        "description": "Projet proposé au sélecteur d'un tableau de bord : projets habilités de la société.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du projet (PrjProject.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du projet (PrjProject.Code)."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé du projet (PrjProject.Description)."
+          }
+        }
+      },
+      "TresorerieProjetDto": {
+        "type": "object",
+        "description": "Trésorerie projet d'une année civile : arbre mensuel des prévisions, onglets Projet et Fournisseur.",
+        "properties": {
+          "annee": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Année civile affichée.",
+            "example": 2026
+          },
+          "projets": {
+            "type": "array",
+            "description": "Projets proposés au sélecteur : projets habilités de la société.",
+            "items": {
+              "$ref": "#/components/schemas/ProjetChoixDto"
+            }
+          },
+          "mois": {
+            "type": "array",
+            "description": "Libellés des 12 mois, janvier en premier.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "onglets": {
+            "$ref": "#/components/schemas/OngletsTresorerieDto",
+            "description": "Les deux onglets de l'arbre."
+          }
+        }
+      },
+      "LigneCelluleTresorerieDto": {
+        "type": "object",
+        "description": "Ligne source d'une cellule de la Trésorerie projet (prévision de lot ou reste d'une facture).",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date retenue : aujourd'hui si la ligne est reportée, sinon la date d'origine."
+          },
+          "dateOrigine": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'origine (PaymentDate du lot, MaturityDate de la facture)."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé de la ligne (lot ou pièce)."
+          },
+          "groupe": {
+            "type": "string",
+            "description": "Groupe : fournisseur, sinon description du lot ou du fournisseur saisi."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant compté dans la cellule (après ventilation)."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type de source.",
+            "example": "PrjMarketPrevision"
+          },
+          "reporte": {
+            "type": "boolean",
+            "description": "true si la date d'origine est passée et la ligne reportée à aujourd'hui."
+          },
+          "objetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la source (PrjMarketPaymentPrevision.PKey ou BuyDocument.PKey)."
+          },
+          "objetNamespace": {
+            "type": "string",
+            "description": "Espace de nom de la source, pour ouvrir sa fiche."
+          }
+        }
+      },
       "StatutCibleJourTravailleDto": {
         "type": "object",
         "description": "Statut d'arrivée de la transition (StrStatus du jour travaillé).",
@@ -82674,6 +83223,92 @@
             "description": "Lots du projet (PrjMarket.PrjProjectId), choix du gestionnaire du compte prorata.",
             "items": {
               "$ref": "#/components/schemas/ReferentielItemDto"
+            }
+          }
+        }
+      },
+      "BilanProjetDto": {
+        "type": "object",
+        "description": "Bilan des projets demandés : arbre des catégories de dépenses × 8 colonnes, avec écart.",
+        "properties": {
+          "colonnes": {
+            "type": "array",
+            "description": "Les 8 colonnes, dans l'ordre d'affichage.",
+            "items": {
+              "$ref": "#/components/schemas/ColonneBilanDto"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Catégories racines ; une catégorie nulle avec tous ses descendants est masquée.",
+            "items": {
+              "$ref": "#/components/schemas/NoeudBilanDto"
+            }
+          },
+          "ecart1": {
+            "type": "string",
+            "description": "Code de la colonne 1 de l'écart, tel que reçu ; null si absent."
+          },
+          "ecart2": {
+            "type": "string",
+            "description": "Code de la colonne 2 de l'écart, tel que reçu ; null si absent."
+          },
+          "ttc": {
+            "type": "boolean",
+            "description": "true : montants TTC ; false : HT."
+          }
+        }
+      },
+      "ColonneBilanDto": {
+        "type": "object",
+        "description": "Colonne du Bilan projet (8, ordre fixe).",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code de la colonne, clé de `valeurs` et valeur de colonne1 / colonne2.",
+            "example": "etudeFaisabilite"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé affiché (celui d'OMRAN).",
+            "example": "ÉTUDE DE FAISABILITÉ"
+          }
+        }
+      },
+      "NoeudBilanDto": {
+        "type": "object",
+        "description": "Catégorie de dépense du Bilan projet ; un parent cumule sa catégorie et ses descendants.",
+        "properties": {
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (StlCategory.PKey)."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé (StlCategory.Description)."
+          },
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Profondeur, 0 pour les racines."
+          },
+          "valeurs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Montant par code de colonne (les 8 codes), HT ou TTC selon `ttc`."
+          },
+          "ecart": {
+            "type": "number",
+            "description": "colonne1 − colonne2 ; 0 si l'une des deux manque."
+          },
+          "enfants": {
+            "type": "array",
+            "description": "Sous-catégories non nulles, tri Sorting puis Description.",
+            "items": {
+              "$ref": "#/components/schemas/NoeudBilanDto"
             }
           }
         }

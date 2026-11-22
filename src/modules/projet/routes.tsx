@@ -14,7 +14,9 @@ const ModificationsProjetList = lazy(() => import('../../pages/projet/Modificati
 const PrevisionsProjet = lazy(() => import('../../pages/projet/PrevisionsProjet'));
 const ReferentielProjetPage = lazy(() => import('../../pages/projet/config/ReferentielProjetPage'));
 const DepensesProjet = lazy(() => import('../../pages/projet/DepensesProjet'));
-const DepensesProjetListe = lazy(() => import('../../pages/projet/DepensesProjetListe'));
+const TresorerieProjet = lazy(() => import('../../pages/projet/TresorerieProjet'));
+const BilansProjet = lazy(() => import('../../pages/projet/BilansProjet'));
+const DepensesProjetListe =lazy(() => import('../../pages/projet/DepensesProjetListe'));
 const DecaissementsList = lazy(() => import('../../pages/tresorerie/DecaissementsList'));
 const AffectationsList = lazy(() => import('../../pages/tresorerie/AffectationsList'));
 const RecettesList = lazy(() => import('../../pages/tresorerie/RecettesList'));
@@ -42,6 +44,8 @@ const projet: ModuleApp = {
     { path: '/projet/previsions', element: <PrevisionsProjet /> },
     { path: '/projet/travaux-chantier/:id?', element: <TravauxChantierList /> },
     { path: '/projet/modifications/:id?', element: <ModificationsProjetList /> },
+    { path: '/projet/tresorerie', element: <TresorerieProjet /> },
+    { path: '/projet/bilans', element: <BilansProjet /> },
     { path: '/projet/depenses', element: <DepensesProjet /> },
     { path: '/projet/depenses/factures/:id?', element: <DepensesProjetListe nature="factures" /> },
     { path: '/projet/depenses/documents-a-regler/:id?', element: <DepensesProjetListe nature="documents-a-regler" /> },

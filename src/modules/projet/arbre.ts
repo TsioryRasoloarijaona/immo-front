@@ -1,6 +1,6 @@
 import {
-  AlertCircle, Banknote, CalendarClock, CircleCheck, ClipboardCheck, ClipboardList, Coins, FileText, Hammer, HardHat, LineChart, Link2,
-  ListChecks, ListTodo, PackageCheck, Palette, PencilRuler, Receipt, Shapes, Tags, Undo2, Users, Wallet,
+  AlertCircle, Banknote, CalendarClock, CircleCheck, ClipboardCheck, ClipboardList, Coins, FileText, Hammer, HardHat, Landmark, LineChart, Link2,
+  ListChecks, ListTodo, PackageCheck, Palette, PencilRuler, Receipt, Scale, Shapes, Tags, Undo2, Users, Wallet,
 } from 'lucide-react';
 import { estAdministrateur } from '../../lib/roles';
 import type { ArbreModule } from '../arbre';
@@ -31,6 +31,14 @@ export const arbreProjet: ArbreModule = ({ user }) => [
       { to: '/projet/depenses/impayes', libelle: 'Impayés', Icone: AlertCircle, couleur: COULEUR },
       { to: '/projet/depenses/decaissements', libelle: 'Décaissements', Icone: Banknote, couleur: COULEUR },
       { to: '/projet/depenses/affectations', libelle: 'Affectations', Icone: Link2, couleur: COULEUR },
+    ],
+  },
+  {
+    cle: 'tableaux-de-bord',
+    titre: 'Tableaux de bord',
+    entrees: [
+      { to: '/projet/tresorerie', libelle: 'Trésorerie', Icone: Landmark, couleur: COULEUR },
+      { to: '/projet/bilans', libelle: 'Bilans', Icone: Scale, couleur: COULEUR },
     ],
   },
   {
