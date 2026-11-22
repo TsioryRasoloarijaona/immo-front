@@ -19,7 +19,7 @@ const NATURE = 'Décaissement';
 
 const option = (id: string, libelle: string | null | undefined) => ({ value: id, label: libelle ?? '—' });
 
-function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui, onFermer }: Readonly<{
+function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui, onFermer, onCree }: Readonly<{
   module: ModuleTresorerie;
   referentiels: ReferentielsDecaissementDto;
   fiche: DecaissementFicheDto | null;
@@ -27,6 +27,7 @@ function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui,
   banques: { id: string; description?: string }[];
   tiersAutrui: { id: string; description?: string }[];
   onFermer: () => void;
+  onCree: (id: UUID) => void;
 }>) {
   const [b, setB] = useState<SaisieDecaissementDto>(
     () => fiche?.saisie ?? brouillonVide(ref.societes.length === 1 ? ref.societes[0].id : null),
@@ -55,10 +56,12 @@ function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui,
     setEnCours(true);
     try {
       const requete = versRequete(b, id ? null : module);
-      await (id ? modifierDecaissement(id, requete) : creerDecaissement(requete));
+      const enregistre = await (id ? modifierDecaissement(id, requete) : creerDecaissement(requete));
       oublierLecturesRecentes();
       refetchAllApis();
       if (fermer) onFermer();
+      // Création : la saisie bascule sur le décaissement créé, sinon un second clic le dupliquerait.
+      else if (!id) onCree(enregistre.decaissement.id);
     } catch (err) {
       oublierLecturesRecentes();
       setMessage(errorMessage(err));
@@ -102,10 +105,11 @@ function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui,
 }
 
 /** Saisie d'un décaissement : création (sans `id`) ou modification. */
-export default function FormulaireDecaissementFenetre({ module, id, onFermer }: Readonly<{
+export default function FormulaireDecaissementFenetre({ module, id, onFermer, onCree }: Readonly<{
   module: ModuleTresorerie;
   id?: UUID;
   onFermer: () => void;
+  onCree: (id: UUID) => void;
 }>) {
   const ref = useApi(() => lireReferentielsDecaissement(module), [module], `decaissement-ref-${module}`);
   const fiche = useApi(() => (id ? getDecaissement(id) : Promise.resolve(null)), [id]);
@@ -131,6 +135,7 @@ export default function FormulaireDecaissementFenetre({ module, id, onFermer }: 
       banques={banques.data}
       tiersAutrui={autrui.data ?? []}
       onFermer={onFermer}
+      onCree={onCree}
     />
   );
 }
