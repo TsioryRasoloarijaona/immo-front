@@ -51868,6 +51868,10 @@
             "type": "integer",
             "format": "int32",
             "description": "Nombre de lignes d'affectation masquées (pièce d'un projet ou d'une société non habilités)."
+          },
+          "saisie": {
+            "$ref": "#/components/schemas/SaisieDecaissementDto",
+            "description": "Corps qu'un PUT renverrait tel quel : lignes visibles seulement, module nul s'il est inconnu."
           }
         }
       },
