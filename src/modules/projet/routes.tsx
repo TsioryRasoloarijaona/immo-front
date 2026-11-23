@@ -26,6 +26,8 @@ const StatutsLotList = lazy(() => import('../../pages/projet/config/StatutsLotLi
 const ModelesSimulationList = lazy(() => import('../../pages/projet/config/ModelesSimulationList'));
 const ModelesPlanificationList = lazy(() => import('../../pages/projet/config/ModelesPlanificationList'));
 const PlanificationEditeur = lazy(() => import('../../pages/projet/PlanificationEditeur'));
+const ListeRapports = lazy(() => import('../../pages/rapports/ListeRapports'));
+const Rapport = lazy(() => import('../../pages/rapports/Rapport'));
 
 const projet: ModuleApp = {
   slug: 'projet',
@@ -46,6 +48,8 @@ const projet: ModuleApp = {
     { path: '/projet/modifications/:id?', element: <ModificationsProjetList /> },
     { path: '/projet/tresorerie', element: <TresorerieProjet /> },
     { path: '/projet/bilans', element: <BilansProjet /> },
+    { path: '/projet/rapports', element: <ListeRapports module="projet" /> },
+    { path: '/projet/rapports/:code', element: <Rapport module="projet" /> },
     { path: '/projet/depenses', element: <DepensesProjet /> },
     { path: '/projet/depenses/factures/:id?', element: <DepensesProjetListe nature="factures" /> },
     { path: '/projet/depenses/documents-a-regler/:id?', element: <DepensesProjetListe nature="documents-a-regler" /> },

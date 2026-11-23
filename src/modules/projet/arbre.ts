@@ -1,5 +1,5 @@
 import {
-  AlertCircle, Banknote, CalendarClock, CircleCheck, ClipboardCheck, ClipboardList, Coins, FileText, Hammer, HardHat, Landmark, LineChart, Link2,
+  AlertCircle, Banknote, CalendarClock, CircleCheck, ClipboardCheck, ClipboardList, Coins, FileBarChart, FileText, Hammer, HardHat, Landmark, LineChart, Link2,
   ListChecks, ListTodo, PackageCheck, Palette, PencilRuler, Receipt, Scale, Shapes, Tags, Undo2, Users, Wallet,
 } from 'lucide-react';
 import { estAdministrateur } from '../../lib/roles';
@@ -39,6 +39,7 @@ export const arbreProjet: ArbreModule = ({ user }) => [
     entrees: [
       { to: '/projet/tresorerie', libelle: 'Trésorerie', Icone: Landmark, couleur: COULEUR },
       { to: '/projet/bilans', libelle: 'Bilans', Icone: Scale, couleur: COULEUR },
+      { to: '/projet/rapports', libelle: 'Rapports', Icone: FileBarChart, couleur: COULEUR },
     ],
   },
   {

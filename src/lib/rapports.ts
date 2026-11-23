@@ -10,6 +10,7 @@ const CHEMINS_RAPPORTS: Record<ModuleRapport, string> = {
   patrimoine: '/patrimoine-rapports',
   achat: '/achat/rapports',
   administration: '/administration/rapports',
+  projet: '/projet/rapports',
 };
 
 export const cheminRapports = (module: ModuleRapport) => CHEMINS_RAPPORTS[module];
