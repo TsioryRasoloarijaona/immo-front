@@ -6,13 +6,13 @@ import EtatReglement from '../../components/tresorerie/EtatReglement';
 import FicheDecaissementFenetre from '../../components/tresorerie/FicheDecaissementFenetre';
 import FormulaireDecaissementFenetre from '../../components/tresorerie/FormulaireDecaissementFenetre';
 import PageTresorerie from '../../components/tresorerie/PageTresorerie';
-import { getDecaissements, lireReferentielsDecaissement, supprimerDecaissement } from '../../lib/apiTresorerie';
+import { copierDecaissement, getDecaissements, lireReferentielsDecaissement, supprimerDecaissement } from '../../lib/apiTresorerie';
 import { useConfirm } from '../../lib/confirmContext';
 import { voisinsDe } from '../../lib/fenetreFiche';
 import { useToast } from '../../lib/toastContext';
 import { accesRefuse, libelleStatutTresorerie, useFiltresTresorerie } from '../../lib/tresorerie';
 import { errorMessage, refetchAllApis, useApi } from '../../lib/useApi';
-import type { DecaissementLigneDto, ModuleTresorerie } from '../../types/tresorerie';
+import type { DecaissementLigneDto, ModuleTresorerie, SaisieDecaissementDto } from '../../types/tresorerie';
 
 const COLONNES: ColonneGrille<DecaissementLigneDto>[] = [
   { nom: 'code', libelle: 'N° règlement', largeur: 9, classe: 'font-medium text-foreground' },
@@ -56,6 +56,8 @@ export default function DecaissementsList({ module }: Readonly<{ module: ModuleT
   const droits = referentiels.data?.droits;
   const [selectionne, setSelectionne] = useState<string | null>(null);
   const [edition, setEdition] = useState<string | null>(null);
+  const [copie, setCopie] = useState<SaisieDecaissementDto | null>(null);
+  const [copieEnCours, setCopieEnCours] = useState(false);
   const ligne = lignes.find((l) => l.id === selectionne);
 
   async function supprimer() {
@@ -69,13 +71,30 @@ export default function DecaissementsList({ module }: Readonly<{ module: ModuleT
     }
   }
 
+  async function copier() {
+    if (!ligne) return;
+    setCopieEnCours(true);
+    try {
+      setCopie(await copierDecaissement(ligne.id));
+    } catch (err) {
+      showToast({ texte: errorMessage(err), variante: 'erreur' });
+    } finally {
+      setCopieEnCours(false);
+    }
+  }
+
   const actions: ActionOutil[] = [
-    ...(droits?.peutCreer ? [{ id: 'modifier' as const, onClick: () => setEdition(ligne?.id ?? null) }] : []),
+    ...(droits?.peutCreer
+      ? [
+          { id: 'modifier' as const, onClick: () => setEdition(ligne?.id ?? null) },
+          { id: 'dupliquer' as const, disabled: copieEnCours, onClick: () => void copier() },
+        ]
+      : []),
     ...(droits?.peutSupprimer ? [{ id: 'supprimer' as const, onClick: () => void supprimer() }] : []),
     { id: 'rafraichir', onClick: () => void liste.refetch() },
   ];
   const creation = id === NOUVEAU;
-  const formulaire = creation || edition;
+  const formulaire = creation || edition || copie;
 
   return (
     <PageTresorerie
@@ -103,11 +122,12 @@ export default function DecaissementsList({ module }: Readonly<{ module: ModuleT
       fiche={
         formulaire ? (
           <FormulaireDecaissementFenetre
-            key={creation ? NOUVEAU : edition ?? undefined}
+            key={creation ? NOUVEAU : edition ?? 'copie'}
             module={module}
             id={creation ? undefined : edition ?? undefined}
-            onFermer={() => { setEdition(null); if (creation) void navigate(racine); }}
-            onCree={(nouveau) => { setEdition(nouveau); void navigate(racine); }}
+            initial={creation || edition ? undefined : copie ?? undefined}
+            onFermer={() => { setEdition(null); setCopie(null); if (creation) void navigate(racine); }}
+            onCree={(nouveau) => { setCopie(null); setEdition(nouveau); void navigate(racine); }}
           />
         ) : id && (
           <FicheDecaissementFenetre
