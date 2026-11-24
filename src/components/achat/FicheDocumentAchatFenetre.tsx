@@ -10,6 +10,7 @@ import { Badge, EmptyState, ErrorState, LoadingState } from '../ui';
 import { Button } from '../ui/button';
 import BarreActionsPieceAchat from './BarreActionsPieceAchat';
 import BlocRetenuesAvances from './BlocRetenuesAvances';
+import BoutonReglerPiece from './BoutonReglerPiece';
 import FormulairePieceAchatFenetre from './FormulairePieceAchatFenetre';
 import {
   HistoriqueDocumentAchat,
@@ -112,7 +113,7 @@ function CorpsDocument({ d, onOuvrir, onChange, onFermer, onModifier }: Readonly
               titre: 'Montants',
               contenu: (
                 <div className="grid grid-cols-2 gap-4">
-                  <MontantsDocumentAchat d={d} />
+                  <MontantsDocumentAchat d={d} actionRegler={<BoutonReglerPiece pieceId={d.id} />} />
                   <BlocRetenuesAvances r={d.retenuesAvances} />
                 </div>
               ),

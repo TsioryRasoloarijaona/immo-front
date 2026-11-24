@@ -19,10 +19,11 @@ const NATURE = 'Décaissement';
 
 const option = (id: string, libelle: string | null | undefined) => ({ value: id, label: libelle ?? '—' });
 
-function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui, onFermer, onCree }: Readonly<{
+function Saisie({ module, referentiels: ref, fiche, initial, tiers, banques, tiersAutrui, onFermer, onCree }: Readonly<{
   module: ModuleTresorerie;
   referentiels: ReferentielsDecaissementDto;
   fiche: DecaissementFicheDto | null;
+  initial?: SaisieDecaissementDto;
   tiers: { id: string; nom: string | null }[];
   banques: { id: string; description?: string }[];
   tiersAutrui: { id: string; description?: string }[];
@@ -30,7 +31,7 @@ function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui,
   onCree: (id: UUID) => void;
 }>) {
   const [b, setB] = useState<SaisieDecaissementDto>(
-    () => fiche?.saisie ?? brouillonVide(ref.societes.length === 1 ? ref.societes[0].id : null),
+    () => fiche?.saisie ?? initial ?? brouillonVide(ref.societes.length === 1 ? ref.societes[0].id : null),
   );
   const [masquee] = useState(() => (fiche ? partMasquee(fiche.decaissement.montantAffecte, fiche.saisie.lignes) : 0));
   const [message, setMessage] = useState<string | null>(null);
@@ -105,9 +106,11 @@ function Saisie({ module, referentiels: ref, fiche, tiers, banques, tiersAutrui,
 }
 
 /** Saisie d'un décaissement : création (sans `id`) ou modification. */
-export default function FormulaireDecaissementFenetre({ module, id, onFermer, onCree }: Readonly<{
+export default function FormulaireDecaissementFenetre({ module, id, initial, onFermer, onCree }: Readonly<{
   module: ModuleTresorerie;
   id?: UUID;
+  /** Création préremplie (copie ou proposition de règlement). */
+  initial?: SaisieDecaissementDto;
   onFermer: () => void;
   onCree: (id: UUID) => void;
 }>) {
@@ -131,6 +134,7 @@ export default function FormulaireDecaissementFenetre({ module, id, onFermer, on
       module={module}
       referentiels={ref.data}
       fiche={fiche.data}
+      initial={initial}
       tiers={achat.data.fournisseurs}
       banques={banques.data}
       tiersAutrui={autrui.data ?? []}

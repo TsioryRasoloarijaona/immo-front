@@ -178,11 +178,12 @@ export function HistoriqueDocumentAchat({ d }: Readonly<{ d: DocumentAchatDetail
   );
 }
 
-function LigneMontant({ libelle, valeur, fort, alerte }: Readonly<{ libelle: string; valeur: number | null; fort?: boolean; alerte?: boolean }>) {
+function LigneMontant({ libelle, valeur, fort, alerte, action }: Readonly<{ libelle: string; valeur: number | null; fort?: boolean; alerte?: boolean; action?: ReactNode }>) {
   return (
     <tr>
       <th scope="row" className="py-1 pr-2 text-left text-body font-normal text-muted-foreground">
         {libelle}
+        {action}
       </th>
       <td className={`whitespace-nowrap py-1 text-right tabular-nums ${fort ? 'text-label font-semibold' : 'text-body'} ${alerte ? 'text-destructive' : 'text-foreground'}`}>
         {formatCurrency(valeur)}
@@ -191,7 +192,7 @@ function LigneMontant({ libelle, valeur, fort, alerte }: Readonly<{ libelle: str
   );
 }
 
-export function MontantsDocumentAchat({ d }: Readonly<{ d: DocumentAchatDetailDto }>) {
+export function MontantsDocumentAchat({ d, actionRegler }: Readonly<{ d: DocumentAchatDetailDto; actionRegler?: ReactNode }>) {
   return (
     <table className="w-full text-body">
       <tbody>
@@ -203,7 +204,7 @@ export function MontantsDocumentAchat({ d }: Readonly<{ d: DocumentAchatDetailDt
         <LigneMontant libelle="Avoirs" valeur={d.avoirsMontant} />
         <LigneMontant libelle="Net" valeur={d.montantAPayer} fort />
         <LigneMontant libelle="Réglé" valeur={d.montantRegle} />
-        <LigneMontant libelle="Reste à régler" valeur={d.resteARegler} fort alerte={d.resteARegler > 0} />
+        <LigneMontant libelle="Reste à régler" valeur={d.resteARegler} fort alerte={d.resteARegler > 0} action={actionRegler} />
       </tbody>
     </table>
   );

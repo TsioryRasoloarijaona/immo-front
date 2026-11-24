@@ -59,7 +59,7 @@ export interface DefinitionOutil {
 export const OUTILS: DefinitionOutil[] = [
   { id: 'nouveau', libelle: 'Nouveau', icone: Plus, raccourci: 'Inser', groupe: 0 },
   { id: 'modifier', libelle: 'Ouvrir / modifier', icone: Pencil, raccourci: 'Entrée', sel: true, groupe: 0 },
-  { id: 'dupliquer', libelle: 'Dupliquer', icone: Copy, sel: true, groupe: 0 },
+  { id: 'dupliquer', libelle: 'Copier', icone: Copy, sel: true, groupe: 0 },
   { id: 'supprimer', libelle: 'Supprimer', icone: Trash2, raccourci: 'Suppr', famille: 'suppr', sel: true, groupe: 0 },
   { id: 'premier', libelle: 'Premier', icone: ChevronsLeft, raccourci: 'Début', groupe: 1 },
   { id: 'precedent', libelle: 'Précédent', icone: ChevronLeft, raccourci: '↑', groupe: 1 },
@@ -74,7 +74,7 @@ export const OUTILS: DefinitionOutil[] = [
 ];
 
 /** Affichés d'emblée ; « Nouveau » s'y ajoute en tête quand la page le fournit. */
-export const OUTILS_DEFAUT: IdOutil[] = ['supprimer', 'rafraichir', 'exporter', 'imprimer'];
+export const OUTILS_DEFAUT: IdOutil[] = ['dupliquer', 'supprimer', 'rafraichir', 'exporter', 'imprimer'];
 
 const PREFIXE = 'arpent.liste.v1.';
 
