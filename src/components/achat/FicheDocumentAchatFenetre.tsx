@@ -113,7 +113,7 @@ function CorpsDocument({ d, onOuvrir, onChange, onFermer, onModifier }: Readonly
               titre: 'Montants',
               contenu: (
                 <div className="grid grid-cols-2 gap-4">
-                  <MontantsDocumentAchat d={d} actionRegler={<BoutonReglerPiece pieceId={d.id} resteARegler={d.resteARegler} />} />
+                  <MontantsDocumentAchat d={d} actionRegler={<BoutonReglerPiece pieceId={d.id} />} />
                   <BlocRetenuesAvances r={d.retenuesAvances} />
                 </div>
               ),

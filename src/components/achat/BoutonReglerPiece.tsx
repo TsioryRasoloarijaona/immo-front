@@ -9,17 +9,21 @@ import type { UUID } from '../../types';
 import type { SaisieDecaissementDto } from '../../types/tresorerie';
 
 /** Icône « Régler cette pièce » : ouvre un décaissement prérempli ; le refus du serveur s'affiche tel quel. */
-export default function BoutonReglerPiece({ pieceId, resteARegler }: Readonly<{ pieceId: UUID; resteARegler: number }>) {
-  const droits = useApi(() => lireReferentielsDecaissement('BUY'), ['BUY'], 'decaissement-ref-BUY').data?.droits;
+export default function BoutonReglerPiece({ pieceId }: Readonly<{ pieceId: UUID }>) {
+  const droitsPrj = useApi(() => lireReferentielsDecaissement('PRJ'), ['PRJ'], 'decaissement-ref-PRJ').data?.droits;
+  const droitsBuy = useApi(() => lireReferentielsDecaissement('BUY'), ['BUY'], 'decaissement-ref-BUY').data?.droits;
   const showToast = useToast();
   const [proposition, setProposition] = useState<SaisieDecaissementDto | null>(null);
   const [enCours, setEnCours] = useState(false);
-  if (!droits?.peutCreer || resteARegler <= 0) return null;
+  if (!droitsPrj?.peutCreer && !droitsBuy?.peutCreer) return null;
 
   async function regler() {
     setEnCours(true);
     try {
-      setProposition(await proposerDecaissement(pieceId));
+      const p = await proposerDecaissement(pieceId);
+      const parModule = { PRJ: droitsPrj, BUY: droitsBuy };
+      if (p.module && parModule[p.module]?.peutCreer) setProposition(p);
+      else showToast({ texte: "Cette pièce ne peut pas être réglée par un décaissement.", variante: 'erreur' });
     } catch (err) {
       showToast({ texte: errorMessage(err), variante: 'erreur' });
     } finally {
@@ -39,10 +43,10 @@ export default function BoutonReglerPiece({ pieceId, resteARegler }: Readonly<{ 
       >
         <HandCoins aria-hidden className="size-4" />
       </button>
-      {proposition &&
+      {proposition?.module &&
         createPortal(
           <FormulaireDecaissementFenetre
-            module="BUY"
+            module={proposition.module}
             initial={proposition}
             onFermer={() => setProposition(null)}
             onCree={() => setProposition(null)}
