@@ -3,6 +3,7 @@ import { request } from './api';
 import type { UUID } from '../types';
 import type {
   AffectationLigneDto,
+  CodeFeuilleDto,
   DecaissementFicheDto,
   DecaissementLigneDto,
   FiltresTresorerie,
@@ -76,6 +77,15 @@ export function proposerDecaissement(pieceId: UUID): Promise<SaisieDecaissementD
 /** Copie sans référence, codes ni lignes ; 404 si le règlement est invisible. */
 export function copierDecaissement(id: UUID): Promise<SaisieDecaissementDto> {
   return request('GET', `${RACINE}/decaissements/${id}/copie`);
+}
+
+// FEATURE-n3bis-b2a-retenue.md : n'enregistrent pas la fiche ; 409 si la séquence manque.
+export function genererCodeFeuillePaiement(id: UUID): Promise<CodeFeuilleDto> {
+  return request('POST', `${RACINE}/decaissements/${id}/code-feuille-paiement`);
+}
+
+export function genererCodeFeuilleRs(id: UUID): Promise<CodeFeuilleDto> {
+  return request('POST', `${RACINE}/decaissements/${id}/code-feuille-rs`);
 }
 
 export function getRecettes(vue: VueRecette, filtres: FiltresTresorerie): Promise<RecettesDto> {

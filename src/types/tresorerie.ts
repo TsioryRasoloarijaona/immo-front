@@ -192,6 +192,45 @@ export interface SaisieDecaissementDto {
   codeFeuilleRs?: string | null;
   /** PUT : remplace les lignes visibles ; les masquées sont gardées. */
   lignes: LigneSaisieDecaissementDto[];
+  // FEATURE-n3bis-b2a-retenue.md §5 : absent = lignes gardées (PUT) ou ligne du fournisseur (POST) ; [] = aucune.
+  retenues?: LigneRetenueDto[] | null;
+  rsDeclaree?: boolean | null;
+  /** Mise à null par le serveur si rsDeclaree est faux. */
+  dateDeclarationRs?: string | null;
+  /** Sortie seule : net (Amount) = montant − montantRs. */
+  montantNet?: number | null;
+  /** Sortie seule : Σ des retenues (AmountRS). */
+  montantRs?: number | null;
+  /** Sortie seule : fraction (0.1 = 10 %). */
+  tauxRs?: number | null;
+}
+
+/** Ligne de retenue à la source ; seul `taux` ou `montantRs` pilote la ligne. */
+export interface LigneRetenueDto {
+  /** Ignoré en entrée, rendu en sortie. */
+  id?: UUID | null;
+  typeRetenueId: UUID | null;
+  base: number;
+  /** Fraction (0.1 = 10 %). */
+  taux?: number | null;
+  montantRs?: number | null;
+  /** Sortie seule : base − montantRs. */
+  montantNet?: number | null;
+  notes?: string | null;
+}
+
+export interface TypeRetenueDto {
+  id: UUID;
+  code: string | null;
+  libelle: string | null;
+  /** Fraction (RASValue). */
+  taux: number | null;
+  /** null ou −1 = toutes les années ; filtrer sur l'année de la date pièce. */
+  anneeRas: number | null;
+}
+
+export interface CodeFeuilleDto {
+  code: string | null;
 }
 
 export interface TypeDecaissementDto {
@@ -233,6 +272,9 @@ export interface ReferentielsDecaissementDto {
   devise: string | null;
   statuts: string[];
   droits: DroitsDecaissementDto;
+  typesRetenue: TypeRetenueDto[];
+  /** ManageRS : faux = onglet des retenues masqué. */
+  gestionRs: boolean;
 }
 
 export interface PieceAAffecterDto {
