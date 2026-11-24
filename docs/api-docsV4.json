@@ -28656,6 +28656,46 @@
         }
       }
     },
+    "/api/tresorerie/decaissements/{id}/copie": {
+      "get": {
+        "tags": [
+          "Trésorerie"
+        ],
+        "summary": "Copie d'un décaissement visible (non enregistrée)",
+        "description": "« Copier » d'OMRAN : rend la saisie d'un règlement visible, **non enregistrée**, avec tous ses champs (statut et date de\npointage compris) sauf la référence, le code reçu et les codes P.P / C.R.A.S, vidés, et **sans aucune ligne\nd'affectation**. Permise sur un règlement de virement interne. L'utilisateur l'enregistre par `POST /decaissements`.",
+        "operationId": "copie",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "StlSettlement.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saisie copiée, à enregistrer par POST /decaissements.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaisieDecaissementDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit OMRAN de l'écran ou de l'action absent."
+          },
+          "404": {
+            "description": "Règlement inconnu ou invisible."
+          }
+        }
+      }
+    },
     "/api/tresorerie/decaissements/referentiels": {
       "get": {
         "tags": [
@@ -28700,13 +28740,56 @@
         }
       }
     },
+    "/api/tresorerie/decaissements/proposition": {
+      "get": {
+        "tags": [
+          "Trésorerie"
+        ],
+        "summary": "Décaissement prérempli depuis une pièce d'achat (non enregistré)",
+        "description": "« Générer à partir de » d'OMRAN : rend un décaissement **prérempli, non enregistré**, à partir d'une pièce d'achat (facture\nou pièce à payer). Module, société, fournisseur (= payeur) et devise sont ceux de la pièce ; une seule ligne\n`{pieceId, montant = reste à payer}` et `montant` = ce reste ; date pièce = date d'échéance = aujourd'hui ; statut `IN_WORK` ;\ntype, compte, référence et pointage vides. Une pièce soldée n'est pas refusée : la ligne vaut le reste (0 ou négatif) et\nl'enregistrement la refusera. L'utilisateur complète la fiche puis l'enregistre par `POST /decaissements`.",
+        "operationId": "proposition",
+        "parameters": [
+          {
+            "name": "pieceId",
+            "in": "query",
+            "description": "Pièce d'achat à régler (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Saisie préremplie, à enregistrer par POST /decaissements.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaisieDecaissementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Pièce non validée pour paiement (statut sans IsOkForPayement)."
+          },
+          "403": {
+            "description": "Droit OMRAN de l'écran ou de l'action absent."
+          },
+          "404": {
+            "description": "Pièce d'achat inconnue ou invisible."
+          }
+        }
+      }
+    },
     "/api/tresorerie/decaissements/pieces-a-affecter": {
       "get": {
         "tags": [
           "Trésorerie"
         ],
         "summary": "Pièces d'achat affectables à un décaissement",
-        "description": "Pièces d'achat (`BuyDocument`) du module, du fournisseur et de la société, visibles par le compte connecté, dont le\nreste à payer est > 0. `regle` exclut les règlements annulés et, avec `reglementId`, les lignes de ce règlement (cas de la\nmodification).",
+        "description": "Pièces d'achat (`BuyDocument`) du module, du fournisseur et de la société, visibles par le compte connecté, dont le\nreste à payer est > 0 et dont le statut est validé pour paiement (`BuyDocumentStatus.IsOkForPayement = 1`, comme le\nsélecteur OMRAN). `regle` exclut les règlements annulés et, avec `reglementId`, les lignes de ce règlement (cas de la\nmodification).",
         "operationId": "piecesAAffecter",
         "parameters": [
           {

@@ -67,6 +67,17 @@ export function listerPiecesAAffecter(
   });
 }
 
+// FEATURE-n3bis-b1-reglements.md : saisies préremplies, non enregistrées (le POST existant enregistre).
+/** 400 : pièce non validée pour paiement ; 404 : pièce inconnue ou invisible. */
+export function proposerDecaissement(pieceId: UUID): Promise<SaisieDecaissementDto> {
+  return request('GET', `${RACINE}/decaissements/proposition`, { query: { pieceId } });
+}
+
+/** Copie sans référence, codes ni lignes ; 404 si le règlement est invisible. */
+export function copierDecaissement(id: UUID): Promise<SaisieDecaissementDto> {
+  return request('GET', `${RACINE}/decaissements/${id}/copie`);
+}
+
 export function getRecettes(vue: VueRecette, filtres: FiltresTresorerie): Promise<RecettesDto> {
   return request('GET', `${RACINE}/recettes/${vue}`, { query: { ...filtres } });
 }
