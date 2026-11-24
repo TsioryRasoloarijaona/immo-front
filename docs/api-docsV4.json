@@ -7692,7 +7692,7 @@
           "Trésorerie"
         ],
         "summary": "Créer un décaissement et ses affectations",
-        "description": "Crée un règlement débit (`IsCredit = 0`) du module PRJ ou BUY et ses affectations aux pièces d'achat\n(`StlSettlementLine.BuyDocumentId`). Exige la lecture de l'écran et `toolNew`. Ordre des refus : 404 (société, fournisseur,\ncompte ou pièce inconnus ou invisibles) → 403 → 400 → 409. Montant du règlement > 0 ; `Amount = AmountBase`, sans retenue à\nla source ni timbre. Une ligne d'historique `StlSettlementHistory` est écrite. Refus 400, messages OMRAN : aucune ligne\nsans `CanSaveWithoutAffectation` (R-a), Σ lignes > montant (R-b), ligne à 0 (R-c), devise de pièce différente (R-d), date\nde pointage sans compte (R-e), échéance < date pièce (R-f), pointage sans statut POINTED (R-g), POINTED sans pointage\n(R-h), référence / notaire / compte obligatoires selon le type (R-k), statut CANCELED, pièce d'un autre fournisseur, pièce\nrépétée, compte d'une autre société, ligne > reste à payer de la pièce. 409 : référence déjà utilisée pour un type à\nréférence unique (même type, sens et compte, R-l) ; pointage à une date ≤ dernier rapprochement du compte (R-i, message\n« dernier » corrigé de l'OMRAN « dérnier »).",
+        "description": "Crée un règlement débit (`IsCredit = 0`) du module PRJ ou BUY et ses affectations aux pièces d'achat\n(`StlSettlementLine.BuyDocumentId`). Exige la lecture de l'écran et `toolNew`. Ordre des refus : 404 (société, fournisseur,\ncompte ou pièce inconnus ou invisibles) → 403 → 400 → 409. Montant brut du règlement (`AmountBase`) > 0 ; retenues à la\nsource (`retenues`, lignes `StlDeduction`) : `AmountRS` = Σ des lignes, net `Amount = AmountBase − AmountRS`, `RsRatio =\nAmountRS / AmountBase` (0 si brut nul) ; pas de timbre. `retenues` absent et `ManageRS = 1` : une ligne automatique du\nfournisseur (`CfgTier.RsRatio ≠ 0`) ; `[]` = aucune retenue. `retenues` non vide avec `ManageRS = 0` : 409 « La retenue à\nla source n'est pas activée. » ; ligne à montant retenu 0 : 400 « Vous devez corriger le montant ou supprimer la ligne ! ».\nLes codes P.P / C.R.A.S du corps sont ignorés (attribués par leurs POST). Une ligne d'historique `StlSettlementHistory`\nest écrite. Refus 400, messages OMRAN : aucune ligne\nsans `CanSaveWithoutAffectation` (R-a), Σ lignes > montant (R-b), ligne à 0 (R-c), devise de pièce différente (R-d), date\nde pointage sans compte (R-e), échéance < date pièce (R-f), pointage sans statut POINTED (R-g), POINTED sans pointage\n(R-h), référence / notaire / compte obligatoires selon le type (R-k), statut CANCELED, pièce d'un autre fournisseur, pièce\nrépétée, compte d'une autre société, ligne > reste à payer de la pièce. 409 : référence déjà utilisée pour un type à\nréférence unique (même type, sens et compte, R-l) ; pointage à une date ≤ dernier rapprochement du compte (R-i, message\n« dernier » corrigé de l'OMRAN « dérnier »).",
         "operationId": "creer_1",
         "requestBody": {
           "content": {
@@ -7726,6 +7726,92 @@
           },
           "409": {
             "description": "Référence déjà utilisée (R-l) ou pointage avant le dernier rapprochement."
+          }
+        }
+      }
+    },
+    "/api/tresorerie/decaissements/{id}/code-feuille-rs": {
+      "post": {
+        "tags": [
+          "Trésorerie"
+        ],
+        "summary": "Attribuer le code de certificat de retenue à la source (C.R.A.S)",
+        "description": "Bouton « C.R.A.S. » d'OMRAN. Même fonctionnement que le code P.P, avec la séquence `RSSheetCode` **de la société du\nrèglement** (format `aa` + 3 chiffres, ex. `26001`). **Écart à OMRAN** : société sans séquence → 409 « Aucune séquence de\ncode n'est configurée pour cette société. » (OMRAN rend un code NULL, sans erreur).",
+        "operationId": "codeFeuilleRs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "StlSettlement.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Code C.R.A.S existant, ou attribué s'il était vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeFeuilleDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit OMRAN de l'écran ou de l'action absent."
+          },
+          "404": {
+            "description": "Règlement inconnu ou invisible."
+          },
+          "409": {
+            "description": "Aucune séquence de code n'est configurée pour cette société."
+          }
+        }
+      }
+    },
+    "/api/tresorerie/decaissements/{id}/code-feuille-paiement": {
+      "post": {
+        "tags": [
+          "Trésorerie"
+        ],
+        "summary": "Attribuer le code de proposition de paiement (P.P)",
+        "description": "Bouton « P.P. » d'OMRAN. N'enregistre pas la fiche (le front l'enregistre d'abord). Si `PropositionSheetCode` est vide,\nl'attribue depuis la séquence globale de la proposition de paiement (`AdmSequence`, format `aa/00000`, ex. `26/00001`) ;\nun code existant n'est jamais réécrit et est rendu tel quel. Exige la lecture de l'écran et `toolNew` ; ordre 404 → 403.\n**Écart à OMRAN** : séquence absente → 409 « Aucune séquence de code n'est configurée. » (OMRAN laisse le code vide).",
+        "operationId": "codeFeuillePaiement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "StlSettlement.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Code P.P existant, ou attribué s'il était vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeFeuilleDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit OMRAN de l'écran ou de l'action absent."
+          },
+          "404": {
+            "description": "Règlement inconnu ou invisible."
+          },
+          "409": {
+            "description": "Aucune séquence de code n'est configurée."
           }
         }
       }
@@ -52179,6 +52265,46 @@
           }
         }
       },
+      "LigneRetenueDto": {
+        "type": "object",
+        "description": "Ligne de retenue à la source d'un décaissement (StlDeduction).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StlDeduction.PKey ; ignoré en entrée (le PUT remplace toutes les lignes), rendu en sortie."
+          },
+          "typeRetenueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de retenue (StlDeductionType.PKey)."
+          },
+          "base": {
+            "type": "number",
+            "description": "Base de la retenue (AmountBase).",
+            "example": 1000
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux en fraction (RsRatio, 0.1 = 10 %) ; ignoré si montantRs est saisi.",
+            "example": 0.1
+          },
+          "montantRs": {
+            "type": "number",
+            "description": "Montant retenu (AmountRS) ; saisi, il pilote le taux (montantRs / base).",
+            "example": 100
+          },
+          "montantNet": {
+            "type": "number",
+            "description": "Sortie seule : base − montantRs, arrondi à 2 décimales.",
+            "example": 900
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes de la ligne."
+          }
+        }
+      },
       "LigneSaisieDecaissementDto": {
         "type": "object",
         "description": "Une affectation saisie : pièce d'achat réglée et montant affecté.",
@@ -52245,7 +52371,7 @@
           },
           "montant": {
             "type": "number",
-            "description": "Montant du règlement (AmountBase = Amount), > 0.",
+            "description": "Montant brut du règlement (AmountBase), > 0 ; le net est montantNet.",
             "example": 800
           },
           "fournisseurId": {
@@ -52293,11 +52419,11 @@
           },
           "codeFeuillePaiement": {
             "type": "string",
-            "description": "Code feuille de proposition de paiement (PropositionSheetCode)."
+            "description": "Sortie seule : code P.P (PropositionSheetCode), attribué par POST …/code-feuille-paiement."
           },
           "codeFeuilleRs": {
             "type": "string",
-            "description": "Code feuille de retenue à la source (RSSheetCode)."
+            "description": "Sortie seule : code C.R.A.S (RSSheetCode), attribué par POST …/code-feuille-rs."
           },
           "lignes": {
             "type": "array",
@@ -52305,6 +52431,37 @@
             "items": {
               "$ref": "#/components/schemas/LigneSaisieDecaissementDto"
             }
+          },
+          "retenues": {
+            "type": "array",
+            "description": "Retenues ; absent = lignes gardées (PUT) ou ligne du fournisseur (POST) ; [] = aucune.",
+            "items": {
+              "$ref": "#/components/schemas/LigneRetenueDto"
+            }
+          },
+          "rsDeclaree": {
+            "type": "boolean",
+            "description": "RS déclarée (RSAmountSettled)."
+          },
+          "dateDeclarationRs": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de déclaration de la RS (RSSettlementDate) ; mise à null si rsDeclaree est faux."
+          },
+          "montantNet": {
+            "type": "number",
+            "description": "Sortie seule : net (Amount) = montant − montantRs.",
+            "example": 720
+          },
+          "montantRs": {
+            "type": "number",
+            "description": "Sortie seule : total retenu (AmountRS) = Σ des lignes de retenue.",
+            "example": 80
+          },
+          "tauxRs": {
+            "type": "number",
+            "description": "Sortie seule : montantRs / montant en fraction (RsRatio), 0 si montant nul.",
+            "example": 0.1
           }
         }
       },
@@ -61639,6 +61796,17 @@
             ],
             "description": "Adresse de destination, masquée. Adresse du corps si fournie, sinon `AdmUser.Email`, à défaut\nl'email de la fiche employé (`CfgTier`). `null` si aucun destinataire n'existe (aucun email publié).",
             "example": "j***@exemple.ma"
+          }
+        }
+      },
+      "CodeFeuilleDto": {
+        "type": "object",
+        "description": "Code de feuille attribué au décaissement (P.P ou C.R.A.S).",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code existant, ou attribué par la séquence s'il était vide.",
+            "example": "26/00001"
           }
         }
       },
@@ -76511,6 +76679,17 @@
           "droits": {
             "$ref": "#/components/schemas/DroitsDecaissementDto",
             "description": "Droits OMRAN du compte connecté sur l'écran."
+          },
+          "typesRetenue": {
+            "type": "array",
+            "description": "Types de retenue, tous avec anneeRas ; le front filtre sur l'année de la date pièce.",
+            "items": {
+              "$ref": "#/components/schemas/TypeRetenueDto"
+            }
+          },
+          "gestionRs": {
+            "type": "boolean",
+            "description": "Paramètre ManageRS : faux = onglet des retenues masqué et retenues refusées (409)."
           }
         }
       },
@@ -76569,6 +76748,34 @@
           "exclu": {
             "type": "boolean",
             "description": "IsNotContabilized : type exclu de la comptabilité."
+          }
+        }
+      },
+      "TypeRetenueDto": {
+        "type": "object",
+        "description": "Type de retenue à la source (StlDeductionType), tri par Sorting.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé du type."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux proposé en fraction (RASValue, 0.1 = 10 %).",
+            "example": 0.1
+          },
+          "anneeRas": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Année (RASYear) ; null ou −1 = toutes ; le front filtre sur l'année de la date pièce.",
+            "example": 2026
           }
         }
       },

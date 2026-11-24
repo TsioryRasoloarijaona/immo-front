@@ -1,19 +1,24 @@
 import { useState } from 'react';
-import { ListChecks, Save, SaveAll, X } from 'lucide-react';
+import { FileCheck, FileText, ListChecks, Save, SaveAll, X } from 'lucide-react';
 import BarreIcones from '../BarreIcones';
 import FenetreFiche from '../fiche/FenetreFiche';
 import { ErrorState, LoadingState } from '../ui';
 import { Button } from '../ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import ChampsDecaissement from './ChampsDecaissement';
 import DialoguePiecesAAffecter from './DialoguePiecesAAffecter';
+import OngletDeductions from './OngletDeductions';
 import { getBanques, oublierLecturesRecentes } from '../../lib/api';
 import { getReferentielsAchat } from '../../lib/apiAchat';
 import { getReferentielPatrimoine } from '../../lib/apiPatrimoine';
-import { getDecaissement, creerDecaissement, lireReferentielsDecaissement, modifierDecaissement } from '../../lib/apiTresorerie';
+import {
+  creerDecaissement, genererCodeFeuillePaiement, genererCodeFeuilleRs, getDecaissement, lireReferentielsDecaissement, modifierDecaissement,
+} from '../../lib/apiTresorerie';
+import { useToast } from '../../lib/toastContext';
 import { brouillonVide, partMasquee, verifier, versRequete } from '../../lib/saisieDecaissement';
 import { errorMessage, refetchAllApis, useApi } from '../../lib/useApi';
 import type { UUID } from '../../types';
-import type { DecaissementFicheDto, ModuleTresorerie, ReferentielsDecaissementDto, SaisieDecaissementDto } from '../../types/tresorerie';
+import type { CodeFeuilleDto, DecaissementFicheDto, ModuleTresorerie, ReferentielsDecaissementDto, SaisieDecaissementDto } from '../../types/tresorerie';
 
 const NATURE = 'Décaissement';
 
@@ -37,6 +42,7 @@ function Saisie({ module, referentiels: ref, fiche, initial, tiers, banques, tie
   const [message, setMessage] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
   const [pieces, setPieces] = useState(false);
+  const toast = useToast();
   const maj = (patch: Partial<SaisieDecaissementDto>) => setB((s) => ({ ...s, ...patch }));
   const id = fiche?.decaissement.id;
   const titre = fiche ? `Modifier le décaissement ${fiche.decaissement.code ?? ''}` : 'Nouveau décaissement';
@@ -50,7 +56,8 @@ function Saisie({ module, referentiels: ref, fiche, initial, tiers, banques, tie
     tiersAutrui: tiersAutrui.map((t) => option(t.id, t.description)),
   };
 
-  async function enregistrer(fermer: boolean) {
+  /** `apres` : appelé avec l'id enregistré (génération d'un code) avant de fermer ou de basculer. */
+  async function enregistrer(fermer: boolean, apres?: (decaissementId: UUID) => Promise<void>) {
     const erreur = verifier(b, type, masquee);
     setMessage(erreur);
     if (erreur) return;
@@ -60,6 +67,7 @@ function Saisie({ module, referentiels: ref, fiche, initial, tiers, banques, tie
       const enregistre = await (id ? modifierDecaissement(id, requete) : creerDecaissement(requete));
       oublierLecturesRecentes();
       refetchAllApis();
+      await apres?.(enregistre.decaissement.id);
       if (fermer) onFermer();
       // Création : la saisie bascule sur le décaissement créé, sinon un second clic le dupliquerait.
       else if (!id) onCree(enregistre.decaissement.id);
@@ -71,12 +79,26 @@ function Saisie({ module, referentiels: ref, fiche, initial, tiers, banques, tie
     }
   }
 
+  const genererCode = (generer: (decaissementId: UUID) => Promise<CodeFeuilleDto>, cle: 'codeFeuillePaiement' | 'codeFeuilleRs') =>
+    enregistrer(false, async (decaissementId) => {
+      try {
+        maj({ [cle]: (await generer(decaissementId)).code });
+        refetchAllApis();
+      } catch (err) {
+        toast({ texte: errorMessage(err), variante: 'erreur' });
+      }
+    });
+
   return (
     <FenetreFiche nature={NATURE} titre={titre} onFermer={onFermer} enEdition>
       <BarreIcones className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
         <Button type="button" variant="ghost" size="sm" disabled={enCours} onClick={() => void enregistrer(false)}><Save /> Enregistrer</Button>
         <Button type="button" variant="ghost" size="sm" disabled={enCours} onClick={() => void enregistrer(true)}><SaveAll /> Enregistrer et fermer</Button>
         <Button type="button" variant="ghost" size="sm" disabled={!b.fournisseurId || !b.societeId} onClick={() => setPieces(true)}><ListChecks /> Affecter des pièces</Button>
+        <Button type="button" variant="ghost" size="sm" disabled={enCours} onClick={() => void genererCode(genererCodeFeuillePaiement, 'codeFeuillePaiement')}><FileText /> P.P.</Button>
+        {ref.gestionRs && (
+          <Button type="button" variant="ghost" size="sm" disabled={enCours} onClick={() => void genererCode(genererCodeFeuilleRs, 'codeFeuilleRs')}><FileCheck /> C.R.A.S.</Button>
+        )}
         <Button type="button" variant="ghost" size="sm" onClick={onFermer}><X /> Annuler</Button>
         {message && <span role="alert" className="ml-2 text-body text-destructive">{message}</span>}
       </BarreIcones>
@@ -86,9 +108,16 @@ function Saisie({ module, referentiels: ref, fiche, initial, tiers, banques, tie
           maj={maj}
           listes={listes}
           masquee={masquee}
+          gestionRs={ref.gestionRs}
           societeModifiable={!id || ref.droits.peutChangerSociete}
           codes={{ codeRecu: b.codeRecu ?? null, codeFeuillePaiement: b.codeFeuillePaiement ?? null, codeFeuilleRs: b.codeFeuilleRs ?? null }}
         />
+        {ref.gestionRs && (
+          <Tabs defaultValue="deductions" className="mt-3">
+            <TabsList><TabsTrigger value="deductions">Déductions</TabsTrigger></TabsList>
+            <TabsContent value="deductions"><OngletDeductions b={b} referentiels={ref} maj={maj} /></TabsContent>
+          </Tabs>
+        )}
       </div>
       {pieces && b.fournisseurId && b.societeId && (
         <DialoguePiecesAAffecter
