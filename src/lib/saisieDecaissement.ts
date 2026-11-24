@@ -48,5 +48,7 @@ export function verifier(saisie: SaisieDecaissementDto, type: TypeDecaissementDt
 }
 
 export function versRequete(saisie: SaisieDecaissementDto, module: ModuleTresorerie | null): SaisieDecaissementDto {
-  return module ? { ...saisie, module } : saisie;
+  // Les codes P.P et C.R.A.S sont générés par le serveur : jamais envoyés.
+  const sansCodes = { ...saisie, codeFeuillePaiement: undefined, codeFeuilleRs: undefined };
+  return module ? { ...sansCodes, module } : sansCodes;
 }

@@ -2,8 +2,9 @@ import type { SearchableSelectOption } from '../SearchableSelect';
 import { ChampListe, ChampNombre, ChampTexte } from '../achat/champsSaisieAchat';
 import { Field, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
-import { formatCurrency } from '../../lib/format';
+import { formatCurrency, formatPercent } from '../../lib/format';
 import { resteAAffecter, STATUTS_SAISIE, totalAffecte } from '../../lib/saisieDecaissement';
+import { totauxRas } from '../../lib/saisieRetenue';
 import type { SaisieDecaissementDto } from '../../types/tresorerie';
 
 export interface ListesDecaissement {
@@ -27,14 +28,16 @@ function Lecture({ id, libelle, valeur }: Readonly<{ id: string; libelle: string
 }
 
 /** Champs de l'en-tête d'un décaissement ; l'état et les listes viennent de la fenêtre. */
-export default function ChampsDecaissement({ b, maj, listes, societeModifiable, codes, masquee }: Readonly<{
+export default function ChampsDecaissement({ b, maj, listes, societeModifiable, codes, masquee, gestionRs }: Readonly<{
   masquee: number;
+  gestionRs: boolean;
   b: SaisieDecaissementDto;
   maj: Maj;
   listes: ListesDecaissement;
   societeModifiable: boolean;
   codes: { codeRecu: string | null; codeFeuillePaiement: string | null; codeFeuilleRs: string | null };
 }>) {
+  const ras = totauxRas(b);
   const texte = (id: string, libelle: string, cle: 'reference' | 'notes' | 'dateDocument' | 'dateEcheance' | 'dateDecaissement', type: 'text' | 'date' = 'text') => (
     <ChampTexte id={id} libelle={libelle} type={type} valeur={b[cle] ?? ''} onChange={(v) => maj({ [cle]: v || null })} />
   );
@@ -65,6 +68,18 @@ export default function ChampsDecaissement({ b, maj, listes, societeModifiable, 
       <Lecture id="dec-cras" libelle="Code C.R.A.S" valeur={codes.codeFeuilleRs ?? ''} />
       <Lecture id="dec-affecte" libelle="Montant affecté" valeur={formatCurrency(totalAffecte(b.lignes) + masquee)} />
       <Lecture id="dec-reste" libelle="Reste à affecter" valeur={formatCurrency(resteAAffecter(b, masquee))} />
+      {gestionRs && (
+        <>
+          <Lecture id="dec-taux-ras" libelle="Taux RAS" valeur={formatPercent(ras.tauxRas)} />
+          <Lecture id="dec-montant-ras" libelle="Montant RAS" valeur={formatCurrency(ras.montantRas)} />
+          <Lecture id="dec-net" libelle="Montant net" valeur={formatCurrency(ras.montantNet)} />
+          <Field orientation="horizontal">
+            <input id="dec-ras-declaree" type="checkbox" checked={!!b.rsDeclaree} onChange={(e) => maj({ rsDeclaree: e.target.checked, dateDeclarationRs: e.target.checked ? b.dateDeclarationRs : null })} />
+            <FieldLabel htmlFor="dec-ras-declaree">RAS déclarée</FieldLabel>
+          </Field>
+          {b.rsDeclaree && <ChampTexte id="dec-date-ras" libelle="Date déclaration RAS" type="date" valeur={b.dateDeclarationRs ?? ''} onChange={(v) => maj({ dateDeclarationRs: v || null })} />}
+        </>
+      )}
       <div className="md:col-span-3">{texte('dec-notes', 'Notes', 'notes')}</div>
     </div>
   );
