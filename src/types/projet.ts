@@ -1072,6 +1072,8 @@ export interface LigneDecompteSaisie {
   ligneMarcheId: UUID | null;
   quantiteSaisie: number | null;
   coefficient: number | null;
+  /** Avancement cumulé en % (84.5 = 84,5 %) ; exclusif de `quantiteSaisie` (l'autre à null). */
+  avancement?: number | null;
 }
 
 /** `PUT /api/projet/decomptes/{id}` : champ absent ou null = valeur stockée gardée ; taux en pourcentage. */

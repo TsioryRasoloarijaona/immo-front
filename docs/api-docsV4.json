@@ -55241,6 +55241,11 @@
           "coefficient": {
             "type": "number",
             "description": "Coefficient ; null = inchangé (1 pour une ligne rechargée)."
+          },
+          "avancement": {
+            "type": "number",
+            "description": "Avancement cumulé en % (84.5 = 84,5 %, > 100 = dépassement) ; exclusif de quantiteSaisie.",
+            "example": 84.5
           }
         }
       },
