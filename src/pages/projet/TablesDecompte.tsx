@@ -25,7 +25,6 @@ const COLONNES_LIGNES: ColonneGrille<LigneSaisie>[] = [
   { nom: 'quantiteCumulee', libelle: 'Qté cumulée', type: 'NOMBRE', largeur: 6 },
   { nom: 'coefficient', libelle: 'Coefficient', type: 'NOMBRE', largeur: 5 },
   { nom: 'montantHTPeriode', libelle: 'HT période', type: 'MONTANT', largeur: 9 },
-  { nom: 'avancementLignePct', libelle: 'Avancement %', type: 'NOMBRE', largeur: 5 },
 ];
 
 const COLONNES_EXTRAS: ColonneGrille<ExtraDecompteDto>[] = [
@@ -76,7 +75,11 @@ const COLONNES_APPRO: ColonneGrille<LigneApprovisionnementDto>[] = [
 ];
 
 /** La quantité saisie est le seul champ d'une ligne que l'enregistrement relit. */
-function colonnesLignes(lectureSeule: boolean, onQuantite: (id: string, quantite: number | null) => void): ColonneGrille<LigneSaisie>[] {
+function colonnesLignes(
+  lectureSeule: boolean,
+  onQuantite: (id: string, quantite: number | null) => void,
+  onAvancement: (id: string, avancement: number | null) => void,
+): ColonneGrille<LigneSaisie>[] {
   return [...COLONNES_LIGNES, {
     nom: 'quantiteSaisie',
     libelle: 'Qté saisie',
@@ -96,6 +99,25 @@ function colonnesLignes(lectureSeule: boolean, onQuantite: (id: string, quantite
           onChange={(e) => onQuantite(l.id, e.target.value === '' ? null : Number(e.target.value))}
         />
       ),
+  }, {
+    nom: 'avancementLignePct',
+    libelle: 'Avancement %',
+    type: 'NOMBRE',
+    largeur: 6,
+    rendu: (l) =>
+      lectureSeule ? (
+        l.avancementLignePct
+      ) : (
+        <input
+          type="number"
+          step="any"
+          aria-label={`Avancement, ligne ${l.ordre ?? ''}`}
+          className="h-5 w-20 rounded border border-border bg-background px-1 text-right"
+          value={l.avancementSaisi ?? l.avancementLignePct ?? ''}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => onAvancement(l.id, e.target.value === '' ? null : Number(e.target.value))}
+        />
+      ),
   }];
 }
 
@@ -109,6 +131,7 @@ export function TablesDecompte({
   retenues,
   lectureSeule,
   onQuantite,
+  onAvancement,
 }: Readonly<{
   totaux: ReactNode;
   reglements: ReglementFactureDto[];
@@ -118,6 +141,7 @@ export function TablesDecompte({
   retenues: RetenueDecompteDto[];
   lectureSeule: boolean;
   onQuantite: (id: string, quantite: number | null) => void;
+  onAvancement: (id: string, avancement: number | null) => void;
 }>) {
   return (
     <Tabs defaultValue="totaux">
@@ -133,7 +157,7 @@ export function TablesDecompte({
         <Tableau titre="Règlements" rows={reglements} colonnes={COLONNES_REGLEMENTS} cle="projet-decompte-reglements" classeLigne={(r) => (r.annule ? 'line-through text-muted-foreground' : undefined)} />
       </TabsContent>
       <TabsContent value="lignes">
-        <Tableau titre="Lignes" rows={lignes} colonnes={colonnesLignes(lectureSeule, onQuantite)} cle="projet-decompte-lignes" vide="Aucune ligne — décompte saisi en travaux supplémentaires" />
+        <Tableau titre="Lignes" rows={lignes} colonnes={colonnesLignes(lectureSeule, onQuantite, onAvancement)} cle="projet-decompte-lignes" vide="Aucune ligne — décompte saisi en travaux supplémentaires" />
       </TabsContent>
       <TabsContent value="appro">
         <Tableau titre="Approvisionnement" rows={approvisionnements} colonnes={COLONNES_APPRO} cle="projet-decompte-appro" vide="Aucun approvisionnement" />
