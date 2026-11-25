@@ -253,7 +253,8 @@ function Fiche({ initial }: Readonly<{ initial: DecompteDetailDto }>) {
           extras={d.extras}
           retenues={d.retenues}
           lectureSeule={lectureSeule}
-          onQuantite={(id, quantite) => setLignes((ls) => ls.map((l) => (l.id === id ? { ...l, quantiteSaisie: quantite } : l)))}
+          onQuantite={(id, quantite) => setLignes((ls) => ls.map((l) => (l.id === id ? { ...l, quantiteSaisie: quantite, avancementSaisi: null } : l)))}
+          onAvancement={(id, avancement) => setLignes((ls) => ls.map((l) => (l.id === id ? { ...l, quantiteSaisie: null, avancementSaisi: avancement } : l)))}
         />
       </div>
       {dialogue && <DialogueRecalculDecompte

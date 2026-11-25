@@ -21,10 +21,10 @@ export interface SaisieDecompte {
 }
 
 /** Ligne de l'onglet Lignes : `id` sert de clé à la grille, `idServeur` est nul pour une ligne de l'aperçu. */
-export type LigneSaisie = Omit<LigneDecompteRechargee, 'id'> & { id: string; idServeur: string | null };
+export type LigneSaisie = Omit<LigneDecompteRechargee, 'id'> & { id: string; idServeur: string | null; avancementSaisi: number | null };
 
 export function lignesSaisies(lignes: LigneDecompteRechargee[]): LigneSaisie[] {
-  return lignes.map((l, i) => ({ ...l, id: l.id ?? `${l.ligneMarcheId ?? 'ligne'}-${i}`, idServeur: l.id }));
+  return lignes.map((l, i) => ({ ...l, id: l.id ?? `${l.ligneMarcheId ?? 'ligne'}-${i}`, idServeur: l.id, avancementSaisi: null }));
 }
 
 export function saisieDepuis(d: DecompteDetailDto): SaisieDecompte {
@@ -46,6 +46,6 @@ export function demandeDepuis(s: SaisieDecompte, lignes: LigneSaisie[]): Enregis
     notes: s.notes,
     ...s.cases,
     ...nombres,
-    lignes: lignes.length === 0 ? undefined : lignes.map((l) => ({ id: l.idServeur, ligneMarcheId: l.ligneMarcheId, quantiteSaisie: l.quantiteSaisie, coefficient: l.coefficient })),
+    lignes: lignes.length === 0 ? undefined : lignes.map((l) => ({ id: l.idServeur, ligneMarcheId: l.ligneMarcheId, quantiteSaisie: l.avancementSaisi === null ? l.quantiteSaisie : null, avancement: l.avancementSaisi, coefficient: l.coefficient })),
   };
 }
