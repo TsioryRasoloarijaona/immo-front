@@ -1,4 +1,4 @@
-import { FolderPlus, ListOrdered, Plus, Save, Tags, Trash2, Undo2 } from 'lucide-react';
+import { Download, FolderPlus, ListOrdered, Plus, Save, Tags, Trash2, Undo2, Upload } from 'lucide-react';
 import BarreIcones from '../../BarreIcones';
 import { Button, buttonVariants } from '../../ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/dropdown-menu';
@@ -12,6 +12,8 @@ export interface ActionsBarre {
   onCategorie: (categorieId: string) => void;
   onEnregistrer: () => void;
   onAnnuler: () => void;
+  onExporter?: () => void;
+  onImporter?: () => void;
 }
 
 /** Outils d'édition du bordereau : icônes seules, le libellé passe en infobulle. */
@@ -60,6 +62,16 @@ export default function BarreEditionBordereau({
       <Button type="button" variant="ghost" size="sm" disabled={enCours} onClick={actions.onAnnuler}>
         <Undo2 /> Annuler
       </Button>
+      {actions.onExporter && (
+        <Button type="button" variant="ghost" size="sm" disabled={enCours} title="Exporter Excel" aria-label="Exporter Excel" onClick={actions.onExporter}>
+          <Download />
+        </Button>
+      )}
+      {actions.onImporter && (
+        <Button type="button" variant="ghost" size="sm" disabled={enCours} title="Importer Excel" aria-label="Importer Excel" onClick={actions.onImporter}>
+          <Upload />
+        </Button>
+      )}
     </BarreIcones>
   );
 }

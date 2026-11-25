@@ -1,10 +1,12 @@
 import { Lock } from 'lucide-react';
 import { getBordereauEstimatifLot, putBordereauEstimatifLot } from '../../../lib/apiProjet';
+import { useExcelBordereauLot } from '../../../lib/useExcelBordereauLot';
 import type { BordereauEstimatifDto } from '../../../types/projet';
 import BordereauModifiable from './BordereauModifiable';
 import DonneesLot from './DonneesLot';
 
 export default function BordereauEstimatifLot({ lotId, onModifie }: Readonly<{ lotId: string; onModifie?: (modifie: boolean) => void }>) {
+  const excel = useExcelBordereauLot(lotId, 'ESTIMATIF');
   return (
     <DonneesLot<BordereauEstimatifDto>
       lotId={lotId}
@@ -21,6 +23,7 @@ export default function BordereauEstimatifLot({ lotId, onModifie }: Readonly<{ l
           )}
           <BordereauModifiable
             source={d}
+            excel={excel}
             editable={!d.verrouille}
             cleOrdre="lot-bordereau-estimatif"
             enregistrer={(corps) => putBordereauEstimatifLot(lotId, corps)}

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useToast } from '../../../lib/toastContext';
 import { getReferentielsProjetConfig } from '../../../lib/apiProjetConfig';
 import { useConfirm } from '../../../lib/confirmContext';
 import {
@@ -39,8 +40,16 @@ export interface SourceBordereau {
   categorieParDefautId: UUID | null;
 }
 
+export interface ExcelBordereau {
+  exporter: () => Promise<void>;
+  importer: (fichier: File) => Promise<SourceBordereau>;
+  exportEnCours: boolean;
+  erreurExport: string | null;
+}
+
 interface Props {
   source: SourceBordereau;
+  excel?: ExcelBordereau;
   /** Estimatif : `!verrouille` ; définitif : `modifiable`. Le serveur reste juge. */
   editable: boolean;
   cleOrdre: string;
@@ -48,8 +57,10 @@ interface Props {
   onModifie?: (modifie: boolean) => void;
 }
 
-function EditeurBordereau({ source, enregistrer, onModifie }: Readonly<Omit<Props, 'editable' | 'cleOrdre'>>) {
+function EditeurBordereau({ source, excel, enregistrer, onModifie }: Readonly<Omit<Props, 'editable' | 'cleOrdre'>>) {
   const confirm = useConfirm();
+  const showToast = useToast();
+  const champFichier = useRef<HTMLInputElement>(null);
   const categories = useApi(getReferentielsProjetConfig, [], 'projet-config-referentiels').data?.categoriesDepense ?? [];
   const initial = useMemo(() => etatDepuisDto(source.groupes, source.lignes), [source]);
   const [base, setBase] = useState<EtatBordereau>(initial);
@@ -115,7 +126,24 @@ function EditeurBordereau({ source, enregistrer, onModifie }: Readonly<Omit<Prop
     }
   }
 
-  const surDepot = (s: Glisse, d: Depot) => muter((e) => deposer(e, s, d));
+  async function importerExcel(fichier: File) {
+    if (!excel) return;
+    if (modifie && !(await confirm({ title: 'Abandonner les modifications ?', message: 'Les modifications non enregistrées de cette fiche seront perdues.', confirmLabel: 'Abandonner' }))) return;
+    setEnCours(true);
+    setErreur(null);
+    try {
+      const reponse = await excel.importer(fichier);
+      remplacer(etatDepuisDto(reponse.groupes, reponse.lignes));
+      refetchAllApis();
+      showToast('Bordereau importé');
+    } catch (err: unknown) {
+      setErreur(errorMessage(err));
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  const surDepot =(s: Glisse, d: Depot) => muter((e) => deposer(e, s, d));
 
   return (
     <div className="flex flex-col gap-2">
@@ -132,8 +160,19 @@ function EditeurBordereau({ source, enregistrer, onModifie }: Readonly<Omit<Prop
           onCategorie: (id) => groupeSel && muter((e) => appliquerCategorie(e, groupeSel, id)),
           onEnregistrer: () => void sauvegarder(),
           onAnnuler: () => void annuler(),
+          onExporter: excel && (() => void excel.exporter()),
+          onImporter: excel && (() => champFichier.current?.click()),
         }}
       />
+      {excel && (
+        <input ref={champFichier} type="file" hidden accept=".xlsx" aria-label="Fichier Excel du bordereau"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (f) void importerExcel(f);
+          }} />
+      )}
+      {excel?.erreurExport && <p role="alert" className="text-label text-destructive">{excel.erreurExport}</p>}
       {erreur && (
         <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-body text-destructive">
           {erreur}
