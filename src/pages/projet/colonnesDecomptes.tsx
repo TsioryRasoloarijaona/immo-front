@@ -36,8 +36,8 @@ export const COLONNES_DECOMPTES: ColonneGrille<DecompteListItemDto>[] = [
     valeur: (d) => (d.ecartSignificatif ? d.ecartNetAPayer : null),
     rendu: (d) => (d.ecartSignificatif ? <span className="font-semibold text-destructive">{formatCurrency(d.ecartNetAPayer)}</span> : null),
   },
-  { nom: 'montantRegle', libelle: 'Réglé', type: 'MONTANT', largeur: 8 },
-  { nom: 'resteARegler', libelle: 'Reste', type: 'MONTANT', largeur: 8 },
+  { nom: 'montantRegle', libelle: 'Réglé', type: 'MONTANT', largeur: 8, classe: 'font-semibold text-emerald-600 dark:text-emerald-400' },
+  { nom: 'resteARegler', libelle: 'Reste', type: 'MONTANT', largeur: 8, classe: 'font-semibold text-destructive' },
   {
     nom: 'factureCode',
     libelle: 'Facture',
