@@ -1,5 +1,5 @@
 // Endpoints de FEATURE-projet-lots-decomptes.md §2.1 : lots et décomptes (lecture). Hors périmètre = 404 comme un id inconnu.
-import { API_BASE_URL, fetchByteEndpointBlob, request, triggerBlobDownload, withPageable } from './api';
+import { API_BASE_URL, fetchByteEndpointBlob, postMultipart, request, triggerBlobDownload, withPageable } from './api';
 import type { PageDto, Pageable, UUID } from '../types';
 import type {
   AlignementPrevisionsDto,
@@ -126,6 +126,21 @@ export function putBordereauLot(id: UUID, corps: BordereauSaisieDto): Promise<Bo
 
 export function putBordereauEstimatifLot(id: UUID, corps: BordereauSaisieDto): Promise<BordereauEstimatifDto> {
   return request('PUT', `${LOTS}/${id}/bordereau-estimatif`, { body: corps });
+}
+
+// FEATURE-lc2-bordereau-excel.md : fusion par Code, même écriture que le PUT ; corps relu selon le type.
+/** @public endpoint servi, pas encore branché sur un écran */
+export function importerBordereauLot(
+  id: UUID,
+  type: 'DEFINITIF' | 'ESTIMATIF',
+  fichier: File,
+): Promise<BordereauDto | BordereauEstimatifDto> {
+  return postMultipart(`${LOTS}/${id}/bordereau/import`, fichier, { type });
+}
+
+/** @public endpoint servi, pas encore branché sur un écran */
+export function cheminExportBordereauLot(id: UUID, type: 'DEFINITIF' | 'ESTIMATIF'): string {
+  return `${LOTS}/${id}/bordereau/export?type=${type}&format=xlsx`;
 }
 
 export function getAvancesLot(id: UUID): Promise<AvancesLotDto> {

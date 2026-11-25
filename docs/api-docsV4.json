@@ -13074,6 +13074,91 @@
         }
       }
     },
+    "/api/projet/lots/{id}/bordereau/import": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Fusionne un classeur au format de l'export dans le bordereau du lot",
+        "description": "Le classeur (en-têtes de l'export, `Code` obligatoire) est fusionné dans le bordereau existant, puis écrit par le même\nchemin que le `PUT` du type demandé (mêmes montants, ventilation et refus). Appariement par Code, comparé après `trim`\net sensible à la casse ; une ligne absente du classeur est gardée telle quelle ; un code inconnu crée une ligne dans la\ncatégorie par défaut du lot. Une ligne d'Unité `GROUPE` est un groupe. Groupe parent : `Code groupe`, sinon le préfixe\ndu code avant le dernier point. P.U. TTC n'est lu que si P.U. HT vaut 0. Remise ignorée. O.D.T. numérique = ordre de la\nligne, sinon l'ordre est conservé (ligne existante) ou placé à la fin (ligne créée). Corps renvoyé : `BordereauDto`\n(DEFINITIF) ou `BordereauEstimatifDto` (ESTIMATIF). Droits, verrou et visibilité sont contrôlés avant la lecture du\nfichier.",
+        "operationId": "importer_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Bordereau visé : DEFINITIF ou ESTIMATIF.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DEFINITIF",
+                "ESTIMATIF"
+              ]
+            },
+            "example": "DEFINITIF"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bordereau relu, même corps que le GET du type demandé.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/BordereauDto"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BordereauEstimatifDto"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fichier illisible, en-tête `Code` absent, type inconnu, code vide ou en double dans le classeur, code présent sur\nplusieurs lignes du bordereau, nombre mal formé (message avec le numéro de ligne Excel), lot sans catégorie par défaut\nalors qu'une ligne est à créer, ou mêmes refus de contenu que le `PUT`."
+          },
+          "403": {
+            "description": "Droits du PUT du bordereau correspondant absents."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          },
+          "409": {
+            "description": "Mêmes refus que le PUT : estimatif cadenassé, ligne décomptée…"
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}/avenants": {
       "get": {
         "tags": [
@@ -14481,7 +14566,7 @@
         ],
         "summary": "Import CSV de leads — étape 2 : création des statuts choisis, sur une seule tranche",
         "description": "Crée une pré-prospection par ligne `NOUVELLE` ou `DOUBLON` du fichier — **seulement les statuts\nchoisis dans `statuts`** (défaut : les deux) —, **toutes rattachées à `trancheId`** — la tranche choisie par l'utilisateur après l'aperçu (`POST\n/api/pre-prospections/import/apercu`). **Une seule tranche par fichier** : un fichier qui en mêle\nplusieurs doit être découpé avant l'import.\n\nChaque ligne créée est une pré-prospection complète, exactement comme `POST /api/pre-prospections` :\ncode `AA/NNNNN` du compteur « Prospection », type `ComPreProspection`, `IsClosed = false`, auteur =\nutilisateur connecté, vocation `VENTE`. Référentiels posés par défaut — le motif des leads déjà\ninjectés depuis ces formulaires — chacun remplaçable par son paramètre : Nature `1 A TRAITER`\n(`etapeId`), source `FACEBOOK` (`origineId`), type `WEB` (`typeContactId`). Un défaut absent du\nréférentiel est laissé vide.\n\n**Tout ou rien** pour les erreurs de requête (tranche inconnue ou hors périmètre : aucune ligne\nécrite). Les lignes en `ERREUR` n'empêchent pas les autres. Le rapport renvoyé a la forme de\nl'aperçu, avec `importe = true` et l'identifiant et le code de chaque pré-prospection créée.\n\n**Format attendu** — l'export CSV des leads (Meta / Leads Center), en-tête : `Créé, Nom, Adresse\ne-mail, Source, Formulaire, Canal, Étape, Propriétaire, Étiquettes, Téléphone, Numéro de téléphone\nsecondaire, Numéro WhatsApp`.\n- Colonnes reconnues **par leur nom** (casse et accents ignorés), dans n'importe quel ordre ; les\ncolonnes inconnues sont ignorées. Seule `Nom` est indispensable (400 sinon).\n- Séparateur `,` ou `;` (un fichier réenregistré par Excel en français), déduit de l'en-tête.\nEncodage UTF-8 (avec ou sans BOM), à défaut Windows-1252.\n- 5 000 lignes au plus (400 au-delà) ; lignes vides ignorées.\n\n**Ce que devient chaque colonne**\n| Colonne | Pré-prospection |\n|---|---|\n| Créé (`09/23/2026 1:45am`, mois en premier) | date du document `DocDate` — la date de soumission\ndu lead |\n| Nom | `TempDescription` |\n| Adresse e-mail | `TempEMail` |\n| Téléphone (à défaut WhatsApp, à défaut secondaire) | `TempTel`, tel qu'écrit |\n| Formulaire, Source, Canal, Étape, Étiquettes, Propriétaire (sauf « Unassigned »), autres numéros |\nrecopiés dans `Notes` |\n\n**Sort de chaque ligne** (`statut`) :\n- `NOUVELLE` — créée si sélectionnée.\n- `DOUBLON` — même contact (nom, téléphone sur ses 9 derniers chiffres, email ; casse ignorée)\nqu'une prospection existante ou qu'une ligne plus haut, mais **autre date** : c'est une nouvelle\nsoumission, **créée si sélectionnée** et signalée.\n- `DEJA_IMPORTEE` — même contact **et même date** (à la minute) : le même lead réimporté,\n**ignoré**. Réimporter un fichier, ou un export qui chevauche le précédent, ne crée donc rien deux\nfois.\n\n**Périmètre commercial** : seuls les doublons visibles de l'appelant sont nommés (`doublonIds`,\ncodes dans `message`). Un lead déjà importé sur un projet hors périmètre est bien ignoré, avec le\nmessage « Lead déjà importé » et rien d'autre ; un simple homonyme hors périmètre ne fait pas un\n`DOUBLON`.\n- `ERREUR` — nom vide, date vide ou illisible, champ trop long : **ignorée**, les autres lignes\npassent.\n\n**Sélection par statut** (`statuts`) : elle ne décide que de ce qui est écrit, **jamais du statut**.\nChaque ligne garde, dans le rapport d'import, le statut que lui donnait l'aperçu du même fichier —\nles lignes non sélectionnées comptent toujours pour détecter les doublons internes au fichier (une\n`DOUBLON` « même contact que la ligne 3 du fichier » reste `DOUBLON` même si la ligne 3 n'est pas\nimportée). Une ligne non sélectionnée a `preProspectionId` et `code` null, et son `message` le dit\n(« Non importée (statut non sélectionné) », ou le message du doublon suivi de « — non importée\n(statut non sélectionné) »). Le rapport donne `statutsImportes` et `creees` (lignes réellement\nécrites) ; `nouvelles` et `doublons` restent des compteurs de classification.\n\nLa classification est relative à l'état de la base : importer d'abord les `DOUBLON` seuls, puis\nréimporter le fichier avec `NOUVELLE`, fait d'une `NOUVELLE` dont le contact vient d'être créé une\n`DOUBLON` — filtrée si l'on ne choisit que `NOUVELLE`. L'aperçu le montre avant chaque import.",
-        "operationId": "importer_1",
+        "operationId": "importer_2",
         "parameters": [
           {
             "name": "trancheId",
@@ -15361,7 +15446,7 @@
         ],
         "summary": "Importe un classeur .xlsx (simulation par défaut), tout ou rien",
         "description": "Ligne 1 = en-têtes, puis une ligne de données par objet ; le **pivot** choisit création ou mise à jour (articles : code\ndans la tranche ; terrains : code du terrain dans l'entité de la ligne ; présentations : tranche + code). Colonne\nabsente ou cellule vide = champ intact (l'import ne vide jamais un champ, sauf une contenance de présentation à 0 ou\nvide, retirée). Nombres en cellule numérique ou en texte (`1 234,56`, `1234.56`) ; dates en cellule date ou\n`jj/mm/aaaa` ; cases `Oui/Non`, `Vrai/Faux`, `1/0`, `X`. TVA ou % de concrétisation supérieur à 1 lu en pourcentage\n(÷ 100, avertissement). Référentiels par code **ou** libellé (casse ignorée) sauf Orientation (code seul) et, pour les\narticles, Vocation, Type, Type présentation, Entité de gestion du syndic (code seul). Entité inactive = introuvable.\nEn-tête inconnu = avertissement « colonne ignorée ».\n\n`previsions` remplace toutes les lignes de la tranche en un seul appel (règles de `PUT /api/tranches/{id}/previsions-base`) :\nune ligne de bilan globale (pivot = code de la tranche) plus les erreurs de lecture par ligne ; l'en-tête existant est\ngardé, les colonnes facultatives de la première ligne le surchargent ; `Nombre d'articles` absent = valeur de la\ntranche si > 0, sinon stock de la tranche (avertissement).\n\nUne seule transaction : la moindre ligne en ERREUR, ou `simulation=true`, annule tout (`ecrit=false`, aucune trace\nd'audit). Les messages d'erreur métier sont ceux des écrans.\n\nRefus du fichier entier (400) : `trancheId` absent pour articles, sous-articles ou prévisions (« Vous devez sélectionner\nune Tranche ! »), format `.xls` (« enregistrez le fichier au format .xlsx »), contenu non ZIP, archive corrompue ou\npiégée (bombe, entrée géante, DTD), plus de 1 000 lignes de données, aucune feuille, feuille demandée absente, aucune\ndonnée, en-tête en double.\n\n**Types à mapping** (`entites-juridiques`, `projets`, `tranches`, `prospections-terrain`) : `mapping` (JSON\n`MappingImportDto`, tel que proposé par `/analyse` ou corrigé) dit quelle colonne du fichier alimente quelle cible ;\nabsent = mapping proposé par les en-têtes. Pivot = `code`, comparé sans casse : trouvé = mise à jour (seules les colonnes\nmappées non vides sont écrites), absent = création. Références par code ou libellé, sans casse, parmi les objets\nvisibles (une entité inactive, un programme d'entité inactive sont « inexistents ») ; code répété dans le fichier =\nseconde ligne en erreur ; une entité existante inactive n'est pas modifiée. Le programme d'une tranche existante ne\nchange pas (avertissement) ; une prospection terrain garde son statut et son archivage. 400 en plus : mapping illisible,\npivot non mappé (« Il faut définir les pivots et effectuer leurs mapping ! »), cible ou colonne inconnue, cible mappée\ndeux fois, plus de 100 colonnes mappées, colonne « Active » d'une entité mappée ou simplement présente dans le fichier\n(même vide, même non mappée), `mapping` envoyé pour un type sans mapping.",
-        "operationId": "importer_2",
+        "operationId": "importer_3",
         "parameters": [
           {
             "name": "type",
@@ -36985,6 +37070,71 @@
         }
       }
     },
+    "/api/projet/lots/{id}/bordereau/export": {
+      "get": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Export Excel du bordereau définitif ou estimatif du lot",
+        "description": "Une ligne par groupe (Unité `GROUPE`, Code groupe = code du groupe parent), puis une ligne par ligne du bordereau\n(Code groupe = code de son groupe). En-têtes : O.D.T., Code, Description, Unité, Quantité, P.U. HT, TVA, Remise, FODEC,\nP.U. TTC, Notes, Code groupe. TVA et FODEC en pourcentage (20 = 20 %), Remise toujours vide. Nom du fichier :\n`BDP_<code du lot>_<horodatage>.xlsx`.",
+        "operationId": "exporter_13",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du lot (PrjMarket.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Bordereau visé : DEFINITIF ou ESTIMATIF.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DEFINITIF",
+                "ESTIMATIF"
+              ]
+            },
+            "example": "DEFINITIF"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx aux colonnes OMRAN : groupes puis lignes.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Format autre que xlsx ou type inconnu."
+          },
+          "404": {
+            "description": "Lot introuvable : id inconnu, lot sans projet, projet hors périmètre ou statut invisible."
+          }
+        }
+      }
+    },
     "/api/projet/lots/{id}/avoirs": {
       "get": {
         "tags": [
@@ -37161,7 +37311,7 @@
         ],
         "summary": "Export Excel de la liste des lots, mêmes filtres et lignes que la liste, ligne Total en bas",
         "description": "Classeur Excel : colonnes de la liste dans le même ordre, toutes les lignes des filtres donnés (sans pagination), triées\ncomme la liste, et une ligne « Total » en bas égale à `GET /api/projet/lots/totaux`. Droit `toolExport` exigé.",
-        "operationId": "exporter_13",
+        "operationId": "exporter_14",
         "parameters": [
           {
             "name": "format",
@@ -37714,7 +37864,7 @@
           "Projet"
         ],
         "summary": "Export Excel de la liste des décomptes, mêmes filtres et mêmes lignes que la liste",
-        "operationId": "exporter_14",
+        "operationId": "exporter_15",
         "parameters": [
           {
             "name": "format",
@@ -38112,7 +38262,7 @@
         ],
         "summary": "Export Excel du Bilan projet, mêmes filtres que l'arbre",
         "description": "Classeur xlsx de l'arbre du bilan avec les mêmes filtres, mêmes refus (400, 403) et mêmes projets visibles.",
-        "operationId": "exporter_15",
+        "operationId": "exporter_16",
         "parameters": [
           {
             "name": "format",
@@ -39384,7 +39534,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des lots de terrain",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_16",
+        "operationId": "exporter_17",
         "parameters": [
           {
             "name": "search",
@@ -39942,7 +40092,7 @@
         ],
         "summary": "Export Excel de la liste des impayés, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres et même tri que `GET /api/impayes`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Fichier `impayes_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_17",
+        "operationId": "exporter_18",
         "parameters": [
           {
             "name": "format",
@@ -40339,7 +40489,7 @@
         ],
         "summary": "Export Excel de l'étude en 11 feuilles (étude bloquée comprise)",
         "description": "11 feuilles : Identité, Bilan, Terrain, Exécution, Délais, Financement, Données, Unités, Tranches, Unités par tranche,\nBilan détaillé. Valeurs du calcul partagé (bilan stocké, prévisions, trésorerie), jamais recalculées dans l'export.\nSans tranche, « Tranches » et « Unités par tranche » n'ont que leurs titres. Permis sur une étude bloquée.",
-        "operationId": "exporter_18",
+        "operationId": "exporter_19",
         "parameters": [
           {
             "name": "id",
@@ -40396,7 +40546,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des études, mêmes droits que la liste",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_19",
+        "operationId": "exporter_20",
         "parameters": [
           {
             "name": "format",
@@ -41400,7 +41550,7 @@
           "État des ventes"
         ],
         "summary": "Export Excel de l'état des ventes, filtres et colonnes appliqués",
-        "operationId": "exporter_20",
+        "operationId": "exporter_21",
         "parameters": [
           {
             "name": "format",
@@ -42053,7 +42203,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des entités (même droit que la liste)",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_21",
+        "operationId": "exporter_22",
         "parameters": [
           {
             "name": "format",
@@ -43118,7 +43268,7 @@
         ],
         "summary": "Export Excel de la liste des encaissements, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/encaissements`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Encaissements », fichier `encaissements_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_22",
+        "operationId": "exporter_23",
         "parameters": [
           {
             "name": "format",
@@ -45238,7 +45388,7 @@
         ],
         "summary": "Export Excel de la liste des dossiers, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/dossiers`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Auteur du classeur = utilisateur connecté, titre « Dossiers de vente », fichier `dossiers_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_23",
+        "operationId": "exporter_24",
         "parameters": [
           {
             "name": "format",
@@ -47257,7 +47407,7 @@
         ],
         "summary": "Export xlsx ou pdf du catalogue des articles, colonnes du catalogue",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_24",
+        "operationId": "exporter_25",
         "parameters": [
           {
             "name": "search",
@@ -47600,7 +47750,7 @@
         ],
         "summary": "Imprimer (pdf) ou exporter (xlsx) la liste filtrée, par code",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_25",
+        "operationId": "exporter_26",
         "parameters": [
           {
             "name": "famille",
@@ -47880,7 +48030,7 @@
           "Rôles (administration)"
         ],
         "summary": "Export Excel des rôles filtrés, triés par code",
-        "operationId": "exporter_26",
+        "operationId": "exporter_27",
         "parameters": [
           {
             "name": "texte",
@@ -47943,7 +48093,7 @@
           "Rendez-vous (administration)"
         ],
         "summary": "Export Excel des rendez-vous filtrés, date croissante",
-        "operationId": "exporter_27",
+        "operationId": "exporter_28",
         "parameters": [
           {
             "name": "texte",
@@ -48243,7 +48393,7 @@
         ],
         "summary": "Export Excel des lignes filtrées",
         "description": "Mêmes filtres et même tri que la liste, sans pagination : au plus 20 000 lignes. Date au format `dd/MM/yyyy HH:mm` ; `Details` et `Description` ne sont pas exportés.",
-        "operationId": "exporter_28",
+        "operationId": "exporter_29",
         "parameters": [
           {
             "name": "dateDebut",
@@ -48550,7 +48700,7 @@
           "Fichiers attachés (administration)"
         ],
         "summary": "Export Excel des lignes filtrées, dans l'ordre de la liste",
-        "operationId": "exporter_29",
+        "operationId": "exporter_30",
         "parameters": [
           {
             "name": "recherche",
@@ -50415,7 +50565,7 @@
           "Achat"
         ],
         "summary": "Export Excel de la liste des pièces d'achat, mêmes filtres et même requête que la liste",
-        "operationId": "exporter_30",
+        "operationId": "exporter_31",
         "parameters": [
           {
             "name": "format",
@@ -50880,7 +51030,7 @@
         ],
         "summary": "Export Excel de la liste des demandes internes d'achat, mêmes filtres",
         "description": "Droits `…BuySelectionList` et `…BuySelectionList.toolExport` ; mêmes lignes que la liste.",
-        "operationId": "exporter_31",
+        "operationId": "exporter_32",
         "parameters": [
           {
             "name": "format",
