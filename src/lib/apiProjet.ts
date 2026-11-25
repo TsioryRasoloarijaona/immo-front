@@ -129,7 +129,6 @@ export function putBordereauEstimatifLot(id: UUID, corps: BordereauSaisieDto): P
 }
 
 // FEATURE-lc2-bordereau-excel.md : fusion par Code, même écriture que le PUT ; corps relu selon le type.
-/** @public endpoint servi, pas encore branché sur un écran */
 export function importerBordereauLot(
   id: UUID,
   type: 'DEFINITIF' | 'ESTIMATIF',
@@ -138,9 +137,9 @@ export function importerBordereauLot(
   return postMultipart(`${LOTS}/${id}/bordereau/import`, fichier, { type });
 }
 
-/** @public endpoint servi, pas encore branché sur un écran */
-export function cheminExportBordereauLot(id: UUID, type: 'DEFINITIF' | 'ESTIMATIF'): string {
-  return `${LOTS}/${id}/bordereau/export?type=${type}&format=xlsx`;
+/** Route sans query : `useExportListe` y ajoute `type` et `format`. */
+export function cheminExportBordereauLot(id: UUID): string {
+  return `${LOTS}/${id}/bordereau/export`;
 }
 
 export function getAvancesLot(id: UUID): Promise<AvancesLotDto> {

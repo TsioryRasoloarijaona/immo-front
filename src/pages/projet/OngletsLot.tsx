@@ -6,6 +6,7 @@ import { getDocumentsAchat } from '../../lib/apiAchat';
 import { getReglementsProjet } from '../../lib/apiDepensesProjet';
 import { getBordereauLot, getDecomptesLot, putBordereauLot } from '../../lib/apiProjet';
 import { useApi } from '../../lib/useApi';
+import { useExcelBordereauLot } from '../../lib/useExcelBordereauLot';
 import { COLONNES_DECOMPTES } from './colonnesDecomptes';
 import { COLONNES_FACTURES_LOT } from './colonnesFacturesProjet';
 import { COLONNES_REGLEMENTS_LOT, classeReglement } from './colonnesReglementsProjet';
@@ -53,10 +54,11 @@ export function OngletReglements({ lotId }: Readonly<{ lotId: string }>) {
 
 export function OngletBordereau({ lotId }: Readonly<{ lotId: string }>) {
   const { data, loading, error } = useApi(() => getBordereauLot(lotId), [lotId]);
+  const excel = useExcelBordereauLot(lotId, 'DEFINITIF');
   if (error) return <ErrorState message={error} />;
   if (!data) return loading ? <LoadingState /> : null;
   if (!data.modifiable && data.lignes.length === 0) return <EmptyState title="Bordereau non saisi — montant forfaitaire" />;
   return (
-    <BordereauModifiable source={data} editable={data.modifiable} cleOrdre="projet-lot-bordereau" enregistrer={(corps) => putBordereauLot(lotId, corps)} />
+    <BordereauModifiable source={data} excel={excel} editable={data.modifiable} cleOrdre="projet-lot-bordereau" enregistrer={(corps) => putBordereauLot(lotId, corps)} />
   );
 }
