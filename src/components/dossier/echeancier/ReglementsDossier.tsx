@@ -2,7 +2,9 @@ import { Badge, ErrorState, LoadingState } from '../../ui';
 import { Button } from '../../ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { encaissementEtatLabel, encaissementEtatTone } from '../../../lib/domain';
+import { useAuth } from '../../../lib/auth';
 import { formatCurrency, formatDate } from '../../../lib/format';
+import { estAgence } from '../../../lib/roles';
 import { resumeAffectations } from '../../../lib/repartitionReglement';
 import type { ApiState } from '../../../lib/useApi';
 import type { ReglementDossierDto } from '../../../types';
@@ -28,7 +30,8 @@ function LigneReglementDossier({
   onChanged: () => Promise<void>;
 }>) {
   const reste = reglement.resteAAffecter ?? 0;
-  const affectable = reste > 0 && reglement.statut !== 'CANCELED';
+  const agence = estAgence(useAuth().user);
+  const affectable = reste > 0 && reglement.statut !== 'CANCELED' && !agence;
   return (
     <TableRow>
       <TableCell>{reglement.reference || '—'}</TableCell>

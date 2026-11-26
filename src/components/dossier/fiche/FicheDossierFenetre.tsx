@@ -15,7 +15,9 @@ import ongletsDossier, { type DonneesFicheDossier } from './ongletsDossier';
 import ClasseurEnteteDossier from './ongletsEnteteDossier';
 import useFicheDossier from './useFicheDossier';
 import { canonicalStatusLabel, toneForStatus } from '../../../lib/dossierStatus';
+import { useAuth } from '../../../lib/auth';
 import type { VoisinsFiche } from '../../../lib/fenetreFiche';
+import { estAgence } from '../../../lib/roles';
 import { useToast } from '../../../lib/toastContext';
 import { usePreview } from '../../../lib/previewContext';
 import type { DossierDetailDto } from '../../../types';
@@ -30,6 +32,7 @@ function CorpsDossier({
   fromCreation,
 }: Readonly<{ f: DonneesFicheDossier; d: DossierDetailDto; onglet: string; onOnglet: (id: string) => void; fromCreation: boolean }>) {
   const showToast = useToast();
+  const agence = estAgence(useAuth().user);
   const { ouvrirFicheProspection } = usePreview();
   const o = ongletsDossier(f, d, fromCreation);
   const prospectionId = d.prospectionId;
@@ -40,17 +43,19 @@ function CorpsDossier({
       <RubanFiche
         enregistrer={{ disabled: true, onClick: () => undefined, aide: 'Les champs se modifient par les boutons du ruban.' }}
         propres={[
-          { id: 'statut', libelle: 'Changer le statut', icone: ArrowRightLeft, onClick: () => onOnglet('statut') },
+          ...(agence ? [] : [{ id: 'statut', libelle: 'Changer le statut', icone: ArrowRightLeft, onClick: () => onOnglet('statut') }]),
           { id: 'appeler', libelle: 'Appeler', icone: Phone, onClick: () => showToast('Intégration VOIP à venir.') },
           ...(prospectionId
             ? [{ id: 'prospection', libelle: 'Ouvrir la prospection', icone: ArrowUpRight, onClick: () => ouvrirFicheProspection(prospectionId, false) }]
             : []),
         ]}
         enSuite={
-          <>
-            <EditionEnTete dossier={d} enTete={f.fiche.data?.enTete} enRuban />
-            <ActionsFicheDossier dossierId={d.id} commercialNom={d.commercialNom} onChanged={() => void f.relireTout()} />
-          </>
+          agence ? undefined : (
+            <>
+              <EditionEnTete dossier={d} enTete={f.fiche.data?.enTete} enRuban />
+              <ActionsFicheDossier dossierId={d.id} commercialNom={d.commercialNom} onChanged={() => void f.relireTout()} />
+            </>
+          )
         }
         imprimer={{ onClick: () => onOnglet('documents') }}
         piecesJointes={{ onClick: () => onOnglet('pieces') }}

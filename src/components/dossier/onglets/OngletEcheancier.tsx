@@ -9,7 +9,7 @@ import { useToast } from '../../../lib/toastContext';
 import { getEtatSchema, supprimerEcheance } from '../../../lib/apiDossierSousListes';
 import { useAuth } from '../../../lib/auth';
 import { useConfirm } from '../../../lib/confirmContext';
-import { peutSupprimerEcheance } from '../../../lib/roles';
+import { estAgence, peutSupprimerEcheance } from '../../../lib/roles';
 import { arrondiCentime } from '../../../lib/dossierSousListes';
 import { formatCurrency, formatDate, todayISO } from '../../../lib/format';
 import { useApi, type ApiState } from '../../../lib/useApi';
@@ -45,7 +45,9 @@ export default function OngletEcheancier({
   const { executer } = useEcriture();
   const showToast = useToast();
   const [enModification, setEnModification] = useState<EcheanceDto | null>(null);
-  const suppressionPermise = peutSupprimerEcheance(useAuth().user);
+  const { user } = useAuth();
+  const agence = estAgence(user);
+  const suppressionPermise = peutSupprimerEcheance(user) && !agence;
 
   // Le serveur reporte l'écart sur une autre ligne : l'état du schéma change à chaque écriture.
   async function relire() {
@@ -81,6 +83,7 @@ export default function OngletEcheancier({
       {!etat.error && etat.data && <EtatSchemaBandeau etat={etat.data} />}
       <LigneActivite
         action={
+          agence ? undefined : (
           <div className="flex flex-wrap items-center gap-1.5">
             <ModalitePaiementDialog dossierId={d.id} />
             <AjoutReglement dossierId={d.id} variante="entete" onCree={apresReglement} />
@@ -94,6 +97,7 @@ export default function OngletEcheancier({
               initialDate={todayISO()}
             />
           </div>
+          )
         }
       >
         {echeances.data && echeances.data.content.length === 0 && (
@@ -121,6 +125,7 @@ export default function OngletEcheancier({
                   key={l.id}
                   dossierId={d.id}
                   echeance={l}
+                  lecture={agence}
                   versionReglements={versionReglements}
                   onReglementAdded={apresReglement}
                   onReglementChanged={relire}

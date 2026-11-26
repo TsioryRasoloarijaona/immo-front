@@ -12,7 +12,7 @@ import ThemeToggle from './ThemeToggle';
 import ModuleSwitcher from './ModuleSwitcher';
 import BarreIcones from './BarreIcones';
 import { useAuth } from '../lib/auth';
-import { estAdministrateur, estCommercialTerrain } from '../lib/roles';
+import { estAdministrateur, estAgence, estCommercialTerrain } from '../lib/roles';
 import { MODULES_DECLARES } from '../modules/registre';
 import type { Utilisateur } from '../modules/types';
 
@@ -61,7 +61,7 @@ export default function BarreHaut() {
         >
           <Search />
         </Button>
-        <SyncButton />
+        {!estAgence(user) && <SyncButton />}
         <ActionsRecentes />
         <Link to="/aide" aria-label="Aide" title="Aide" className={buttonVariants({ variant: 'ghost', size: 'icon-sm' })}>
           <CircleHelp />

@@ -27,7 +27,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import CompteurTri from '../../components/parcours/CompteurTri';
-import { estAdministrateur, estChefOuExempte, voitParcoursCommercial } from '../../lib/roles';
+import { estAdministrateur, estAgence, estChefOuExempte, voitParcoursCommercial } from '../../lib/roles';
 import type { ArbreModule, EntreeArbre, GroupeArbre } from '../arbre';
 import type { Utilisateur } from '../types';
 
@@ -68,21 +68,41 @@ function tableauxDeBord(user: Utilisateur): GroupeArbre {
   };
 }
 
-export const arbreVente: ArbreModule = ({ user, terrain }) => [
-  monActivite(user, terrain),
-  {
-    cle: 'commercial',
+const ENTREES_AGENCE: ReadonlySet<string> = new Set([
+  '/prospects', '/prospections', '/offres', '/clients', '/plans', '/dossiers',
+]);
+
+function arbreAgence(): GroupeArbre[] {
+  const activite: GroupeArbre = {
+    cle: 'activite',
+    titre: 'Mon activité',
     entrees: [
-      { to: '/hotline', libelle: 'Hot Line', Icone: Phone },
-      { to: '/prospects', libelle: 'Prospects', Icone: Contact, couleur: 'var(--sec-prospect)' },
-      { to: '/pre-prospections', libelle: 'Pré-Prospections', Icone: UserPlus, couleur: 'var(--sec-preprospection)' },
-      { to: '/prospections', libelle: 'Prospections', Icone: Users, couleur: 'var(--sec-prospection)' },
-      { to: '/offres', libelle: 'Offres', Icone: FileText, couleur: 'var(--sec-offre)' },
-      { to: '/clients', libelle: 'Clients', Icone: UserCheck, couleur: 'var(--sec-client)' },
-      { to: '/plans', libelle: 'Plans', Icone: Map },
-      { to: '/dossiers', libelle: 'Dossiers de vente', Icone: Folder, couleur: 'var(--sec-dossier)' },
+      { to: '/', libelle: 'Tableau de bord', Icone: LayoutDashboard, exact: true },
+      JOURNEE,
+      { to: '/calendrier', libelle: 'Calendrier', Icone: Calendar },
     ],
-  },
+  };
+  const commercial = { ...arbreCommercial, entrees: arbreCommercial.entrees.filter((e) => ENTREES_AGENCE.has(e.to)) };
+  return [activite, commercial];
+}
+
+const arbreCommercial: GroupeArbre = {
+  cle: 'commercial',
+  entrees: [
+    { to: '/hotline', libelle: 'Hot Line', Icone: Phone },
+    { to: '/prospects', libelle: 'Prospects', Icone: Contact, couleur: 'var(--sec-prospect)' },
+    { to: '/pre-prospections', libelle: 'Pré-Prospections', Icone: UserPlus, couleur: 'var(--sec-preprospection)' },
+    { to: '/prospections', libelle: 'Prospections', Icone: Users, couleur: 'var(--sec-prospection)' },
+    { to: '/offres', libelle: 'Offres', Icone: FileText, couleur: 'var(--sec-offre)' },
+    { to: '/clients', libelle: 'Clients', Icone: UserCheck, couleur: 'var(--sec-client)' },
+    { to: '/plans', libelle: 'Plans', Icone: Map },
+    { to: '/dossiers', libelle: 'Dossiers de vente', Icone: Folder, couleur: 'var(--sec-dossier)' },
+  ],
+};
+
+export const arbreVente: ArbreModule = ({ user, terrain }) => estAgence(user) ? arbreAgence() : [
+  monActivite(user, terrain),
+  arbreCommercial,
   {
     cle: 'recettes',
     titre: 'Recettes',

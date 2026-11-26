@@ -7,7 +7,7 @@ import { ajouterCadeau, listCadeaux, modifierCadeau, supprimerCadeau } from '../
 import { useAuth } from '../../../lib/auth';
 import { useConfirm } from '../../../lib/confirmContext';
 import { formatCurrency, formatDate } from '../../../lib/format';
-import { gereLesCadeaux } from '../../../lib/roles';
+import { estAgence, gereLesCadeaux } from '../../../lib/roles';
 import { useApi } from '../../../lib/useApi';
 import { useEcriture } from '../../../lib/useEcriture';
 import type { CadeauDto, CadeauRequest } from '../../../types/dossierSousListes';
@@ -16,9 +16,10 @@ import CadeauDialog from '../echeancier/CadeauDialog';
 function Ligne({
   c,
   gere,
+  agence,
   onModifier,
   onSupprimer,
-}: Readonly<{ c: CadeauDto; gere: boolean; onModifier: (c: CadeauDto) => void; onSupprimer: (c: CadeauDto) => void }>) {
+}: Readonly<{ c: CadeauDto; gere: boolean; agence: boolean; onModifier: (c: CadeauDto) => void; onSupprimer: (c: CadeauDto) => void }>) {
   return (
     <TableRow>
       <TableCell className="font-medium">{c.cadeau || 'À choisir'}</TableCell>
@@ -30,9 +31,11 @@ function Ligne({
       </TableCell>
       <TableCell>{c.cadeauId && !c.disponible && <Badge tone="amber">Hors stock</Badge>}</TableCell>
       <TableCell className="text-right">
-        <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier le cadeau" onClick={() => onModifier(c)}>
-          <Pencil />
-        </Button>
+        {!agence && (
+          <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier le cadeau" onClick={() => onModifier(c)}>
+            <Pencil />
+          </Button>
+        )}
         {gere && (
           <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer le cadeau" onClick={() => onSupprimer(c)}>
             <Trash2 />
@@ -47,7 +50,8 @@ function Ligne({
 export default function OngletCadeaux({ dossierId }: Readonly<{ dossierId: string }>) {
   const cadeaux = useApi(() => listCadeaux(dossierId), [dossierId], 'dossier-cadeaux');
   const { user } = useAuth();
-  const gere = gereLesCadeaux(user);
+  const agence = estAgence(user);
+  const gere = gereLesCadeaux(user) && !agence;
   const [edition, setEdition] = useState<CadeauDto | 'nouveau' | null>(null);
   const confirm = useConfirm();
   const { occupe, executer } = useEcriture();
@@ -95,7 +99,7 @@ export default function OngletCadeaux({ dossierId }: Readonly<{ dossierId: strin
           </TableHeader>
           <TableBody>
             {lignes.map((c) => (
-              <Ligne key={c.id} c={c} gere={gere} onModifier={setEdition} onSupprimer={(x) => void supprimer(x)} />
+              <Ligne key={c.id} c={c} gere={gere} agence={agence}onModifier={setEdition} onSupprimer={(x) => void supprimer(x)} />
             ))}
           </TableBody>
         </Table>

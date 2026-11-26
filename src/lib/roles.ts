@@ -3,6 +3,11 @@
 
 interface PorteurDeRoles {
   roles?: readonly string[];
+  agence?: boolean;
+}
+
+export function estAgence(user: PorteurDeRoles | null | undefined): boolean {
+  return user?.agence === true;
 }
 
 export const ROLES_EXEMPTES: ReadonlySet<string> = new Set(['Administrateur', 'Direction Générale']);

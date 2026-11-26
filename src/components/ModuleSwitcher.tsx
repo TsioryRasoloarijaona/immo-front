@@ -3,7 +3,7 @@ import { APP_MODULES, type AppModule } from '../lib/modules';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
 import { useAuth } from '../lib/auth';
-import { estAdministrateur, estCommercialTerrain } from '../lib/roles';
+import { estAdministrateur, estAgence, estCommercialTerrain } from '../lib/roles';
 
 /** Le commercial de terrain ne voit que ses deux modules utiles. */
 const MODULES_TERRAIN: ReadonlySet<string> = new Set(['vente', 'patrimoine']);
@@ -13,7 +13,10 @@ export default function ModuleSwitcher({ onClose }: Readonly<{ onClose: () => vo
   const { user } = useAuth();
   const isAdmin = estAdministrateur(user);
   const terrain = estCommercialTerrain(user);
-  const modules = APP_MODULES.filter((m) => (!m.adminOnly || isAdmin) && (!terrain || MODULES_TERRAIN.has(m.slug)));
+  const agence = estAgence(user);
+  const modules = APP_MODULES.filter(
+    (m) => (!m.adminOnly || isAdmin) && (!terrain || MODULES_TERRAIN.has(m.slug)) && (!agence || m.slug === 'vente'),
+  );
 
   function handleSelect(mod: AppModule) {
     onClose();

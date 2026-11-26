@@ -3,6 +3,8 @@ import LienDesistement from '../../desistement/LienDesistement';
 import BarreEdition from '../edition/BarreEdition';
 import { ChampDate, ChampTexte } from '../edition/ChampsSaisie';
 import { formatDate } from '../../../lib/format';
+import { useAuth } from '../../../lib/auth';
+import { estAgence } from '../../../lib/roles';
 import { jourSaisi, useFormulaireEdition, type CleEdition, type ValeursEdition } from '../../../lib/editionDossier';
 import type { ApiState } from '../../../lib/useApi';
 import type { AnnulationFicheDto, DossierFicheDto } from '../../../types';
@@ -16,12 +18,13 @@ function valeursInitiales(a: AnnulationFicheDto): ValeursEdition {
 
 /** Seul onglet modifiable sur un dossier annulé ou désisté (409 ailleurs). */
 function Annulation({ fiche, dossierId }: Readonly<{ fiche: DossierFicheDto; dossierId: string }>) {
+  const { user } = useAuth();
   const { annulation } = fiche;
   const f = useFormulaireEdition(fiche, () => valeursInitiales(annulation), CLES_DATES);
 
   return (
     <>
-      <LienDesistement dossierId={dossierId} />
+      {!estAgence(user) && <LienDesistement dossierId={dossierId} />}
       <BarreEdition edition={f.edition} visible={f.edition.peut('ANNULATION')} onEnregistrer={f.enregistrer} />
       {f.edition.ouvert ? (
         <FieldGrid>

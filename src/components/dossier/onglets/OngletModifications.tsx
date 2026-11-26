@@ -9,7 +9,9 @@ import {
   modifierModification,
   supprimerModification,
 } from '../../../lib/apiDossierSousListes';
+import { useAuth } from '../../../lib/auth';
 import { useConfirm } from '../../../lib/confirmContext';
+import { estAgence } from '../../../lib/roles';
 import { schemaEquilibre, toneEtatModification } from '../../../lib/dossierSousListes';
 import { formatCurrency, formatDate } from '../../../lib/format';
 import { useApi } from '../../../lib/useApi';
@@ -32,9 +34,10 @@ function Synthese({ m }: Readonly<{ m: ModificationsDto }>) {
 
 function Lignes({
   lignes,
+  lecture,
   onModifier,
   onSupprimer,
-}: Readonly<{ lignes: ModificationDto[]; onModifier: (m: ModificationDto) => void; onSupprimer: (m: ModificationDto) => void }>) {
+}: Readonly<{ lignes: ModificationDto[]; lecture: boolean; onModifier: (m: ModificationDto) => void; onSupprimer: (m: ModificationDto) => void }>) {
   if (lignes.length === 0) return <EmptyState title="Aucune demande de modification" />;
   return (
     <Table>
@@ -59,12 +62,16 @@ function Lignes({
             <TableCell className="text-right tabular-nums">{formatCurrency(m.prixHT)}</TableCell>
             <TableCell className="text-right tabular-nums">{formatCurrency(m.prixTTC)}</TableCell>
             <TableCell className="text-right">
-              <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier la demande" onClick={() => onModifier(m)}>
-                <Pencil />
-              </Button>
-              <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer la demande" onClick={() => onSupprimer(m)}>
-                <Trash2 />
-              </Button>
+              {!lecture && (
+                <>
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier la demande" onClick={() => onModifier(m)}>
+                    <Pencil />
+                  </Button>
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer la demande" onClick={() => onSupprimer(m)}>
+                    <Trash2 />
+                  </Button>
+                </>
+              )}
             </TableCell>
           </TableRow>
         ))}
@@ -79,6 +86,7 @@ export default function OngletModifications({ dossierId, onChanged }: Readonly<{
   // `null` = fermé ; `'nouvelle'` = création ; sinon la demande éditée.
   const [edition, setEdition] = useState<ModificationDto | 'nouvelle' | null>(null);
   const confirm = useConfirm();
+  const agence = estAgence(useAuth().user);
   const { occupe, executer } = useEcriture();
 
   async function relire() {
@@ -102,17 +110,19 @@ export default function OngletModifications({ dossierId, onChanged }: Readonly<{
 
   return (
     <div className="flex flex-col gap-2.5 p-3">
-      <div className="flex justify-end">
-        <Button type="button" variant="outline" size="sm" onClick={() => setEdition('nouvelle')}>
-          <Plus data-icon="inline-start" /> Nouvelle demande
-        </Button>
-      </div>
+      {!agence && (
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" size="sm" onClick={() => setEdition('nouvelle')}>
+            <Plus data-icon="inline-start" /> Nouvelle demande
+          </Button>
+        </div>
+      )}
       {modifications.loading && !modifications.data && <LoadingState />}
       {modifications.error && <ErrorState message={modifications.error} />}
       {!modifications.error && modifications.data && (
         <>
           <Synthese m={modifications.data} />
-          <Lignes lignes={modifications.data.modifications} onModifier={setEdition} onSupprimer={(m) => void supprimer(m)} />
+          <Lignes lignes={modifications.data.modifications} lecture={agence}onModifier={setEdition} onSupprimer={(m) => void supprimer(m)} />
         </>
       )}
       {edition && (
