@@ -13441,7 +13441,7 @@
         ],
         "responses": {
           "201": {
-            "description": "Avoir créé ; la facture d'origine n'est pas modifiée.",
+            "description": "Avoir créé ; net à payer de la facture réduit du TTC de l'avoir si non financier.",
             "content": {
               "*/*": {
                 "schema": {

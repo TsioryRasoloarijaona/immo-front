@@ -193,7 +193,9 @@ function Fiche({ initial }: Readonly<{ initial: DecompteDetailDto }>) {
       appliquer(await getDecompte(d.id));
       afficherToast({
         texte: `${avoir ? 'Avoir' : 'Facture'} ${g.code ?? ''} ${avoir ? 'généré' : 'générée'} — net à payer ${formatCurrency(g.netAPayer)}`,
-        action: { libelle: 'Ouvrir la facture →', vers: `/achat/depenses/factures/${g.factureId}` },
+        action: avoir
+          ? { libelle: 'Ouvrir l\'avoir →', vers: `/projet/depenses/avoirs/${g.factureId}` }
+          : { libelle: 'Ouvrir la facture →', vers: `/achat/depenses/factures/${g.factureId}` },
       });
     });
   }
