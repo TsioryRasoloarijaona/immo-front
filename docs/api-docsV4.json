@@ -52,6 +52,10 @@
       "description": "Pièces d'achat (`BuyDocument`) en **lecture seule** : factures, bons de commande, devis, documents à régler, bons de livraison, avoirs. Voir `instructions/FEATURE-achat-lecture-factures.md`.\n\n**Visibilité, comme les listes OMRAN** : une pièce est visible si et seulement si sa société (`CfgCompanyId`) figure dans les habilitations société de l'appelant (`AdmUserHabilitation.CfgCompanyId`) **et** son projet (`PrjProjectId`) dans ses habilitations projet (`AdmUserHabilitation.PrjProjectId`) **ou** la pièce n'a pas de projet ; **pour tous les rôles** (aucune exemption Administrateur / Direction générale). Sans habilitation société : rien. Un filtre `projetIds` exclut les pièces sans projet. Une pièce hors périmètre répond 404, comme un id inconnu. Voir `instructions/FEATURE-visibilite-omran.md` R3.\n\n**Solde** : `montantRegle` = somme des lignes de règlement (`StlSettlementLine.Amount`) de la pièce dont le règlement n'est pas annulé (`CANCELED`) ; `resteARegler` = `montantAPayer` (`AmountToPay`) − réglé, à 2 décimales ; `solde` = |reste| ≤ 0,05 ; `aDeduire` = à payer < −0,05 (récupération d'avance sur décompte, jamais « trop réglée ») ; `tropRegle` = reste < −0,05 sur une pièce qui n'est pas à déduire. « Payé » ne se lit jamais dans le statut. Calcul unique : `SoldeDocumentAchat` (FEATURE-achat-impayes.md §3.1)."
     },
     {
+      "name": "Tiers (administration)",
+      "description": "Fournisseurs (`CfgTierType` FOU), contacts (CNT), banques (BAN), organismes (ORG) et personnels (EMP) d'OMRAN, plus les agences de vente (type CNT, nature `CfgTierKind` AGV, voir `instructions/FEATURE-agences-vente.md` §3), une famille par segment d'URL : une autre valeur répond 404, un identifiant d'un autre type aussi. Aucune donnée de paie n'est lue ni écrite. Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-tiers.md`, `instructions/FEATURE-admin-banques-organismes.md` et `instructions/FEATURE-admin-personnels.md`."
+    },
+    {
       "name": "Études de faisabilité — bilan et trésorerie",
       "description": "Onglets « Bilan », « Analyse » et « Données » d'une étude. Le bilan est l'arbre des catégories de trésorerie\n(`StlCategory`) que l'utilisateur renseigne (`FSPrevision`) ; ses totaux donnent le coût global, le chiffre d'affaires,\nles marges et les retours de l'étude. Lecture et aperçus Administrateur + Direction Générale, écriture Administrateur ;\naucune clé d'API (403). Étude inconnue ou de société inactive → 404."
     },
@@ -378,10 +382,6 @@
     {
       "name": "Dossiers — acquéreurs",
       "description": "Onglet « Acquéreurs » de la fiche dossier : le client principal porte sa part sur `ComFolder.PartPercent`, chaque co-acquéreur sur `ComFolderCustomer.PartPercent` (ratio 0–1 en base, pourcentage 0–100 dans l'API). Contrôles d'OMRAN à l'enregistrement (`Sale.cs:Verif`) : « La réparation du client principal doit être > 0 ! », « Le total des répartitions sur les acquéreurs doit être égale à 100% ! », et à l'ajout « Cet tier est déjà affecté en tant que client principal ! »."
-    },
-    {
-      "name": "Tiers (administration)",
-      "description": "Fournisseurs (`CfgTierType` FOU), contacts (CNT), banques (BAN), organismes (ORG) et personnels (EMP) d'OMRAN, une famille par segment d'URL : une autre valeur répond 404, un identifiant d'un autre type aussi. Aucune donnée de paie n'est lue ni écrite. Réservé à l'Administrateur. Voir `instructions/FEATURE-admin-tiers.md`, `instructions/FEATURE-admin-banques-organismes.md` et `instructions/FEATURE-admin-personnels.md`."
     },
     {
       "name": "Dossiers",
@@ -21420,7 +21420,8 @@
                 "contacts",
                 "banques",
                 "organismes",
-                "personnels"
+                "personnels",
+                "agences"
               ]
             }
           },
@@ -84161,6 +84162,10 @@
           "libre": {
             "type": "boolean",
             "description": "Vrai si aucun dossier actif n'occupe l'article."
+          },
+          "indisponible": {
+            "type": "boolean",
+            "description": "Vrai pour un compte agence si le lot est occupé hors de son agence : statut, couleur, dossier, client à null."
           }
         }
       },
