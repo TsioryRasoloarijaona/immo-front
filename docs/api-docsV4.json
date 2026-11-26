@@ -13291,6 +13291,51 @@
         }
       }
     },
+    "/api/projet/decomptes/{id}/facture": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Générer la facture fournisseur d'un décompte (lignes, extras et retenues du décompte)",
+        "operationId": "facturer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du décompte (PrjWorkingOut.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Facture créée et liée au décompte.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactureGenereeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Lot sans ventilation par catégorie budgétaire."
+          },
+          "403": {
+            "description": "Droit OMRAN (AdmRight) manquant pour cette action."
+          },
+          "404": {
+            "description": "Décompte introuvable : id inconnu ou projet non habilité."
+          },
+          "409": {
+            "description": "Une facture est déjà générée sur ce décompte."
+          }
+        }
+      }
+    },
     "/api/projet/decomptes/{id}/dernier": {
       "post": {
         "tags": [
@@ -13371,6 +13416,48 @@
           },
           "409": {
             "description": "Décompte facturé ou qui n'est pas le dernier de son lot."
+          }
+        }
+      }
+    },
+    "/api/projet/decomptes/{id}/avoir": {
+      "post": {
+        "tags": [
+          "Projet"
+        ],
+        "summary": "Générer un avoir fournisseur qui reprend la facture du décompte (plusieurs avoirs possibles)",
+        "operationId": "avoir",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du décompte (PrjWorkingOut.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Avoir créé ; net à payer de la facture réduit du TTC de l'avoir si non financier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactureGenereeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit OMRAN (AdmRight) manquant pour cette action."
+          },
+          "404": {
+            "description": "Décompte introuvable : id inconnu ou projet non habilité."
+          },
+          "409": {
+            "description": "Décompte sans facture : aucun avoir possible."
           }
         }
       }
@@ -69479,6 +69566,25 @@
           "description": {
             "type": "string",
             "description": "Description de la demande, obligatoire."
+          }
+        }
+      },
+      "FactureGenereeDto": {
+        "type": "object",
+        "description": "Pièce d'achat générée depuis un décompte : la facture fournisseur ou l'avoir.",
+        "properties": {
+          "factureId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la pièce créée (BuyDocument.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pièce, tiré de sa séquence (« Facture fournisseur » ou « Avoir fournisseur »)."
+          },
+          "netAPayer": {
+            "type": "number",
+            "description": "Net à payer de la pièce (BuyDocument.AmountToPay), calculé par le serveur."
           }
         }
       },

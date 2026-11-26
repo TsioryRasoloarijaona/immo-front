@@ -37,6 +37,7 @@ import type {
   ExecutionTransitionLotDto,
   DecompteListItemDto,
   EnregistrerDecompteRequest,
+  FactureGenereeDto,
   FiltresDecomptes,
   FiltresLots,
   LigneDecompteRechargee,
@@ -278,6 +279,11 @@ export function rechargerCumulsDecompte(id: UUID): Promise<DecompteDetailDto> {
 
 export function recalculerDecompte(id: UUID): Promise<DecompteDetailDto> {
   return request('POST', `${DECOMPTES}/${id}/recalcul`);
+}
+
+// FEATURE-lc8-facture-decompte.md : 409 déjà facturé (facture) ou sans facture (avoir), 400 lot sans ventilation.
+export function genererPieceDecompte(id: UUID, piece: 'facture' | 'avoir'): Promise<FactureGenereeDto> {
+  return request('POST', `${DECOMPTES}/${id}/${piece}`);
 }
 
 export function supprimerDecompte(id: UUID): Promise<void> {

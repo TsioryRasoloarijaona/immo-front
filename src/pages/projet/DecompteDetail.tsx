@@ -13,6 +13,7 @@ import {
   definirDernierDecompte,
   enregistrerDecompte,
   getDecompte,
+  genererPieceDecompte,
   getLignesRechargeesDecompte,
   recalculerDecompte,
   rechargerCumulsDecompte,
@@ -20,6 +21,7 @@ import {
 } from '../../lib/apiProjet';
 import { useConfirm } from '../../lib/confirmContext';
 import { formatCurrency, formatDate } from '../../lib/format';
+import { useToast } from '../../lib/toastContext';
 import { demandeDepuis, lignesSaisies, saisieDepuis, type SaisieDecompte } from '../../lib/saisieDecompte';
 import { extrasSaisis, retenuesSaisies } from '../../lib/saisieExtrasDecompte';
 import type { DecompteDetailDto } from '../../types/projet';
@@ -135,6 +137,7 @@ function Document({ d, saisie, lectureSeule, onChange }: Readonly<{ d: DecompteD
 function Fiche({ initial }: Readonly<{ initial: DecompteDetailDto }>) {
   const navigate = useNavigate();
   const confirmer = useConfirm();
+  const afficherToast = useToast();
   const [d, setD] = useState(initial);
   const [saisie, setSaisie] = useState(() => saisieDepuis(initial));
   const [lignes, setLignes] = useState(() => lignesSaisies(initial.lignes));
@@ -184,7 +187,28 @@ function Fiche({ initial }: Readonly<{ initial: DecompteDetailDto }>) {
     if (ok) await executer(async () => appliquer(await rechargerCumulsDecompte(d.id)));
   }
 
+  async function genererPiece(piece: 'facture' | 'avoir') {
+    const avoir = piece === 'avoir';
+    const ok = await confirmer({
+      title: avoir ? 'Générer un avoir' : 'Générer la facture',
+      message: `${avoir ? 'Générer un avoir' : 'Générer la facture'} pour le décompte ${d.code ?? ''} ?`,
+      confirmLabel: 'Générer',
+    });
+    if (!ok) return;
+    await executer(async () => {
+      const g = await genererPieceDecompte(d.id, piece);
+      appliquer(await getDecompte(d.id));
+      afficherToast({
+        texte: `${avoir ? 'Avoir' : 'Facture'} ${g.code ?? ''} ${avoir ? 'généré' : 'générée'} — net à payer ${formatCurrency(g.netAPayer)}`,
+        action: avoir
+          ? { libelle: 'Ouvrir l\'avoir →', vers: `/projet/depenses/avoirs/${g.factureId}` }
+          : { libelle: 'Ouvrir la facture →', vers: `/achat/depenses/factures/${g.factureId}` },
+      });
+    });
+  }
+
   function agir(action: ActionDecompte) {
+    if (action === 'facture' || action === 'avoir') void genererPiece(action);
     if (action === 'cumuls') void rechargerCumuls();
     if (action === 'enregistrer') void executer(async () => appliquer(await enregistrerDecompte(d.id, demandeDepuis(saisie, lignes, touche.extras ? extras : null, touche.retenues ? retenues : null))));
     if (action === 'dernier') void executer(async () => appliquer(await definirDernierDecompte(d.id)));
