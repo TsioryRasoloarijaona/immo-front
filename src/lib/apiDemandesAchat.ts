@@ -10,6 +10,7 @@ import type {
   FiltresDemandesAchat,
   FournisseurDemandeAchat,
   HistoriqueDemandeAchat,
+  ImportOffreDemandeAchat,
   ModaliteDemandeAchat,
   OffreDemandeAchat,
   PrixLigneOffre,
@@ -105,8 +106,13 @@ export function supprimerOffreDemandeAchat(id: UUID, oid: UUID): Promise<void> {
   return request('DELETE', `${DEMANDES}/${id}/offres/${oid}`);
 }
 
-export function selectionnerOffreDemandeAchat(id: UUID, oid: UUID): Promise<DemandeAchatFiche> {
-  return request('POST', `${DEMANDES}/${id}/offres/${oid}/selection`);
+/** 409 `code = OFFRE_LA_PLUS_DISANTE` tant que `confirme` est faux sur l'offre la plus chère. */
+export function selectionnerOffreDemandeAchat(id: UUID, oid: UUID, confirme = false): Promise<DemandeAchatFiche> {
+  return request('POST', `${DEMANDES}/${id}/offres/${oid}/selection${confirme ? '?confirme=true' : ''}`);
+}
+
+export function importerOffreDemandeAchat(id: UUID, oid: UUID, fichier: File): Promise<ImportOffreDemandeAchat> {
+  return postMultipart(`${DEMANDES}/${id}/offres/${oid}/import`, fichier);
 }
 
 /** Vide aussi le bordereau de la demande (jamais celui du lot). */
