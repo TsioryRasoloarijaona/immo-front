@@ -3345,6 +3345,8 @@ export interface UtilisateurCourantDto {
   perimetreRestreint?: boolean;
   /** Vide = aucune restriction, jamais « ne voit rien ». */
   projetsAutorises?: ProjetPerimetreDto[];
+  /** Compte du rôle Agence : menu et routes réduits (le serveur répond 403 sinon). */
+  agence?: boolean;
 }
 
 export interface ProjetPerimetreDto {

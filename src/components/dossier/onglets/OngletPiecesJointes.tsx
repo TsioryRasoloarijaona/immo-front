@@ -9,17 +9,21 @@ import { referentielItems, useTypesPieceJointe } from '../../../lib/referentiels
 import { formatDate } from '../../../lib/format';
 import { pieceJointeTypeTone } from '../../../lib/domain';
 import { openPieceJointeFichier, removePieceJointe, uploadPieceJointe } from '../../../lib/api';
+import { useAuth } from '../../../lib/auth';
 import { useConfirm } from '../../../lib/confirmContext';
+import { estAgence } from '../../../lib/roles';
 import type { ApiState } from '../../../lib/useApi';
 import type { PieceJointeDto } from '../../../types';
 
 function PieceJointeRow({
   dossierId,
   piece,
+  lecture,
   onDeleted,
 }: Readonly<{
   dossierId: string;
   piece: PieceJointeDto;
+  lecture: boolean;
   onDeleted: () => void;
 }>) {
   const [error, setError] = useState<string | null>(null);
@@ -79,17 +83,19 @@ function PieceJointeRow({
           <Button type="button" variant="ghost" size="sm" onClick={handle}>
             <Eye data-icon="inline-start" /> Ouvrir <ArrowUpRight data-icon="inline-end" />
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            title="Supprimer la pièce jointe"
-            aria-label={`Supprimer ${filename}`}
-            disabled={busy}
-            onClick={handleDelete}
-          >
-            <Trash2 />
-          </Button>
+          {!lecture && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              title="Supprimer la pièce jointe"
+              aria-label={`Supprimer ${filename}`}
+              disabled={busy}
+              onClick={handleDelete}
+            >
+              <Trash2 />
+            </Button>
+          )}
         </div>
       </TableCell>
     </TableRow>
@@ -169,13 +175,14 @@ export default function OngletPiecesJointes({
   pieces,
 }: Readonly<{ dossierId: string; pieces: ApiState<PieceJointeDto[]> }>) {
   const [ajoutOuvert, setAjoutOuvert] = useState(false);
+  const agence = estAgence(useAuth().user);
 
   return (
     <div className="p-3">
       <Card
         title={`Pièces jointes (${pieces.data?.length ?? 0})`}
         action={
-          !ajoutOuvert && (
+          !agence && !ajoutOuvert && (
             <Button type="button" variant="ghost" size="sm" onClick={() => setAjoutOuvert(true)}>
               <Plus data-icon="inline-start" /> Ajouter une pièce jointe
             </Button>
@@ -211,7 +218,7 @@ export default function OngletPiecesJointes({
               </TableHeader>
               <TableBody>
                 {pieces.data.map((p) => (
-                  <PieceJointeRow key={p.id} dossierId={dossierId} piece={p} onDeleted={() => void pieces.refetch()} />
+                  <PieceJointeRow key={p.id} dossierId={dossierId} piece={p} lecture={agence}onDeleted={() => void pieces.refetch()} />
                 ))}
               </TableBody>
             </Table>

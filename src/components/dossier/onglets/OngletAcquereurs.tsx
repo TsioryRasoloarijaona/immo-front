@@ -5,6 +5,8 @@ import { Button } from '../../ui/button';
 import { formatPercentValue, formatTelephone } from '../../../lib/format';
 import { getClient } from '../../../lib/api';
 import { getAcquereurs } from '../../../lib/apiDossierSousListes';
+import { useAuth } from '../../../lib/auth';
+import { estAgence } from '../../../lib/roles';
 import { useApi } from '../../../lib/useApi';
 import type { DossierDetailDto } from '../../../types';
 import type { AcquereursDto, ProspectionAArchiverDto } from '../../../types/dossierSousListes';
@@ -31,6 +33,7 @@ function ListeAcquereurs({ donnees }: Readonly<{ donnees: AcquereursDto }>) {
 
 function AcquereursDossier({ dossierId, onChanged }: Readonly<{ dossierId: string; onChanged: () => Promise<void> }>) {
   const acquereurs = useApi(() => getAcquereurs(dossierId), [dossierId], 'dossier-acquereurs');
+  const { user } = useAuth();
   const [edition, setEdition] = useState(false);
   const [aArchiver, setAArchiver] = useState<ProspectionAArchiverDto[]>([]);
 
@@ -42,7 +45,7 @@ function AcquereursDossier({ dossierId, onChanged }: Readonly<{ dossierId: strin
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <h3 className="text-label font-semibold text-foreground">Acquéreurs</h3>
-        {!edition && (
+        {!edition && !estAgence(user) && (
           <Button type="button" variant="outline" size="sm" onClick={() => setEdition(true)}>
             <Pencil data-icon="inline-start" /> Modifier la répartition
           </Button>

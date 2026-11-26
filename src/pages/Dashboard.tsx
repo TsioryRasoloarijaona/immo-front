@@ -23,7 +23,7 @@ import {
 } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatCurrency, formatDate, formatNumber, formatTelephone } from '../lib/format';
-import { estAdministrateur } from '../lib/roles';
+import { estAdministrateur, estAgence } from '../lib/roles';
 import { canonicalStatusLabel, estStatutSortie, toneForStatus } from '../lib/dossierStatus';
 import type { PorteeRelance, ReferentielItemDto, RelanceProspectionDto, UUID } from '../types';
 import { etapeBadgeTone, prospectionDisplayName, PIPELINE_STAGES } from '../lib/domain';
@@ -314,7 +314,7 @@ export default function Dashboard() {
     [trancheId],
   );
   const { data: preProspectionsPage, error: preProspectionsErreur } = useApi(
-    () => listPreProspections(filtresOuvertes, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
+    () => (estAgence(user) ? Promise.resolve(null) : listPreProspections(filtresOuvertes, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS })),
     [trancheId],
   );
   const { data: clientsPage, error: clientsErreur } = useApi(
@@ -460,21 +460,23 @@ export default function Dashboard() {
           <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
             <Card title="Pipeline" accent="var(--sec-accent)" padded={false} className="shrink-0">
               <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2">
-                <KanbanColumn
-                  icon={<UserPlus />}
-                  title="Pré-prospection"
-                  count={preProspectionsPage?.totalElements}
-                  emptyMessage="Aucune pré-prospection."
-                  error={preProspectionsErreur}
-                  onVoirTout={() => setListe('pre-prospections')}
-                >
-                  {preProspectionsPage?.content.slice(0, LIGNES_COULOIR).map((p) => (
-                    <KanbanItemRow onClick={() => setFiche({ id: p.id, pre: true })} key={p.id}>
-                      <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
-                      <span className="shrink-0 text-micro text-muted-foreground">{formatDate(p.dateDocument)}</span>
-                    </KanbanItemRow>
-                  ))}
-                </KanbanColumn>
+                {!estAgence(user) && (
+                  <KanbanColumn
+                    icon={<UserPlus />}
+                    title="Pré-prospection"
+                    count={preProspectionsPage?.totalElements}
+                    emptyMessage="Aucune pré-prospection."
+                    error={preProspectionsErreur}
+                    onVoirTout={() => setListe('pre-prospections')}
+                  >
+                    {preProspectionsPage?.content.slice(0, LIGNES_COULOIR).map((p) => (
+                      <KanbanItemRow onClick={() => setFiche({ id: p.id, pre: true })} key={p.id}>
+                        <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
+                        <span className="shrink-0 text-micro text-muted-foreground">{formatDate(p.dateDocument)}</span>
+                      </KanbanItemRow>
+                    ))}
+                  </KanbanColumn>
+                )}
 
                 <KanbanColumn
                   icon={<AlertCircle />}
@@ -553,9 +555,11 @@ export default function Dashboard() {
             </Card>
 
             <div className="flex shrink-0 flex-col gap-3 min-[1500px]:flex-row">
-              <div className="min-w-0 min-[1500px]:flex-[13]">
-                <SyntheseAnnuelle trancheId={trancheId} />
-              </div>
+              {!estAgence(user) && (
+                <div className="min-w-0 min-[1500px]:flex-[13]">
+                  <SyntheseAnnuelle trancheId={trancheId} />
+                </div>
+              )}
 
               <Card
                 title="Dossiers récents"

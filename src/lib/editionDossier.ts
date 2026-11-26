@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { listProspects } from './api';
 import { getDroitsEdition, modifierDossier } from './apiEdition';
 import { toApiDateTime } from './format';
+import { useAuth } from './auth';
 import { messageProspectionsArchivees } from './prospectionsArchivees';
+import { estAgence } from './roles';
 import { useToast } from './toastContext';
 import { errorMessage, refetchAllApis, useApi } from './useApi';
 import type { DossierFicheDto, ProspectListItemDto, UUID } from '../types';
@@ -95,8 +97,9 @@ export interface EditionDossier {
  * Après un enregistrement, toutes les lectures montées sont relancées (en-tête, montants, historique…).
  */
 export function useEditionDossier(dossierId: UUID | undefined, versionFiche: unknown): EditionDossier {
+  const agence = estAgence(useAuth().user);
   const droits = useApi(
-    () => (dossierId ? getDroitsEdition(dossierId) : Promise.resolve(null)),
+    () => (dossierId && !agence ? getDroitsEdition(dossierId) : Promise.resolve(null)),
     [dossierId],
     'dossier-edition',
   );

@@ -7,6 +7,8 @@ import { Button } from './ui/button';
 import { DialogFooter } from './ui/dialog';
 import { getProspect, type CritereHotline } from '../lib/api';
 import { useApi } from '../lib/useApi';
+import { useAuth } from '../lib/auth';
+import { estAgence } from '../lib/roles';
 import { usePreview } from '../lib/previewContext';
 import { LIBELLES_GROUPE } from '../lib/colonnes';
 import { DISPOSITION_SUIVI_ACTIONS } from '../lib/dispositions';
@@ -96,6 +98,7 @@ export default function ActionDetailDialog({
 }>) {
   const { ouvrirFicheProspection, ouvrirFicheDossier, ouvrirFicheProspect } = usePreview();
   const [critereHotline, setCritereHotline] = useState<CritereHotline | null>(null);
+  const agence = estAgence(useAuth().user);
 
   // `tiersId` n'arrive que parce que la liste le demande (`CLES_OUVERTURE_SUIVI_ACTION`).
   const prospect = useApi(() => (action.tiersId ? getProspect(action.tiersId) : Promise.resolve(null)), [action.tiersId]);
@@ -174,16 +177,18 @@ export default function ActionDetailDialog({
                 Fiche <ArrowUpRight data-icon="inline-end" />
               </Button>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={hotlineEnAttente || !critereDisponible}
-              title={titreBoutonHotline(hotlineEnAttente, critereDisponible !== null, !!action.tiersId, telephoneAffiche)}
-              onClick={() => critereDisponible && setCritereHotline(critereDisponible)}
-            >
-              <Phone data-icon="inline-start" /> Voir hotline
-            </Button>
+            {!agence && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={hotlineEnAttente || !critereDisponible}
+                title={titreBoutonHotline(hotlineEnAttente, critereDisponible !== null, !!action.tiersId, telephoneAffiche)}
+                onClick={() => critereDisponible && setCritereHotline(critereDisponible)}
+              >
+                <Phone data-icon="inline-start" /> Voir hotline
+              </Button>
+            )}
           </div>
         </div>
 

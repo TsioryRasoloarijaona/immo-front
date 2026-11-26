@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { formatDate, formatDateTime } from '../../../lib/format';
 import { creerActionDossier, marquerInstructionLue } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
+import { estAgence } from '../../../lib/roles';
 import type { ApiState } from '../../../lib/useApi';
 import type { ActionDossierDto, ActionsDossierDto } from '../../../types';
 import AjoutActionDialog from '../AjoutActionDialog';
@@ -21,7 +22,7 @@ function useMarquerInstructionsLues(dossierId: string, actions: ActionDossierDto
 
   useEffect(() => {
     const employeId = user?.employeeId;
-    if (!employeId || !actions) return;
+    if (!employeId || !actions || estAgence(user)) return;
     const aMarquer = actions.filter(
       (a) => a.instruction && a.nonLue && a.destinataireId === employeId && !dejaEnvoyees.current.has(a.id),
     );
@@ -30,7 +31,7 @@ function useMarquerInstructionsLues(dossierId: string, actions: ActionDossierDto
     void Promise.all(aMarquer.map((a) => marquerInstructionLue(dossierId, a.id)))
       .then(onLues)
       .catch(() => undefined);
-  }, [actions, dossierId, onLues, user?.employeeId]);
+  }, [actions, dossierId, onLues, user]);
 }
 
 /** Tableau des actions, partagé par la fiche dossier et la fiche article. */
@@ -91,6 +92,7 @@ export default function OngletActions({
   /** Relit actions et fiche (icône d'instruction non lue). */
   onChanged: () => void;
 }>) {
+  const agence = estAgence(useAuth().user);
   const [ajoutOuvert, setAjoutOuvert] = useState(false);
   useMarquerInstructionsLues(dossierId, actions.data?.actions, onChanged);
 
@@ -98,9 +100,11 @@ export default function OngletActions({
     <div className="flex flex-col gap-2.5 p-3">
       <LigneActivite
         action={
-          <Button type="button" variant="outline" size="sm" onClick={() => setAjoutOuvert(true)}>
-            <Plus data-icon="inline-start" /> Ajouter une action
-          </Button>
+          agence ? undefined : (
+            <Button type="button" variant="outline" size="sm" onClick={() => setAjoutOuvert(true)}>
+              <Plus data-icon="inline-start" /> Ajouter une action
+            </Button>
+          )
         }
       >
         {actions.data?.parType.map((c) => (

@@ -12,6 +12,7 @@ import HistoriqueReglementsEcheance from './LigneReglement';
 export default function LigneEcheance({
   dossierId,
   echeance,
+  lecture,
   versionReglements,
   onReglementAdded,
   onReglementChanged,
@@ -20,6 +21,8 @@ export default function LigneEcheance({
 }: Readonly<{
   dossierId: string;
   echeance: EcheanceDto;
+  /** Compte agence : aucune écriture. */
+  lecture: boolean;
   /** Change à chaque règlement saisi ailleurs dans l'onglet : l'historique déplié se relit. */
   versionReglements: number;
   onReglementAdded: () => Promise<void>;
@@ -64,25 +67,27 @@ export default function LigneEcheance({
           </div>
         </TableCell>
         <TableCell onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center justify-end gap-1">
-            <AjoutReglement
-              dossierId={dossierId}
-              echeanceInitiale={echeance.id}
-              onCree={async () => {
-                await onReglementAdded();
-                setReglementsVersion((v) => v + 1);
-                setExpanded(true);
-              }}
-            />
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier l'échéance" onClick={() => onModifier(echeance)}>
-              <Pencil />
-            </Button>
-            {onSupprimer && (
-              <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer l'échéance" onClick={() => onSupprimer(echeance)}>
-                <Trash2 />
+          {!lecture && (
+            <div className="flex items-center justify-end gap-1">
+              <AjoutReglement
+                dossierId={dossierId}
+                echeanceInitiale={echeance.id}
+                onCree={async () => {
+                  await onReglementAdded();
+                  setReglementsVersion((v) => v + 1);
+                  setExpanded(true);
+                }}
+              />
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier l'échéance" onClick={() => onModifier(echeance)}>
+                <Pencil />
               </Button>
-            )}
-          </div>
+              {onSupprimer && (
+                <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer l'échéance" onClick={() => onSupprimer(echeance)}>
+                  <Trash2 />
+                </Button>
+              )}
+            </div>
+          )}
         </TableCell>
       </TableRow>
       {expanded && (

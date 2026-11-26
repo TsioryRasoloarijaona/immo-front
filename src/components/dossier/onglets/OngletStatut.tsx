@@ -4,7 +4,9 @@ import { ErrorState, Field, FieldGrid } from '../../ui';
 import { Button } from '../../ui/button';
 import type { ConfirmerStatut } from '../ConfirmationStatut';
 import { getTransitionSuggeree } from '../../../lib/api';
+import { useAuth } from '../../../lib/auth';
 import { canonicalStatusLabel } from '../../../lib/dossierStatus';
+import { estAgence } from '../../../lib/roles';
 import { formatDate, formatNumber } from '../../../lib/format';
 import { errorMessage, useApi } from '../../../lib/useApi';
 import type { DossierDetailDto, DossierFicheDto, EtapeSuivanteDto, TransitionSuggereeDto } from '../../../types';
@@ -68,7 +70,8 @@ export default function OngletStatut({
   onConfirm: ConfirmerStatut;
 }>) {
   // `fiche` est relue après un règlement ou un enregistrement : la proposition l'est avec elle.
-  const suggestion = useApi(() => getTransitionSuggeree(d.id), [d.id, d.statut, fiche]);
+  const agence = estAgence(useAuth().user);
+  const suggestion = useApi(() => (agence ? Promise.resolve(null) : getTransitionSuggeree(d.id)), [d.id, d.statut, fiche, agence]);
 
   return (
     <div className="p-3">
@@ -76,7 +79,7 @@ export default function OngletStatut({
       {erreurEtapes ? (
         <ErrorState message={erreurEtapes} />
       ) : (
-        <DossierStatusStepper currentStatus={d.statut || 'Réservation'} nextSteps={etapesSuivantes} onConfirm={onConfirm} />
+        <DossierStatusStepper currentStatus={d.statut || 'Réservation'} nextSteps={agence ? [] : etapesSuivantes} onConfirm={onConfirm} />
       )}
       {/* Délais calculés par le serveur, souvent nuls : tiret plutôt que ligne
           masquée, une case vide dit « pas encore atteint ». */}
