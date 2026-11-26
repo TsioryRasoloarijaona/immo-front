@@ -56042,7 +56042,7 @@
           },
           "montantTTC": {
             "type": "number",
-            "description": "Quantité × prix unitaire TTC."
+            "description": "PU HT × (1 + FODEC) × quantité × (1 + TVA), arrondi à 2 décimales (même calcul qu'ExtraAmount)."
           },
           "code": {
             "type": "string",
