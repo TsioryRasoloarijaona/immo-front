@@ -103,7 +103,7 @@ export interface FiltresEmail {
 }
 
 // FEATURE-admin-tiers.md
-export type FamilleTiers = 'fournisseurs' | 'contacts' | 'banques' | 'organismes' | 'personnels';
+export type FamilleTiers = 'fournisseurs' | 'contacts' | 'banques' | 'organismes' | 'personnels' | 'agences';
 
 export type ListeReferentielTiers = 'formes-sociales' | 'assujettissements' | 'notes' | 'journaux';
 

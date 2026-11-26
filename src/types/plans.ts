@@ -45,6 +45,8 @@ export interface TraceDto {
   client: string | null;
   estSousArticle: boolean;
   libre: boolean;
+  /** Compte agence : lot occupé hors de son agence ; statut, couleur, dossier et client valent null. */
+  indisponible: boolean;
 }
 
 export type ResultatTrace = 'AJOUTE' | 'MODIFIE' | 'INCHANGE' | 'INTROUVABLE';

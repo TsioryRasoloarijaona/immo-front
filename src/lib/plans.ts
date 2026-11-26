@@ -17,6 +17,7 @@ function couleurTrace(t: Pick<TraceDto, 'couleur'>): string {
 }
 
 export function statutDeTrace(t: TraceDto): StatutPlan {
+  if (t.indisponible) return { cle: 'indisponible', libelle: 'Indisponible', couleur: COULEUR_NEUTRE };
   if (t.libre) return { cle: 'libre', libelle: 'Libre', couleur: COULEUR_NEUTRE };
   return { cle: t.statutCode ?? 'occupe', libelle: t.statutLibelle ?? 'Occupé', couleur: couleurTrace(t) };
 }
@@ -35,6 +36,7 @@ export const MESSAGE_SOUS_ARTICLE = 'Vous ne pouvez pas ajouter une prospection 
 
 /** Ce que fait le clic sur un tracé : libre → prospection, occupé → dossier en dialogue. */
 export function actionTrace(t: TraceDto): 'prospection' | 'dossier' | 'sous-article' | null {
+  if (t.indisponible) return null;
   if (!t.libre) return t.dossierId ? 'dossier' : null;
   return t.estSousArticle ? 'sous-article' : 'prospection';
 }
