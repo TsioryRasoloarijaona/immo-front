@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
+import BoutonPaiementApprouve from '../../components/achat/BoutonPaiementApprouve';
 import PageShell from '../../components/PageShell';
 import BarreActionsDecompte, { type ActionDecompte } from '../../components/projet/BarreActionsDecompte';
 import DialogueRecalculDecompte from '../../components/projet/DialogueRecalculDecompte';
@@ -87,7 +88,7 @@ function Montants({ d }: Readonly<{ d: DecompteDetailDto }>) {
 function CarteFacture({ d }: Readonly<{ d: DecompteDetailDto }>) {
   const f = d.facture;
   return (
-    <Card title="Facture">
+    <Card title="Facture" action={f && <BoutonPaiementApprouve pieceId={f.id} />}>
       {f ? (
         <FieldGrid>
           <Field label="Code" value={<Link className="underline" to={`/projet/depenses/factures/${f.id}`}>{f.code}</Link>} />
