@@ -12,6 +12,11 @@ export function retenuesSaisies(retenues: RetenueDecompteDto[]): RetenueSaisie[]
   return retenues.map((r) => ({ ...r, idServeur: r.id }));
 }
 
+/** Extra du bordereau pas encore enregistrée : le serveur recopie tout sauf quantité et FODEC. */
+export function recopieeDuBordereau(e: ExtraSaisie, champ: string): boolean {
+  return e.idServeur === null && e.ligneMarcheId !== null && champ !== 'quantite' && champ !== 'tauxFODEC';
+}
+
 const VIDE_EXTRA = { unite: null, quantite: null, prixUnitaireHT: null, tauxTVA: null, tauxFODEC: null, montantHT: null, montantTTC: null, code: null, notes: null, categorieId: null, ligneMarcheId: null };
 
 export function extraVide(): ExtraSaisie {

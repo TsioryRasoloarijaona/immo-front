@@ -5,7 +5,7 @@ import DialogueLigneBordereauExtra from '../../components/projet/DialogueLigneBo
 import { Card, EmptyState } from '../../components/ui';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import type { LigneSaisie } from '../../lib/saisieDecompte';
-import { extraDepuisBordereau, extraVide, retenueVide, type ExtraSaisie, type RetenueSaisie } from '../../lib/saisieExtrasDecompte';
+import { extraDepuisBordereau, extraVide, recopieeDuBordereau, retenueVide, type ExtraSaisie, type RetenueSaisie } from '../../lib/saisieExtrasDecompte';
 import type { UUID } from '../../types';
 import type { LigneApprovisionnementDto, ReglementFactureDto } from '../../types/projet';
 
@@ -82,14 +82,17 @@ function colonnesExtras(
     largeur: c.largeur,
     rendu: lectureSeule
       ? undefined
-      : (e) => (
-          <Cellule
-            texte={c.texte === true}
-            valeur={e[c.nom]}
-            label={`${c.libelle}, extra ${extras.findIndex((x) => x.id === e.id) + 1}`}
-            onChange={(v) => maj(e.id, { [c.nom]: v })}
-          />
-        ),
+      : (e) =>
+          recopieeDuBordereau(e, c.nom) ? (
+            <span>{e[c.nom]}</span>
+          ) : (
+            <Cellule
+              texte={c.texte === true}
+              valeur={e[c.nom]}
+              label={`${c.libelle}, extra ${extras.findIndex((x) => x.id === e.id) + 1}`}
+              onChange={(v) => maj(e.id, { [c.nom]: v })}
+            />
+          ),
   }));
   return [...champs, { nom: 'montantHT', libelle: 'HT', type: 'MONTANT', largeur: 9 }, { nom: 'montantTTC', libelle: 'TTC', type: 'MONTANT', largeur: 9 }];
 }
