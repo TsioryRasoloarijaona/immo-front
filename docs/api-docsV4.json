@@ -50412,6 +50412,45 @@
         }
       }
     },
+    "/api/achat/documents/{id}/paiement-approuve.pdf": {
+      "get": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Impression « Paiement approuvé » d'une facture d'achat (PDF inline)",
+        "description": "Rapport OMRAN « Paiement Approuvé » (menu VIREMENT) d'une facture d'achat, à tout statut (FEATURE-lc8b-paiement-approuve.md). Contrôles dans l'ordre : pièce visible (même règle que `GET /api/achat/documents/{id}`, sinon 404), droit `Yes.Stl.Front.Debit.InvoiceList.toolPrint` (sinon 403), nature `INVOICE` (sinon 409). Le PDF reprend l'en-tête, les lignes, les totaux, les retenues (les dix, à 0 si nulles, pour une facture de lot ; l'amortissement d'avance seul sinon) et le net à payer **lus sur la fiche** (aucun recalcul), le récapitulatif par taux de TVA, puis les règlements de la facture et ceux de l'avance du bon de commande d'origine (suffixe « (avance B.C.) »), annulés compris, et le reste à régler de la fiche. Fichier `paiement-approuve-<code, / remplacé par ->.pdf`.",
+        "operationId": "paiementApprouve",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la facture (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF.",
+            "content": {
+              "application/pdf": {}
+            }
+          },
+          "403": {
+            "description": "Droit Yes.Stl.Front.Debit.InvoiceList.toolPrint absent."
+          },
+          "404": {
+            "description": "Pièce introuvable ou hors périmètre (même règle que la fiche)."
+          },
+          "409": {
+            "description": "La pièce n'est pas une facture d'achat."
+          }
+        }
+      }
+    },
     "/api/achat/documents/totaux": {
       "get": {
         "tags": [

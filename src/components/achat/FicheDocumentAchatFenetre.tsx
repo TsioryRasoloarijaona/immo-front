@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from 'react';
-import { Printer } from 'lucide-react';
 import BarreIcones from '../BarreIcones';
 import ClasseurBas from '../fiche/ClasseurBas';
 import ClasseurEntete from '../fiche/ClasseurEntete';
@@ -7,9 +6,9 @@ import ChampFiche, { BandeFiche } from '../fiche/ChampFiche';
 import FenetreFiche from '../fiche/FenetreFiche';
 import PiedAudit from '../fiche/PiedAudit';
 import { Badge, EmptyState, ErrorState, LoadingState } from '../ui';
-import { Button } from '../ui/button';
 import BarreActionsPieceAchat from './BarreActionsPieceAchat';
 import BlocRetenuesAvances from './BlocRetenuesAvances';
+import BoutonPaiementApprouve from './BoutonPaiementApprouve';
 import BoutonReglerPiece from './BoutonReglerPiece';
 import FormulairePieceAchatFenetre from './FormulairePieceAchatFenetre';
 import {
@@ -99,9 +98,7 @@ function CorpsDocument({ d, onOuvrir, onChange, onFermer, onModifier }: Readonly
     <>
       <BarreIcones className="flex shrink-0 items-center gap-1 border-b border-border px-3 py-1">
         <BarreActionsPieceAchat piece={d} onChange={onChange} onFermer={onFermer} onModifier={onModifier} onOuvrir={onOuvrir} />
-        <Button type="button" variant="ghost" size="sm" disabled>
-          <Printer /> Imprimer
-        </Button>
+        <BoutonPaiementApprouve pieceId={d.id} imprimable={d.nature === 'INVOICE'} />
       </BarreIcones>
       <div className="grid max-h-[52%] shrink-0 grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-4 overflow-auto border-b border-border px-4 py-3">
         <EnteteDocument d={d} onOuvrir={onOuvrir} />
