@@ -22822,8 +22822,71 @@
           "Achat"
         ],
         "summary": "Retient une offre : seule sélectionnée, son fournisseur devient celui de la demande",
-        "description": "Ordre des refus : 404 → 403 (`…toolSelectDeselectQuote`) → 409 : demande non dernière, hors phase sélection (`BoolField004`, jamais ouverte pour un lot multi-fournisseur), demande sans lot, lot ayant un décompte ou des affectations de décomposition, fournisseur écarté. Seule cette offre reste sélectionnée ; fournisseur de la demande = celui de l'offre ; délai de paiement = celui du fournisseur si celui de la demande est nul ou négatif.",
+        "description": "Ordre des refus : 404 → 403 (`…toolSelectDeselectQuote`) → 409 : demande non dernière, hors phase sélection (`BoolField004`), demande sans lot ; lot non multi-fournisseur ayant un décompte ou des affectations de décomposition ; lot multi-fournisseur ayant un document autre qu'une offre rattaché à la demande ; fournisseur écarté. Puis, si la demande a au moins 2 offres (écartées comprises) et que le net à payer (`AmountToPay`) de l'offre choisie égale leur maximum, 409 avec `code = \"OFFRE_LA_PLUS_DISANTE\"` et le message « Voulez vous continuer avec l'offre la plus disante ? » tant que `confirme` ≠ `true`. Seule cette offre reste sélectionnée ; fournisseur de la demande = celui de l'offre ; délai de paiement = celui du fournisseur si celui de la demande est nul ou négatif.",
         "operationId": "selectionnerOffre",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande (BuySelection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "oid",
+            "in": "path",
+            "description": "Id du devis (BuyDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "confirme",
+            "in": "query",
+            "description": "Confirme le choix de l'offre la plus disante ; défaut false.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche de la demande relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeAchatFiche"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/achat/demandes-achat/{id}/offres/{oid}/import": {
+      "post": {
+        "tags": [
+          "Achat"
+        ],
+        "summary": "Importe les prix d'une offre depuis un classeur au format de l'export du bordereau",
+        "description": "Multipart `fichier` (.xlsx au format de l'export du bordereau du lot : en-têtes lus par nom, `Code` obligatoire ; `P.U. HT`, `Remise` et `FODEC` lus, en pourcentage pour `Remise` et `FODEC` ; rangées d'unité `GROUPE` ignorées). Chaque rangée met à jour la ligne de l'offre de même code (cellule vide = valeur inchangée) ; un code absent de l'offre est ignoré et compté dans `codesIgnores` ; une ligne de l'offre absente du fichier reste inchangée. Mêmes droits, refus et totaux que `modifierOffre` ; 400 aussi pour un fichier illisible ou sans colonne `Code`. Aucune écriture si une rangée est refusée.",
+        "operationId": "importerOffre",
         "parameters": [
           {
             "name": "id",
@@ -22846,16 +22909,37 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Fiche de la demande relue.",
+            "description": "Offre relue et décompte des rangées.",
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DemandeAchatFiche"
+                  "$ref": "#/components/schemas/ImportOffreDemandeAchatDto"
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request"
           },
           "403": {
             "description": "Forbidden"
@@ -52046,7 +52130,7 @@
           "Achat"
         ],
         "summary": "Désélectionne les offres et vide le bordereau de la demande",
-        "description": "Mêmes droits et refus que la sélection (sans le fournisseur écarté). Toutes les offres désélectionnées, bordereau de la demande vidé (groupes et lignes), fournisseur de la demande retiré ; le bordereau du lot reste intact.",
+        "description": "Mêmes droits et refus que la sélection (sans le fournisseur écarté ni la confirmation), plus 409 « Vous ne pouvez pas désélectionner une offre non sélectionnée. » si aucune offre n'est sélectionnée. Toutes les offres désélectionnées, bordereau de la demande vidé (groupes et lignes), fournisseur de la demande retiré ; le bordereau du lot reste intact.",
         "operationId": "deselectionnerOffres",
         "parameters": [
           {
@@ -74663,6 +74747,26 @@
             "type": "string",
             "format": "uuid",
             "description": "Fournisseur (CfgTier.PKey), présélectionné, non écarté et avec une date de dépôt."
+          }
+        }
+      },
+      "ImportOffreDemandeAchatDto": {
+        "type": "object",
+        "description": "Résultat de l'import Excel des prix d'une offre : l'offre relue et le décompte des rangées du fichier.",
+        "properties": {
+          "offre": {
+            "$ref": "#/components/schemas/OffreDemandeAchat",
+            "description": "Offre relue après l'import, totaux recalculés."
+          },
+          "lignesMisesAJour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rangées du fichier dont le code a été trouvé dans l'offre (lignes mises à jour)."
+          },
+          "codesIgnores": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rangées du fichier dont le code est absent de l'offre : ignorées."
           }
         }
       },

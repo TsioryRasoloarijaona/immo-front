@@ -102,6 +102,12 @@ export interface OffreDemandeAchat {
   lignes: LigneOffreDemandeAchat[];
 }
 
+export interface ImportOffreDemandeAchat {
+  offre: OffreDemandeAchat;
+  lignesMisesAJour: number;
+  codesIgnores: number;
+}
+
 export interface PrixLigneOffre {
   ligneId: UUID;
   prixUnitaireHT: number;

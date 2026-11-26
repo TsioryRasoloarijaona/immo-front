@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { CheckCheck, Columns3, Pencil, Plus, ShoppingCart, Trash2, XCircle } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { CheckCheck, Columns3, Pencil, Plus, ShoppingCart, Trash2, Upload, XCircle } from 'lucide-react';
 import BarreIcones from '../../components/BarreIcones';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import SearchableSelect from '../../components/SearchableSelect';
@@ -12,11 +12,13 @@ import {
   deselectionnerOffreDemandeAchat,
   getFournisseursDemandeAchat,
   getOffresDemandeAchat,
+  importerOffreDemandeAchat,
   modifierOffreDemandeAchat,
   selectionnerOffreDemandeAchat,
   supprimerOffreDemandeAchat,
 } from '../../lib/apiDemandesAchat';
 import { creerPieceAchat, getModelePieceAchat } from '../../lib/apiAchat';
+import { ApiError } from '../../lib/api';
 import { useConfirm } from '../../lib/confirmContext';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { useToast } from '../../lib/toastContext';
@@ -131,6 +133,8 @@ export default function OngletOffresDemandeAchat({ fiche, verrouille }: Readonly
   const toast = useToast();
   const [ouvert, setOuvert] = useState<Ouvert>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const champFichier = useRef<HTMLInputElement>(null);
+  const offreImport = useRef<string | null>(null);
   const saisieBloquee = verrouille || !fiche.phases.offres;
   const selectionBloquee = verrouille || !fiche.phases.selection;
   const nom = (bloque: boolean, libelle: string) => (bloque ? `${libelle} — indisponible dans la phase actuelle` : libelle);
@@ -161,6 +165,32 @@ export default function OngletOffresDemandeAchat({ fiche, verrouille }: Readonly
     if (ok) await agir(() => deselectionnerOffreDemandeAchat(id));
   }
 
+  async function selectionner(o: OffreDemandeAchat) {
+    setMessage(null);
+    try {
+      await selectionnerOffreDemandeAchat(id, o.id);
+      apres();
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.status !== 409 || err.problem?.code !== 'OFFRE_LA_PLUS_DISANTE') {
+        setMessage(errorMessage(err));
+        return;
+      }
+      const ok = await confirmer({ title: 'Offre la plus disante', message: "Voulez vous continuer avec l'offre la plus disante ?", confirmLabel: 'Continuer' });
+      if (ok) await agir(() => selectionnerOffreDemandeAchat(id, o.id, true));
+    }
+  }
+
+  async function importer(oid: string, fichier: File) {
+    setMessage(null);
+    try {
+      const r = await importerOffreDemandeAchat(id, oid, fichier);
+      apres();
+      toast(`${r.lignesMisesAJour} lignes mises à jour, ${r.codesIgnores} codes ignorés`);
+    } catch (err) {
+      setMessage(errorMessage(err));
+    }
+  }
+
   async function genererBonCommande(o: OffreDemandeAchat) {
     setMessage(null);
     try {
@@ -184,6 +214,12 @@ export default function OngletOffresDemandeAchat({ fiche, verrouille }: Readonly
           <Columns3 /> {fiche.phases.comparaison ? 'Comparer les offres' : 'Comparer les offres — indisponible dans la phase actuelle'}
         </Button>
       </BarreIcones>
+      <input ref={champFichier} type="file" hidden accept=".xlsx" aria-label="Fichier Excel des prix de l'offre"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (f && offreImport.current) void importer(offreImport.current, f);
+        }} />
       {message && <p role="alert" className="text-body text-destructive">{message}</p>}
       {liste.error && <ErrorState message={liste.error} />}
       {!liste.error && !liste.data && <LoadingState />}
@@ -195,13 +231,17 @@ export default function OngletOffresDemandeAchat({ fiche, verrouille }: Readonly
             actions={(o) => (
               <BarreIcones className="flex items-center justify-center gap-1">
                 <Button type="button" variant="ghost" size="sm" disabled={saisieBloquee} onClick={() => setOuvert(o)}><Pencil /> {nom(saisieBloquee, 'Modifier les prix')}</Button>
+                <Button type="button" variant="ghost" size="sm" disabled={saisieBloquee || o.ecartee}
+                  onClick={() => { offreImport.current = o.id; champFichier.current?.click(); }}>
+                  <Upload /> {nom(saisieBloquee, 'Importer les prix (Excel)')}
+                </Button>
                 {fiche.lot && o.selectionnee && (
                   <Button type="button" variant="ghost" size="sm" disabled={selectionBloquee} onClick={() => void deselectionner()}>
                     <XCircle /> {nom(selectionBloquee, 'Désélectionner')}
                   </Button>
                 )}
                 {fiche.lot && !o.selectionnee && (
-                  <Button type="button" variant="ghost" size="sm" disabled={selectionBloquee || o.ecartee} onClick={() => void agir(() => selectionnerOffreDemandeAchat(id, o.id))}>
+                  <Button type="button" variant="ghost" size="sm" disabled={selectionBloquee || o.ecartee} onClick={() => void selectionner(o)}>
                     <CheckCheck /> {nom(selectionBloquee, 'Sélectionner')}
                   </Button>
                 )}
