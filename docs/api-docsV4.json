@@ -84165,7 +84165,7 @@
           },
           "indisponible": {
             "type": "boolean",
-            "description": "Vrai pour un compte agence si le lot est occupé hors de son agence : statut, couleur, dossier, client à null."
+            "description": "Vrai pour un compte agence si le lot est occupé hors de son agence : libellé « Indisponible », le reste à null."
           }
         }
       },
