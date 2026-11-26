@@ -9417,6 +9417,7 @@
         "tags": [
           "prospect-controller"
         ],
+        "description": "**Compte agence** : seulement les fiches ayant au moins une prospection ou un dossier de son agence\n(`FEATURE-agences-vente.md` V6) ; idem pour l'export, la fiche et ses sous-ressources (404 sinon).",
         "operationId": "findAll_3",
         "parameters": [
           {
@@ -9512,7 +9513,7 @@
             }
           },
           "409": {
-            "description": "Des fiches prospect/client existantes portent le même nom, téléphone ou email (mêmes règles que `GET\n/api/prospects/doublons`) et `ignorerDoublons` n'est pas `true`. Corps : `doublons`, liste de\n`ProspectDoublonDto` avec leurs `criteres` — l'écran demande « est-ce l'une de ces personnes ? » et\nrenvoie avec `ignorerDoublons: true` pour un nouveau contact. Voir\n`FEATURE-doublons-prospect-projet.md` §2.",
+            "description": "Des fiches prospect/client existantes portent le même nom, téléphone ou email (mêmes règles que `GET\n/api/prospects/doublons`) et `ignorerDoublons` n'est pas `true`. Corps : `doublons`, liste de\n`ProspectDoublonDto` avec leurs `criteres` — l'écran demande « est-ce l'une de ces personnes ? » et\nrenvoie avec `ignorerDoublons: true` pour un nouveau contact. Voir\n`FEATURE-doublons-prospect-projet.md` §2.\n\n**Compte agence** : si une fiche existante au même CIN, mobile ou téléphone fixe n'a aucune\nprospection ni aucun dossier de son agence, 409 **sans** `doublons`, `detail` = « Ce prospect est déjà\nsuivi, contactez le siège » ; `ignorerDoublons: true` ne le contourne pas (`FEATURE-agences-vente.md` R-V2).",
             "content": {
               "*/*": {
                 "schema": {
@@ -24344,8 +24345,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
+          "404": {
+            "description": "Aucun prospect avec cet id, ou fiche hors de l'agence du compte.",
             "content": {
               "*/*": {
                 "schema": {
@@ -35166,7 +35167,7 @@
           "prospect-controller"
         ],
         "summary": "Fiches prospect/client existantes correspondant à une identité",
-        "description": "Le contrôle d'identité à faire **avant** de créer un prospect — depuis une pré-prospection ou\ndirectement — pour éviter les doublons. Renvoie les fiches de type prospect ou client (`PRO`,\n`PRORNT`, `CLI`, `CLIRNT`) qui correspondent à l'identité saisie sur **au moins un** critère,\nchacune avec ses `criteres` :\n\n- `NOM` : `prenom` + `nom` (ou `raisonSociale` seule) en minuscules et sans aucun espace, comparé à\nprénom+nom, nom+prénom, `Description` et `SocialReason` de la fiche normalisés pareil — la règle\nd'OMRAN, qui rend « El Mehdi LAHLOU » et « El MEHDI LAHLOU » égaux ;\n- `TELEPHONE` : 9 derniers chiffres de `telephone` ou de `mobile`, contre les quatre numéros de la\nfiche, quel que soit le format stocké ;\n- `EMAIL` : sans casse ni espaces de bord.\n\nLes valeurs bidon ne sont pas des critères : téléphone de moins de 9 chiffres ou à 9 chiffres\nidentiques (`000000000`), email sans `@` (`-`, `nd`). **Un homonyme au contact différent est le cas\ncourant** (237 groupes sur 244 dans les données réelles) : la liste est là pour que l'utilisateur\ntranche, pas pour refuser. Tri : le plus de critères d'abord, puis les plus récentes ; 50 au plus.\n**Vide = aucune fiche ne correspond.** Pas de périmètre commercial : les prospects n'y sont pas\nsoumis.\n\nLe même contrôle est appliqué par `POST /api/prospects` et `POST\n/api/pre-prospections/{id}/creer-prospect` (409 sauf `ignorerDoublons: true`). Voir\n`FEATURE-doublons-prospect-projet.md` §2.",
+        "description": "Le contrôle d'identité à faire **avant** de créer un prospect — depuis une pré-prospection ou\ndirectement — pour éviter les doublons. Renvoie les fiches de type prospect ou client (`PRO`,\n`PRORNT`, `CLI`, `CLIRNT`) qui correspondent à l'identité saisie sur **au moins un** critère,\nchacune avec ses `criteres` :\n\n- `NOM` : `prenom` + `nom` (ou `raisonSociale` seule) en minuscules et sans aucun espace, comparé à\nprénom+nom, nom+prénom, `Description` et `SocialReason` de la fiche normalisés pareil — la règle\nd'OMRAN, qui rend « El Mehdi LAHLOU » et « El MEHDI LAHLOU » égaux ;\n- `TELEPHONE` : 9 derniers chiffres de `telephone` ou de `mobile`, contre les quatre numéros de la\nfiche, quel que soit le format stocké ;\n- `EMAIL` : sans casse ni espaces de bord.\n\nLes valeurs bidon ne sont pas des critères : téléphone de moins de 9 chiffres ou à 9 chiffres\nidentiques (`000000000`), email sans `@` (`-`, `nd`). **Un homonyme au contact différent est le cas\ncourant** (237 groupes sur 244 dans les données réelles) : la liste est là pour que l'utilisateur\ntranche, pas pour refuser. Tri : le plus de critères d'abord, puis les plus récentes ; 50 au plus.\n**Vide = aucune fiche ne correspond.** Pas de périmètre commercial : les prospects n'y sont pas\nsoumis, sauf pour un **compte agence**, qui ne reçoit que les fiches ayant au moins une prospection\nou un dossier de son agence (`FEATURE-agences-vente.md` V6).\n\nLe même contrôle est appliqué par `POST /api/prospects` et `POST\n/api/pre-prospections/{id}/creer-prospect` (409 sauf `ignorerDoublons: true`). Voir\n`FEATURE-doublons-prospect-projet.md` §2.",
         "operationId": "doublons",
         "parameters": [
           {
@@ -45885,7 +45886,7 @@
           "Devis"
         ],
         "summary": "Liste paginée de toutes les offres (devis), tous prospections confondues",
-        "description": "Filtre optionnellement par recherche libre sur le code de l'offre, tranche(s), commercial, et plage\nde dates sur la date de l'offre (dateDocument). Chaque ligne porte prospectionId/prospectionCode\npour la colonne \"Prospection\" et le lien cliquable vers la prospection d'origine.\nsommePrixVenteTTCPage est calculé uniquement sur la page renvoyée, pas sur l'ensemble des résultats\nfiltrés — voir la description du champ.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), seules les offres portant une tranche d'un de ses projets affectés sont renvoyées (plus\ncelles sans tranche, dont le projet ne se résout pas). Ce filtre s'ajoute aux filtres ci-dessus :\ndemander explicitement une `trancheId` hors périmètre renvoie une page vide, pas une erreur.\n`sommePrixVenteTTCPage` porte donc sur les seules lignes visibles.",
+        "description": "Filtre optionnellement par recherche libre sur le code de l'offre, tranche(s), commercial, et plage\nde dates sur la date de l'offre (dateDocument). Chaque ligne porte prospectionId/prospectionCode\npour la colonne \"Prospection\" et le lien cliquable vers la prospection d'origine.\nsommePrixVenteTTCPage est calculé uniquement sur la page renvoyée, pas sur l'ensemble des résultats\nfiltrés — voir la description du champ.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), seules les offres portant une tranche d'un de ses projets affectés sont renvoyées (plus\ncelles sans tranche, dont le projet ne se résout pas). Ce filtre s'ajoute aux filtres ci-dessus :\ndemander explicitement une `trancheId` hors périmètre renvoie une page vide, pas une erreur.\n`sommePrixVenteTTCPage` porte donc sur les seules lignes visibles.\n\n**Compte agence** : seulement les offres dont la prospection est de son agence (`FEATURE-agences-vente.md` V7).",
         "operationId": "findAll_12",
         "parameters": [
           {
@@ -46943,7 +46944,7 @@
           "Clients"
         ],
         "summary": "Liste des clients",
-        "description": "Les tiers portant au moins un dossier de vente sur une entité juridique en exploitation, avec leurs\nagrégats calculés côté serveur (nombre de dossiers, total à payer, total réglé). Une page vide\nsignifie qu'aucun client ne correspond, pas une erreur.\n\n**Filtre par tranche** (`trancheId`, réservé aux administrateurs) : seuls les clients ayant au moins\nun dossier dans cette tranche — même règle d'appartenance que `GET /api/dossiers?trancheId=` (un\narticle lié ou l'article principal du dossier dans la tranche). Les agrégats (`nombreDossiers`,\n`totalAPayer`, `totalRegle`) restent calculés sur **tous** les dossiers du client, pas sur ceux de\nla tranche seule.",
+        "description": "Les tiers portant au moins un dossier de vente sur une entité juridique en exploitation, avec leurs\nagrégats calculés côté serveur (nombre de dossiers, total à payer, total réglé). Une page vide\nsignifie qu'aucun client ne correspond, pas une erreur.\n\n**Compte agence** : seulement les tiers ayant au moins une prospection ou un dossier de son agence ;\nla fiche et `/dossiers` d'un autre tiers répondent 404 (`FEATURE-agences-vente.md` V6).\n\n**Filtre par tranche** (`trancheId`, réservé aux administrateurs) : seuls les clients ayant au moins\nun dossier dans cette tranche — même règle d'appartenance que `GET /api/dossiers?trancheId=` (un\narticle lié ou l'article principal du dossier dans la tranche). Les agrégats (`nombreDossiers`,\n`totalAPayer`, `totalRegle`) restent calculés sur **tous** les dossiers du client, pas sur ceux de\nla tranche seule.",
         "operationId": "findAll_14",
         "parameters": [
           {
@@ -47028,8 +47029,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
+          "404": {
+            "description": "Aucun tier avec cet id, ou client hors de l'agence du compte.",
             "content": {
               "*/*": {
                 "schema": {
