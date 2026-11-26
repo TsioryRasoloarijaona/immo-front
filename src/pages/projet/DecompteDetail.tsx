@@ -21,6 +21,7 @@ import {
 import { useConfirm } from '../../lib/confirmContext';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { demandeDepuis, lignesSaisies, saisieDepuis, type SaisieDecompte } from '../../lib/saisieDecompte';
+import { extrasSaisis, retenuesSaisies } from '../../lib/saisieExtrasDecompte';
 import type { DecompteDetailDto } from '../../types/projet';
 import { BadgeStatut, EtatFiche } from './commun';
 import { useFiche } from './hooks';
@@ -137,6 +138,9 @@ function Fiche({ initial }: Readonly<{ initial: DecompteDetailDto }>) {
   const [d, setD] = useState(initial);
   const [saisie, setSaisie] = useState(() => saisieDepuis(initial));
   const [lignes, setLignes] = useState(() => lignesSaisies(initial.lignes));
+  const [extras, setExtras] = useState(() => extrasSaisis(initial.extras));
+  const [retenues, setRetenues] = useState(() => retenuesSaisies(initial.retenues));
+  const [touche, setTouche] = useState({ extras: false, retenues: false });
   const [erreur, setErreur] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
@@ -147,6 +151,9 @@ function Fiche({ initial }: Readonly<{ initial: DecompteDetailDto }>) {
     setD(x);
     setSaisie(saisieDepuis(x));
     setLignes(lignesSaisies(x.lignes));
+    setExtras(extrasSaisis(x.extras));
+    setRetenues(retenuesSaisies(x.retenues));
+    setTouche({ extras: false, retenues: false });
   }
 
   // 400 et 409 : le `detail` du serveur est le message de l'erreur.
@@ -179,7 +186,7 @@ function Fiche({ initial }: Readonly<{ initial: DecompteDetailDto }>) {
 
   function agir(action: ActionDecompte) {
     if (action === 'cumuls') void rechargerCumuls();
-    if (action === 'enregistrer') void executer(async () => appliquer(await enregistrerDecompte(d.id, demandeDepuis(saisie, lignes))));
+    if (action === 'enregistrer') void executer(async () => appliquer(await enregistrerDecompte(d.id, demandeDepuis(saisie, lignes, touche.extras ? extras : null, touche.retenues ? retenues : null))));
     if (action === 'dernier') void executer(async () => appliquer(await definirDernierDecompte(d.id)));
     if (action === 'recalculer') void executer(async () => appliquer(await recalculerDecompte(d.id)));
     if (action === 'lignes') setDialogue(true);
@@ -250,8 +257,17 @@ function Fiche({ initial }: Readonly<{ initial: DecompteDetailDto }>) {
           reglements={d.reglements}
           lignes={lignes}
           approvisionnements={d.approvisionnements}
-          extras={d.extras}
-          retenues={d.retenues}
+          lotId={d.lotId}
+          extras={extras}
+          retenues={retenues}
+          onExtras={(suivantes) => {
+            setExtras(suivantes);
+            setTouche((t) => ({ ...t, extras: true }));
+          }}
+          onRetenues={(suivantes) => {
+            setRetenues(suivantes);
+            setTouche((t) => ({ ...t, retenues: true }));
+          }}
           lectureSeule={lectureSeule}
           onQuantite={(id, quantite) => setLignes((ls) => ls.map((l) => (l.id === id ? { ...l, quantiteSaisie: quantite, avancementSaisi: null } : l)))}
           onAvancement={(id, avancement) => setLignes((ls) => ls.map((l) => (l.id === id ? { ...l, quantiteSaisie: null, avancementSaisi: avancement } : l)))}
