@@ -3574,7 +3574,7 @@
             }
           },
           "400": {
-            "description": "Date antérieure au décompte précédent ou à l'ordre de service du lot."
+            "description": "Date antérieure au précédent / à l'ordre de service, ou extra / retenue invalide."
           },
           "403": {
             "description": "Droit OMRAN (AdmRight) manquant pour cette action."
@@ -55538,6 +55538,74 @@
             "items": {
               "$ref": "#/components/schemas/LigneDecompteSaisie"
             }
+          },
+          "extras": {
+            "type": "array",
+            "description": "Travaux supplémentaires, état final : null = inchangés ; sans id = créé ; absent = supprimé.",
+            "items": {
+              "$ref": "#/components/schemas/ExtraDecompteSaisie"
+            }
+          },
+          "retenues": {
+            "type": "array",
+            "description": "Retenues forfaitaires, état final : null = inchangées ; sans id = créée ; absente = supprimée.",
+            "items": {
+              "$ref": "#/components/schemas/RetenueDecompteSaisie"
+            }
+          }
+        }
+      },
+      "ExtraDecompteSaisie": {
+        "type": "object",
+        "description": "Travail supplémentaire saisi (PrjWorkingOutLineExtra).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjWorkingOutLineExtra.Pkey ; null = nouvelle ligne."
+          },
+          "ligneMarcheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ligne du bordereau définitif du lot, recopiée à la création (sauf FODEC) ; inconnue → 400."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "designation": {
+            "type": "string",
+            "description": "Désignation, obligatoire (copiée du bordereau pour une nouvelle ligne basée sur le BDP)."
+          },
+          "unite": {
+            "type": "string",
+            "description": "Unité."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité, négative acceptée ; null = 0."
+          },
+          "prixUnitaireHT": {
+            "type": "number",
+            "description": "Prix unitaire HT."
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA en pourcentage (20 = 20 %).",
+            "example": 20
+          },
+          "tauxFODEC": {
+            "type": "number",
+            "description": "Taux de FODEC en pourcentage ; null = 0, jamais copié du bordereau."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (StlCategory.PKey) ; null = catégorie du lot."
           }
         }
       },
@@ -55567,6 +55635,25 @@
             "type": "number",
             "description": "Avancement cumulé en % (84.5 = 84,5 %, > 100 = dépassement) ; exclusif de quantiteSaisie.",
             "example": 84.5
+          }
+        }
+      },
+      "RetenueDecompteSaisie": {
+        "type": "object",
+        "description": "Retenue forfaitaire saisie (PrjWorkingOutRetainedLine).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PrjWorkingOutRetainedLine.PKey ; null = nouvelle retenue."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé, obligatoire, 500 caractères au plus."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant, déduit du net à payer (retenues non remboursables)."
           }
         }
       },
@@ -56126,7 +56213,29 @@
           },
           "montantTTC": {
             "type": "number",
-            "description": "Quantité × prix unitaire TTC."
+            "description": "PU HT × (1 + FODEC) × quantité × (1 + TVA), arrondi à 2 décimales (même calcul qu'ExtraAmount)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (StlCategory.PKey)."
+          },
+          "ligneMarcheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ligne du bordereau d'origine (PrjMarketLine.PKey) ; null pour une ligne libre."
+          },
+          "tauxFODEC": {
+            "type": "number",
+            "description": "Taux de FODEC en pourcentage."
           }
         }
       },

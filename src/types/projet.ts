@@ -1016,6 +1016,12 @@ export interface ExtraDecompteDto {
   tauxTVA: number | null;
   montantHT: number | null;
   montantTTC: number | null;
+  code: string | null;
+  notes: string | null;
+  categorieId: UUID | null;
+  /** null pour une ligne libre (hors bordereau). */
+  ligneMarcheId: UUID | null;
+  tauxFODEC: number | null;
 }
 
 export interface RetenueDecompteDto {
@@ -1083,6 +1089,29 @@ export interface LigneDecompteSaisie {
   avancement?: number | null;
 }
 
+/** Travail supplémentaire de `EnregistrerDecompteRequest.extras` ; `id` null = nouvelle ligne ; taux en pourcentage. */
+export interface ExtraDecompteSaisie {
+  id: UUID | null;
+  /** Ligne de bordereau copiée à la création ; ignorée pour une ligne existante. */
+  ligneMarcheId: UUID | null;
+  code: string | null;
+  designation: string | null;
+  unite: string | null;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  tauxTVA: number | null;
+  tauxFODEC: number | null;
+  notes: string | null;
+  categorieId: UUID | null;
+}
+
+/** Retenue forfaitaire de `EnregistrerDecompteRequest.retenues` ; `id` null = nouvelle retenue. */
+export interface RetenueDecompteSaisie {
+  id: UUID | null;
+  libelle: string | null;
+  montant: number | null;
+}
+
 /** `PUT /api/projet/decomptes/{id}` : champ absent ou null = valeur stockée gardée ; taux en pourcentage. */
 export interface EnregistrerDecompteRequest {
   dateDocument?: string | null;
@@ -1111,6 +1140,9 @@ export interface EnregistrerDecompteRequest {
   regularisation?: number | null;
   dernier?: boolean | null;
   lignes?: LigneDecompteSaisie[] | null;
+  /** État final : null = inchangés ; absent de la liste = supprimé. */
+  extras?: ExtraDecompteSaisie[] | null;
+  retenues?: RetenueDecompteSaisie[] | null;
 }
 
 /** Filtres de `GET /api/projet/lots` ; `projetIds` vide = tous les projets visibles. */
