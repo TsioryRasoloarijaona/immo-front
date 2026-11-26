@@ -967,6 +967,13 @@ export interface FactureDecompteDto {
   okPourPaiement: boolean;
 }
 
+/** Pièce générée par POST /api/projet/decomptes/{id}/facture ou /avoir (FEATURE-lc8-facture-decompte.md). */
+export interface FactureGenereeDto {
+  factureId: UUID;
+  code: string | null;
+  netAPayer: number | null;
+}
+
 export interface ReglementFactureDto {
   id: UUID;
   code: string | null;
