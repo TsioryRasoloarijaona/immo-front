@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/button';
-import { libelleTrace, statutDeTrace } from '../../lib/plans';
+import { COULEUR_NEUTRE, libelleTrace, statutDeTrace } from '../../lib/plans';
 import type { PlanDto, TraceDto } from '../../types/plans';
 
 type Geometrie = Pick<PlanDto, 'largeur' | 'hauteur' | 'x' | 'y'>;
@@ -44,7 +44,21 @@ export default function PlanSvg({ image, plan, traces, estGrise, onChoisir }: Re
           aria-label="Plan de l'étage"
         >
           <image href={image} x={x} y={y} width={largeur} height={hauteur} />
-          {traces.map((t) => (
+          {traces.map((t) => (t.indisponible ? (
+            <path
+              key={t.articleId}
+              d={t.d ?? undefined}
+              fill={COULEUR_NEUTRE}
+              fillOpacity={0.3}
+              stroke={COULEUR_NEUTRE}
+              strokeWidth={2}
+              vectorEffect="non-scaling-stroke"
+              role="img"
+              aria-label={libelleTrace(t)}
+            >
+              <title>{libelleTrace(t)}</title>
+            </path>
+          ) : (
             <path
               key={t.articleId}
               d={t.d ?? undefined}
@@ -67,7 +81,7 @@ export default function PlanSvg({ image, plan, traces, estGrise, onChoisir }: Re
             >
               <title>{libelleTrace(t)}</title>
             </path>
-          ))}
+          )))}
         </svg>
       </div>
     </div>

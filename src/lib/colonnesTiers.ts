@@ -160,7 +160,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     chemin: '/administration/agences',
     catalogue: FOURNISSEURS,
     disposition: disposition(FOURNISSEURS),
-    filtreNature: false,
+    filtreNature: true,
     ongletContacts: true,
     champsFournisseur: false,
     moraleParDefaut: true,

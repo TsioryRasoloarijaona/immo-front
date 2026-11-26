@@ -31,6 +31,7 @@ export const arbreAdministration: ArbreModule = () => [
       { to: '/administration/banques', libelle: 'Banques', Icone: Landmark },
       { to: '/administration/organismes', libelle: 'Organismes', Icone: Building2 },
       { to: '/administration/personnels', libelle: 'Personnels', Icone: UserRound },
+      { to: '/administration/agences', libelle: 'Agences', Icone: Users },
     ],
   },
   {
