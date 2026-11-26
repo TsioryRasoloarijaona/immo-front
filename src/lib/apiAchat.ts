@@ -1,5 +1,5 @@
 // Endpoints de FEATURE-achat-lecture-factures.md §3 : pièces d'achat en lecture, visibles par habilitation projet.
-import { request, withPageable } from './api';
+import { API_BASE_URL, fetchByteEndpointBlob, request, withPageable } from './api';
 import type { PageDto, Pageable, UUID } from '../types';
 import type {
   AffecterBonCommandeRequest,
@@ -31,6 +31,14 @@ export function getDocumentsAchat(filtres: FiltresDocumentsAchat = {}, pageable?
 /** 404 « Pièce introuvable » : id inconnu, pièce sans projet ou hors périmètre. */
 export function getDocumentAchat(id: UUID): Promise<DocumentAchatDetailDto> {
   return request('GET', `${DOCUMENTS}/${id}`);
+}
+
+/** FEATURE-lc8b : PDF « Paiement approuvé » ; 404 pièce, 403 droit toolPrint, 409 pas une facture. */
+export function paiementApprouvePdf(id: UUID): Promise<Blob> {
+  return fetchByteEndpointBlob(
+    `${API_BASE_URL}${DOCUMENTS}/${encodeURIComponent(id)}/paiement-approuve.pdf`,
+    'application/pdf',
+  );
 }
 
 // FEATURE-achat-fiche-ecritures.md E-B2 à E-B4 : 404 pièce, 403 droit, 409 règle (detail), 400 champ.
