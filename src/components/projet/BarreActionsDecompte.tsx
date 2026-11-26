@@ -1,8 +1,8 @@
-import { Calculator, CalendarSync, Flag, RefreshCw, Save, Trash2 } from 'lucide-react';
+import { Calculator, CalendarSync, FileMinus2, FilePlus2, Flag, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import type { DecompteDetailDto } from '../../types/projet';
 
-export type ActionDecompte = 'enregistrer' | 'dernier' | 'lignes' | 'cumuls' | 'recalculer' | 'supprimer';
+export type ActionDecompte = 'enregistrer' | 'dernier' | 'lignes' | 'cumuls' | 'recalculer' | 'facture' | 'avoir' | 'supprimer';
 
 /** Boutons de la fiche (icônes seules, libellé en infobulle via la barre de `PageShell`), activés selon les drapeaux du serveur. */
 export default function BarreActionsDecompte({
@@ -22,7 +22,9 @@ export default function BarreActionsDecompte({
       {bouton('lignes', d.peutModifier, CalendarSync, 'Recharger les lignes jusqu’à la date')}
       {bouton('cumuls', d.peutModifier, RefreshCw, 'Recharger les cumuls')}
       {bouton('recalculer', d.peutRecalculer, Calculator, 'Recalculer le décompte')}
-      {d.peutSupprimer && bouton('supprimer', true, Trash2, 'Supprimer')}
+      {bouton('facture', d.facture == null, FilePlus2, 'Générer la facture')}
+      {bouton('avoir', d.facture != null, FileMinus2, 'Générer un avoir')}
+      {d.peutSupprimer &&bouton('supprimer', true, Trash2, 'Supprimer')}
     </>
   );
 }
