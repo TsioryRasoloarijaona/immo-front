@@ -11282,7 +11282,7 @@
         "tags": [
           "Programmes"
         ],
-        "summary": "Liste paginée des programmes des entités actives (colonnes de la liste OMRAN)",
+        "summary": "Liste paginée des programmes des entités actives ; compte agence : ses projets affectés seulement",
         "operationId": "findAll_5",
         "parameters": [
           {
@@ -36229,7 +36229,7 @@
         ],
         "responses": {
           "404": {
-            "description": "Programme introuvable ou de son entité inactive.",
+            "description": "Programme introuvable, ou hors des projets affectés d'un compte agence.",
             "content": {
               "*/*": {
                 "schema": {
