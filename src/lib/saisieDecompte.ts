@@ -1,4 +1,5 @@
 import type { DecompteDetailDto, EnregistrerDecompteRequest, LigneDecompteRechargee } from '../types/projet';
+import { extrasDemande, retenuesDemande, type ExtraSaisie, type RetenueSaisie } from './saisieExtrasDecompte';
 
 export const CLES_CASES = ['avanceSurMontant', 'retenueGarantieSurMontant', 'assuranceDECSurMontant', 'assuranceTRCSurMontant', 'compteProrataSurMontant'] as const;
 
@@ -38,7 +39,8 @@ function versNombre(texte: string): number | null {
   return texte.trim() === '' || Number.isNaN(n) ? null : n;
 }
 
-export function demandeDepuis(s: SaisieDecompte, lignes: LigneSaisie[]): EnregistrerDecompteRequest {
+/** `extras` / `retenues` : null tant que l'utilisateur n'a pas touché à la liste (le serveur garde l'existant). */
+export function demandeDepuis(s: SaisieDecompte, lignes: LigneSaisie[], extras: ExtraSaisie[] | null = null, retenues: RetenueSaisie[] | null = null): EnregistrerDecompteRequest {
   const nombres = Object.fromEntries(CLES_NOMBRES.map((n) => [n, versNombre(s.nombres[n])]));
   return {
     dateDocument: s.dateDocument || null,
@@ -46,6 +48,8 @@ export function demandeDepuis(s: SaisieDecompte, lignes: LigneSaisie[]): Enregis
     notes: s.notes,
     ...s.cases,
     ...nombres,
+    extras: extras && extrasDemande(extras),
+    retenues: retenues && retenuesDemande(retenues),
     lignes: lignes.length === 0 ? undefined : lignes.map((l) => ({ id: l.idServeur, ligneMarcheId: l.ligneMarcheId, quantiteSaisie: l.avancementSaisi === null ? l.quantiteSaisie : null, avancement: l.avancementSaisi, coefficient: l.coefficient })),
   };
 }
