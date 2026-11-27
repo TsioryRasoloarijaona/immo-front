@@ -219,6 +219,15 @@ export interface CreerProspectRequest {
   /** Absent ou `false` : 409 avec `doublons` si une fiche existante concorde.
    * `true` : crée quand même. Ignoré en PATCH. */
   ignorerDoublons?: boolean;
+  /** Première prospection : obligatoire (avec `trancheId`) pour un compte agence, ignorée pour le siège. */
+  prospection?: ProspectionALaCreation;
+}
+
+interface ProspectionALaCreation {
+  trancheId?: UUID;
+  origineId?: UUID;
+  typeContactId?: UUID;
+  notes?: string;
 }
 
 export type ModifierProspectRequest = CreerProspectRequest;
