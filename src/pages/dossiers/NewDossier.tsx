@@ -29,6 +29,8 @@ import {
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { messageProspectionsArchivees } from '../../lib/prospectionsArchivees';
 import { useToast } from '../../lib/toastContext';
+import { useAuth } from '../../lib/auth';
+import { estAgence } from '../../lib/roles';
 import { formatCurrency, formatPercent, formatPercentValue, formatSurface } from '../../lib/format';
 import { avecCles } from '../../lib/cles';
 import { aDesAnnexes, annexesAutomatiques, arrondiCentimes, prixProposeDesArticles, sansRemise } from '../../lib/annexesAutomatiques';
@@ -97,6 +99,24 @@ function ErreurCreation({ message, dossierExistant }: Readonly<{ message: string
           Ouvrir le dossier {dossierExistant.code}
         </Link>
       )}
+    </p>
+  );
+}
+
+/** Une agence ne négocie pas de remise : jamais envoyée. */
+function remiseEnvoyee(agence: boolean, auto: number | undefined, saisie: number | null): number | null {
+  return agence ? null : (auto ?? saisie);
+}
+
+function prixSousPrixDeVente(agence: boolean, autoPrix: number, prix: number | undefined): boolean {
+  return agence && autoPrix > 0 && (prix ?? 0) < arrondiCentimes(autoPrix);
+}
+
+function MentionPrixAgence({ agence, sous }: Readonly<{ agence: boolean; sous: boolean }>) {
+  if (!agence) return null;
+  return (
+    <p className={`mt-1 text-micro ${sous ? 'text-destructive' : 'text-muted-foreground'}`}>
+      Le prix ne peut pas être inférieur au prix de vente
     </p>
   );
 }
@@ -252,6 +272,7 @@ export default function NewDossier() {
   const selectedIds = selectedIdsOverride ?? seedArticleIds;
   const isSelectionSeeded = selectedIdsOverride === null && seedArticleIds.length > 0;
   const [editingArticles, setEditingArticles] = useState(false);
+  const agence = estAgence(useAuth().user);
 
   const selectedArticleDetails = useApi(
     () => (selectedIds.length > 0 ? Promise.all(selectedIds.map((aid) => getArticle(aid))) : Promise.resolve([])),
@@ -296,7 +317,8 @@ export default function NewDossier() {
   // Taux auto seulement si le prix l'est aussi : sinon il s'appliquerait à un prix tapé à la main.
   const remiseAuto = !remiseTouched && !priceTouched ? remiseOffre : null;
   const remiseSaisie = remise.trim() === '' ? null : Number(remise.replace(',', '.'));
-  const remiseNumber = remiseAuto?.taux ?? remiseSaisie;
+  // Une agence ne négocie pas de remise : jamais envoyée.
+  const remiseNumber = remiseEnvoyee(agence, remiseAuto?.taux, remiseSaisie);
   const remiseValue = remiseAuto ? String(Math.round(remiseAuto.taux * 100) / 100) : remise;
 
   // Avec une remise, `prix` est le total avant remise : depuis une offre remisée, c'est son `totalTTC`.
@@ -312,6 +334,7 @@ export default function NewDossier() {
   const remiseInhabituelle = remiseRenseignee && !remiseHorsBornes && remiseNumber > 30;
 
   const prixNumber = prixValue ? Number(prixValue) : undefined;
+  const prixSousPlancherAgence = prixSousPrixDeVente(agence, autoPrix, prixNumber);
   const debouncedPrixNumber = useDebouncedValue(prixNumber, 400);
   const debouncedRemise = useDebouncedValue(remiseRenseignee && !remiseHorsBornes ? remiseNumber : null, 400);
   // `avecAnnexes` vient de la requête qui a produit la réponse, pas de la sélection courante :
@@ -360,7 +383,8 @@ export default function NewDossier() {
     prixValue.trim().length > 0 &&
     cinValue.trim().length > 0 &&
     !!modePaieId &&
-    !remiseHorsBornes;
+    !remiseHorsBornes &&
+    !prixSousPlancherAgence;
 
   async function handleCreate() {
     if (!canCreate) return;
@@ -663,6 +687,7 @@ export default function NewDossier() {
                       : 'Pré-rempli depuis le prix de vente des lots sélectionnés.'}
                   </p>
                 )}
+                <MentionPrixAgence agence={agence} sous={prixSousPlancherAgence} />
                 {prixPlancherPropose && <MentionPrixPlancher />}
                 {!priceTouched && autoPrix === 0 && selectedIds.length > 0 && (
                   <p className="mt-1 text-micro text-destructive">
@@ -670,7 +695,7 @@ export default function NewDossier() {
                   </p>
                 )}
               </FormField>
-              <FormField>
+              {!agence && <FormField>
                 <FieldLabel htmlFor="remise">Remise commerciale</FieldLabel>
                 <InputGroup>
                   <InputGroupInput
@@ -696,7 +721,7 @@ export default function NewDossier() {
                     Déduite de l'offre ({latestDevis?.code}) : son prix de vente {formatCurrency(latestDevis?.montants?.prixVenteTTC)} est retrouvé.
                   </p>
                 )}
-              </FormField>
+              </FormField>}
               <FormField>
                 <FieldLabel htmlFor="cin">CIN du client *</FieldLabel>
                 <Input

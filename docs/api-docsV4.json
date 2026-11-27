@@ -9479,7 +9479,7 @@
           "prospect-controller"
         ],
         "summary": "Crée un prospect",
-        "description": "`nom` ou `raisonSociale` est requis ; tout le reste est optionnel.\n\n**Un numéro de téléphone ne s'enregistre jamais seul.** Fournir `mobile` impose `indicatifMobile`,\nfournir `telephone` impose `indicatifTelephone` — sinon **400**. L'indicatif est l'indicatif pays\nsans le `+` (`\"212\"`, le `+` étant toléré et retiré), et il doit exister dans le référentiel : voir\nGET /api/referentiels/pays, champ `indicatifTelephone`. C'est ce contrôle qui rend l'envoi WhatsApp\nfiable en aval — un numéro sans indicatif est inenvoyable, un indicatif fautif expédie le message à\nun inconnu.\n\n**Le numéro est normalisé avant écriture**, au format que porte déjà la base : 9 chiffres deviennent\n`6 98 29 80 95` (espacé, zéro initial retiré) — la forme de 98,8 % des fiches existantes ; toute\nautre longueur est stockée en chiffres nus, comme le sont déjà les mobiles nord-américains à 10\nchiffres. La valeur relue peut donc différer de celle envoyée.\n\n**Contrôle de doublon d'identité.** Avant toute écriture, les fiches prospect/client au même nom,\ntéléphone ou email sont recherchées (règles de `GET /api/prospects/doublons`) ; s'il y en a et que\n`ignorerDoublons` n'est pas `true`, **409** avec la liste `doublons`.",
+        "description": "`nom` ou `raisonSociale` est requis ; tout le reste est optionnel.\n\n**Un numéro de téléphone ne s'enregistre jamais seul.** Fournir `mobile` impose `indicatifMobile`,\nfournir `telephone` impose `indicatifTelephone` — sinon **400**. L'indicatif est l'indicatif pays\nsans le `+` (`\"212\"`, le `+` étant toléré et retiré), et il doit exister dans le référentiel : voir\nGET /api/referentiels/pays, champ `indicatifTelephone`. C'est ce contrôle qui rend l'envoi WhatsApp\nfiable en aval — un numéro sans indicatif est inenvoyable, un indicatif fautif expédie le message à\nun inconnu.\n\n**Le numéro est normalisé avant écriture**, au format que porte déjà la base : 9 chiffres deviennent\n`6 98 29 80 95` (espacé, zéro initial retiré) — la forme de 98,8 % des fiches existantes ; toute\nautre longueur est stockée en chiffres nus, comme le sont déjà les mobiles nord-américains à 10\nchiffres. La valeur relue peut donc différer de celle envoyée.\n\n**Contrôle de doublon d'identité.** Avant toute écriture, les fiches prospect/client au même nom,\ntéléphone ou email sont recherchées (règles de `GET /api/prospects/doublons`) ; s'il y en a et que\n`ignorerDoublons` n'est pas `true`, **409** avec la liste `doublons`.\n\n**Compte agence (`FEATURE-agences-vente.md` R-D7)** : `prospection.trancheId` est obligatoire ; le prospect\nnaît avec une prospection sur cette tranche, commercial = vendeur du compte, intermédiaire = son agence,\nétape = premier `ComProspectionKind` par code (aucune si le référentiel est vide). `origineId`,\n`typeContactId` et `notes` sont facultatifs. Pour le siège, `prospection` est ignoré.",
         "operationId": "create",
         "requestBody": {
           "content": {
@@ -9503,7 +9503,27 @@
             }
           },
           "400": {
-            "description": "`nom`/`raisonSociale` absents ; numéro fourni sans son indicatif, ou indicatif seul sans numéro ;\nindicatif absent du référentiel ; numéro hors de 6–14 chiffres ; référence (type, pays,\nprofession...) inconnue.",
+            "description": "`nom`/`raisonSociale` absents ; numéro fourni sans son indicatif, ou indicatif seul sans numéro ;\nindicatif absent du référentiel ; numéro hors de 6–14 chiffres ; référence (type, pays,\nprofession...) inconnue. Compte agence : `prospection` ou `prospection.trancheId` absent (rien n'est créé).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Compte agence incomplet : son utilisateur n'est pas lié à une fiche vendeur rattachée à une agence.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte agence : `prospection.trancheId` inconnu ou hors des projets affectés à l'agence (rien n'est créé).",
             "content": {
               "*/*": {
                 "schema": {
@@ -17518,7 +17538,7 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Offre d'origine** : `offreId` (optionnel) est écrit dans `ComFolder.StlQuoteId`, comme OMRAN\n(`GenerateComFolderFromQuote`). Avant toute écriture, l'offre est contrôlée comme dans le logiciel de\nbureau : introuvable ou d'une autre prospection, sans article, premier article de `articleIds` autre que\ncelui de l'offre, article ou sous-article de l'offre déjà\nlié à un dossier, vocation de l'article différente de celle de l'offre → **400** ; projet de l'article\nde l'offre hors périmètre → **403** ; offre déjà transformée en dossier, ou prospection qui a déjà un\ndossier de vente → **409**. Avec une offre, le dossier reprend :\n- son **échéancier** : une échéance par ligne du schéma saisi sur l'offre (`StlQuoteDocument` :\n  catégorie, montant, date, société, ratio de remise), à la place du schéma calculé ; sans schéma\n  saisi, le schéma calculé habituel. Comme `Sale.cs:VerifSchema`, les lignes AVANCE, CRÉDIT et\n  AUTO-FINANCEMENT de ce schéma doivent égaler, au centime, le prix après remise calculé depuis la\n  requête (lignes hors prix exclues) : sinon **400** sans écriture (« L'échéancier repris de l'offre … ne\n  correspond plus au prix du dossier … ») ;\n- le **prix des sous-articles** figurant dans l'offre (`StlQuoteItem` : avant remise HT/TTC, remise,\n  après remise, TVA), au lieu du prix catalogue du jour ;\n- son **taux de commission** (`CommissionRate`), que la requête ne porte pas ;\n- son **commercial** (`CfgCommercialId`), à défaut celui de la prospection.\n\nLe prix, la remise, les notes et le mode de paiement restent ceux de la requête (le formulaire les\npréremplit depuis l'offre).\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\nDans les deux modes, la base est écrite comme le logiciel de bureau l'écrit : `ComFolder.Discount`\nen ratio 0–1 du HT avant remise, `ComFolder.DiscountAmount` en HT. L'API relit `remise` en\npourcentage (0–100) et `remiseMontant` en HT.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Sans `prix`** : les montants sont quand même écrits, depuis le prix de référence des articles (0\ns'ils n'en ont pas), sans frais de syndic ; aucun schéma de financement n'est généré.\n\n**Écritures compatibles OMRAN** (le dossier apparaît dans les écrans du logiciel de bureau) : statut\ninitial RESERVATION (obligatoire), type de document `ComFolder`, `DocDate` à minuit, description\n« <code> du jj/mm/aaaa », répartition du client principal à 100 %, superficies, prix au m², prix\ncontractuel, schéma texte, constantes et signatures de création. Les articles suivants de\n`articleIds` deviennent les sous-articles du lot principal (ligne `ComFolderItem`, historique\n« AFFECTATION »). Voir `FEATURE-interop-omran-ecritures.md` §3.\n\n**Sous-articles du lot** : comme le logiciel de bureau, tout sous-article libre du lot principal\n(`StkItem.ParentId` = le lot, sans dossier) est rattaché même s'il n'est pas dans `articleIds` ; son\nprix de référence entre dans le prix des sous-articles, donc dans le prix avant remise et la superficie\nglobale. `prix` doit en tenir compte (avec `remisePercent`, il est le total annexes comprises). Le prix de\nréférence d'un lot (`comSalePrice`) inclut déjà ses sous-articles chez OMRAN : le prix du lot seul en est\ndéduit, pour ne pas les compter deux fois — un lot et ses enfants valent donc son `prixSuggere`.\n\n**Type du tiers** : le client (et chaque acquéreur) est client tant qu'il a un dossier actif dont le\nstatut « transforme le prospect en client », prospect sinon (voir `PATCH /api/dossiers/{id}/statut`).",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Offre d'origine** : `offreId` (optionnel) est écrit dans `ComFolder.StlQuoteId`, comme OMRAN\n(`GenerateComFolderFromQuote`). Avant toute écriture, l'offre est contrôlée comme dans le logiciel de\nbureau : introuvable ou d'une autre prospection, sans article, premier article de `articleIds` autre que\ncelui de l'offre, article ou sous-article de l'offre déjà\nlié à un dossier, vocation de l'article différente de celle de l'offre → **400** ; projet de l'article\nde l'offre hors périmètre → **403** ; offre déjà transformée en dossier, ou prospection qui a déjà un\ndossier de vente → **409**. Avec une offre, le dossier reprend :\n- son **échéancier** : une échéance par ligne du schéma saisi sur l'offre (`StlQuoteDocument` :\n  catégorie, montant, date, société, ratio de remise), à la place du schéma calculé ; sans schéma\n  saisi, le schéma calculé habituel. Comme `Sale.cs:VerifSchema`, les lignes AVANCE, CRÉDIT et\n  AUTO-FINANCEMENT de ce schéma doivent égaler, au centime, le prix après remise calculé depuis la\n  requête (lignes hors prix exclues) : sinon **400** sans écriture (« L'échéancier repris de l'offre … ne\n  correspond plus au prix du dossier … ») ;\n- le **prix des sous-articles** figurant dans l'offre (`StlQuoteItem` : avant remise HT/TTC, remise,\n  après remise, TVA), au lieu du prix catalogue du jour ;\n- son **taux de commission** (`CommissionRate`), que la requête ne porte pas ;\n- son **commercial** (`CfgCommercialId`), à défaut celui de la prospection.\n\nLe prix, la remise, les notes et le mode de paiement restent ceux de la requête (le formulaire les\npréremplit depuis l'offre).\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\nDans les deux modes, la base est écrite comme le logiciel de bureau l'écrit : `ComFolder.Discount`\nen ratio 0–1 du HT avant remise, `ComFolder.DiscountAmount` en HT. L'API relit `remise` en\npourcentage (0–100) et `remiseMontant` en HT.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Sans `prix`** : les montants sont quand même écrits, depuis le prix de référence des articles (0\ns'ils n'en ont pas), sans frais de syndic ; aucun schéma de financement n'est généré.\n\n**Écritures compatibles OMRAN** (le dossier apparaît dans les écrans du logiciel de bureau) : statut\ninitial RESERVATION (obligatoire), type de document `ComFolder`, `DocDate` à minuit, description\n« <code> du jj/mm/aaaa », répartition du client principal à 100 %, superficies, prix au m², prix\ncontractuel, schéma texte, constantes et signatures de création. Les articles suivants de\n`articleIds` deviennent les sous-articles du lot principal (ligne `ComFolderItem`, historique\n« AFFECTATION »). Voir `FEATURE-interop-omran-ecritures.md` §3.\n\n**Sous-articles du lot** : comme le logiciel de bureau, tout sous-article libre du lot principal\n(`StkItem.ParentId` = le lot, sans dossier) est rattaché même s'il n'est pas dans `articleIds` ; son\nprix de référence entre dans le prix des sous-articles, donc dans le prix avant remise et la superficie\nglobale. `prix` doit en tenir compte (avec `remisePercent`, il est le total annexes comprises). Le prix de\nréférence d'un lot (`comSalePrice`) inclut déjà ses sous-articles chez OMRAN : le prix du lot seul en est\ndéduit, pour ne pas les compter deux fois — un lot et ses enfants valent donc son `prixSuggere`.\n\n**Type du tiers** : le client (et chaque acquéreur) est client tant qu'il a un dossier actif dont le\nstatut « transforme le prospect en client », prospect sinon (voir `PATCH /api/dossiers/{id}/statut`).\n\n**Compte agence (`FEATURE-agences-vente.md` R-D1 à R-D5)** : prospection et articles limités aux projets\nde l'agence ; aucune remise (`remisePercent` absent ou 0) ; `prix` au moins égal au prix de référence du lot\net de ses annexes au catalogue ; sans `prix`, le prix est ce total de référence au catalogue, jamais les prix\nd'une offre ; le commercial est le vendeur du compte et la prospection reçoit l'agence comme\nintermédiaire. Le lot et ses annexes sont réservés par une écriture conditionnelle : deux comptes qui visent le\nmême lot, un seul dossier (409 « Ce lot vient d'être réservé »).",
         "operationId": "create_1",
         "requestBody": {
           "content": {
@@ -17542,7 +17562,7 @@
             }
           },
           "400": {
-            "description": "Champ requis manquant (`prospectionId`, `articleIds`, `modePaieId`, `cin`), prospection/article/mode\nde paiement introuvable, prospection sans prospect lié, article déjà occupé, `remisePercent` hors\nde [0 ; 100], ou — avec `remisePercent` — `prix` inférieur au prix des annexes. Avec `offreId`, les\nmessages du logiciel de bureau : « Vous n'avez pas sélectionné un article ! », « Cet article n'est pas\ndisponible en stock ! », « Le sous article <code> n'est pas libre ! », « Cet article n'a pas la\nvocation correspondante ! », et l'échéancier de l'offre qui ne correspond plus au prix du dossier.",
+            "description": "Champ requis manquant (`prospectionId`, `articleIds`, `modePaieId`, `cin`), prospection/article/mode\nde paiement introuvable, prospection sans prospect lié, article déjà occupé, `remisePercent` hors\nde [0 ; 100], ou — avec `remisePercent` — `prix` inférieur au prix des annexes. Avec `offreId`, les\nmessages du logiciel de bureau : « Vous n'avez pas sélectionné un article ! », « Cet article n'est pas\ndisponible en stock ! », « Le sous article <code> n'est pas libre ! », « Cet article n'a pas la\nvocation correspondante ! », et l'échéancier de l'offre qui ne correspond plus au prix du dossier.\nCompte agence : remise non nulle (« Une remise passe par une demande au siège ») ou `prix` sous le prix de\nréférence.",
             "content": {
               "*/*": {
                 "schema": {
@@ -17552,7 +17572,17 @@
             }
           },
           "403": {
-            "description": "Le projet de l'article n'est pas dans le périmètre commercial de l'appelant.",
+            "description": "Le projet de l'article n'est pas dans le périmètre commercial de l'appelant, ou compte agence incomplet\n(utilisateur non lié à une fiche vendeur rattachée à une agence).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Compte agence : prospection ou article hors des projets de l'agence, ou article déjà pris par un autre\ndossier.",
             "content": {
               "*/*": {
                 "schema": {
@@ -17562,7 +17592,7 @@
             }
           },
           "409": {
-            "description": "Avec `offreId` seulement. L'offre a déjà donné un dossier de vente : le `detail` nomme son code et\nson id, et la propriété `dossierExistant` (`{id, code, location}`) permet de l'ouvrir. Ou la\nprospection a déjà un dossier de vente : « Un dossier de vente est déjà généré sur cette prospection ! ».\nOu, avec ou sans offre, l'échéancier créé dépasse le délai maximal de paiement ou le crédit maximal de\nla tranche (mêmes textes OMRAN que `PATCH /api/dossiers/{id}`) ; rien n'est écrit.",
+            "description": "Avec `offreId` seulement. L'offre a déjà donné un dossier de vente : le `detail` nomme son code et\nson id, et la propriété `dossierExistant` (`{id, code, location}`) permet de l'ouvrir. Ou la\nprospection a déjà un dossier de vente : « Un dossier de vente est déjà généré sur cette prospection ! ».\nOu, avec ou sans offre, l'échéancier créé dépasse le délai maximal de paiement ou le crédit maximal de\nla tranche (mêmes textes OMRAN que `PATCH /api/dossiers/{id}`) ; rien n'est écrit. Compte agence : le\nlot vient d'être réservé par un autre dossier (« Ce lot vient d'être réservé »).",
             "content": {
               "*/*": {
                 "schema": {
@@ -19840,6 +19870,17 @@
           },
           "404": {
             "description": "Au moins un des `dossierIds` est introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Un dossier d'agence n'a aucun règlement pointé : le `detail` nomme son code (R-C1).",
             "content": {
               "*/*": {
                 "schema": {
@@ -39473,6 +39514,17 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "ACTE_RESERVATION d'une vente d'agence sans règlement pointé (R-C1).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
           }
         }
       }
@@ -44674,6 +44726,17 @@
           },
           "404": {
             "description": "Dossier introuvable ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Dossier d'un vendeur d'agence sans règlement pointé (R-C1) : le contrat attend le pointage.",
             "content": {
               "*/*": {
                 "schema": {
@@ -65025,6 +65088,10 @@
             "type": "boolean",
             "default": false,
             "description": "Confirmation « nouveau contact ». Absent ou `false` : **409** avec la liste `doublons` si une fiche\nprospect/client existante porte le même nom, téléphone ou email (mêmes règles que `GET\n/api/prospects/doublons`). `true` : crée quand même."
+          },
+          "prospection": {
+            "$ref": "#/components/schemas/ProspectionALaCreationRequest",
+            "description": "Première prospection du prospect : obligatoire (avec trancheId) pour un compte agence."
           }
         }
       },
@@ -65051,6 +65118,31 @@
           },
           "lieuValidite": {
             "type": "string"
+          }
+        }
+      },
+      "ProspectionALaCreationRequest": {
+        "type": "object",
+        "description": "Première prospection créée avec le prospect ; exigée d'un compte agence, ignorée pour le siège.",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche d'intérêt (CfgTranche) ; obligatoire, dans les projets de l'agence."
+          },
+          "origineId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Source de contact (ComProspectionOrigin), facultative."
+          },
+          "typeContactId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de contact (ComActionMessageType), facultatif."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes libres de la prospection, facultatives."
           }
         }
       },

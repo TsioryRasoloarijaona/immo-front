@@ -21,7 +21,7 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 // Monté seulement une fois la session ouverte : l'appel inconditionnel de `AppDataProvider` ferait 401 avant.
 // Routes de la vente ouvertes à une agence ; toutes les autres routes rendent « Accès réservé au siège ».
 const ROUTES_AGENCE: ReadonlySet<string> = new Set([
-  '/', '/tableau-de-bord', '/journee', '/profil', '/calendrier', '/prospections/:id?', '/prospections/nouveau',
+  '/', '/tableau-de-bord', '/journee', '/profil', '/calendrier', '/prospections/:id?', '/prospections/nouveau', '/prospections/:id/nouveau-dossier',
   '/offres/:id?', '/prospects/:id?', '/prospects/nouveau', '/clients/:id?', '/dossiers/:id?', '/plans', '/aide', '/aide/:slug',
 ]);
 
