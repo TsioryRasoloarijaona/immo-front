@@ -6,8 +6,10 @@ import type { ColonneDto } from '../types';
 export interface ConfigTiers {
   famille: FamilleTiers;
   titre: string;
-  /** Singulier, pour « Nouveau … », « Ouvrir … » et la confirmation. */
+  /** Singulier, pour « Ouvrir … » et la confirmation. */
   sujet: string;
+  /** Libellé de création accordé (« Nouvelle agence »). */
+  nouveau: string;
   aucun: string;
   chemin: string;
   catalogue: ColonneDto[];
@@ -137,6 +139,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     famille: 'fournisseurs',
     titre: 'Fournisseurs',
     sujet: 'fournisseur',
+    nouveau: 'Nouveau fournisseur',
     aucun: 'Aucun fournisseur',
     chemin: '/administration/fournisseurs',
     catalogue: FOURNISSEURS,
@@ -156,6 +159,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     famille: 'agences',
     titre: 'Agences',
     sujet: 'agence',
+    nouveau: 'Nouvelle agence',
     aucun: 'Aucune agence',
     chemin: '/administration/agences',
     catalogue: FOURNISSEURS,
@@ -174,6 +178,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     famille: 'contacts',
     titre: 'Contacts',
     sujet: 'contact',
+    nouveau: 'Nouveau contact',
     aucun: 'Aucun contact',
     chemin: '/administration/contacts',
     catalogue: CONTACTS,
@@ -192,6 +197,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     famille: 'banques',
     titre: 'Banques',
     sujet: 'banque',
+    nouveau: 'Nouvelle banque',
     aucun: 'Aucune banque',
     chemin: '/administration/banques',
     catalogue: REDUITE,
@@ -210,6 +216,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     famille: 'organismes',
     titre: 'Organismes',
     sujet: 'organisme',
+    nouveau: 'Nouvel organisme',
     aucun: 'Aucun organisme',
     chemin: '/administration/organismes',
     catalogue: REDUITE,
@@ -228,6 +235,7 @@ export const CONFIG_TIERS: Record<FamilleTiers, ConfigTiers> = {
     famille: 'personnels',
     titre: 'Personnels',
     sujet: 'personnel',
+    nouveau: 'Nouveau personnel',
     aucun: 'Aucun personnel',
     chemin: '/administration/personnels',
     catalogue: PERSONNELS,
