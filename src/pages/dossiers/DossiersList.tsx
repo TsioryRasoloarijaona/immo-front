@@ -38,6 +38,7 @@ import { useAuth } from '../../lib/auth';
 import { estAdministrateur } from '../../lib/roles';
 import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
 import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
+import { useChoixAgences } from '../../lib/agences';
 import { useExportListe } from '../../lib/useExportListe';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
@@ -99,6 +100,8 @@ export default function DossiersList() {
   const [dateDebut, setDateDebut] = useState(debutMoisISO);
   const [dateFin, setDateFin] = useState(finMoisISO);
   const [commercial, setCommercial] = useState('all');
+  const [agence, setAgence] = useState<string[]>([]);
+  const choixAgences = useChoixAgences();
   const [inclureSortis, setInclureSortis] = useState(false);
   const [ordreOmran, setOrdreOmran] = useState(false);
   const [page, setPage] = useState(0);
@@ -135,6 +138,7 @@ export default function DossiersList() {
     search: debouncedSearch || undefined,
     trancheId,
     commercial: commercial !== 'all' ? commercial : undefined,
+    agence: agence.length > 0 ? agence : undefined,
     champDate: dateDebut || dateFin ? champDate : undefined,
     dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
     dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
@@ -152,6 +156,7 @@ export default function DossiersList() {
     dateDebut,
     dateFin,
     commercial,
+    agence.join(','),
     inclureSortis,
     ordreOmran,
     page,
@@ -261,6 +266,7 @@ export default function DossiersList() {
     setDateDebut(debutMoisISO());
     setDateFin(finMoisISO());
     setCommercial('all');
+    setAgence([]);
     setInclureSortis(false);
     setOrdreOmran(false);
   }
@@ -273,7 +279,7 @@ export default function DossiersList() {
 
   // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
-    !!search || status.length > 0 || trancheId !== undefined || champDate !== 'RESERVATION' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || commercial !== 'all' || inclureSortis;
+    !!search || status.length > 0 || trancheId !== undefined || champDate !== 'RESERVATION' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || commercial !== 'all' || agence.length > 0 || inclureSortis;
 
   const paramsExport = { ...filtresServeur, colonnes: colonnes.visibles, sort: TRI_LISTE };
   const exportListe = useExportListe('/api/dossiers/export', paramsExport, 'dossiers');
@@ -284,6 +290,7 @@ export default function DossiersList() {
     ...puceSelection('Statut', statusItems, status),
     ...pucesCascade(cascade, selection),
     ...puceUnique(commercialItems, commercial === 'all' ? null : commercial),
+    ...puceSelection('Agence', choixAgences, agence),
     ...(inclureSortis ? ['Annulés inclus'] : []),
     ...(ordreOmran ? ['Ordre OMRAN'] : []),
     ...(search ? [`« ${search} »`] : []),
@@ -386,6 +393,7 @@ export default function DossiersList() {
           valeur={commercial === 'all' ? null : commercial}
           onChange={(v) => resetAndSet(setCommercial, v ?? 'all')}
         />
+        {choixAgences.length > 0 && <BoiteFiltre titre="Agence" mode="multiple" items={choixAgences} valeur={agence} onChange={(v) => resetAndSet(setAgence, v)} />}
         <OptionsListeDossiers
           inclureSortis={inclureSortis}
           onInclureSortis={(v) => resetAndSet(setInclureSortis, v)}

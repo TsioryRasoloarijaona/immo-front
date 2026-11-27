@@ -33,6 +33,7 @@ export type FiltresListeEtatVentes = {
   categorieId: string[];
   statut: string[];
   typeId: string[];
+  agence: string[];
   nature: NatureEtatVentes;
   search: string;
   champDate: ChampDateEtatVentes;
@@ -47,6 +48,7 @@ export const FILTRES_ETAT_VENTES_DEFAUT: FiltresListeEtatVentes = {
   categorieId: [],
   statut: [],
   typeId: [],
+  agence: [],
   nature: 'TOUS',
   search: '',
   champDate: 'RESERVATION',
@@ -78,6 +80,7 @@ export function paramsEtatVentes(f: FiltresListeEtatVentes, cascade: Pick<Filtre
     categorieId: liste(f.categorieId),
     statut: liste(f.statut),
     typeId: liste(f.typeId),
+    agence: liste(f.agence),
     nature: f.nature === 'TOUS' ? undefined : f.nature,
     search: f.search.trim() || undefined,
     champDate: periode ? f.champDate : undefined,

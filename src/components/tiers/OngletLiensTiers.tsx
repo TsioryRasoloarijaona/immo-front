@@ -88,6 +88,7 @@ export default function OngletLiensTiers({ tiersId }: Readonly<{ tiersId: UUID }
             <li key={l.id} className="flex items-center gap-3 px-3 py-1.5 text-body">
               <span className="font-medium text-foreground">{l.contact ?? '—'}</span>
               <span className="text-muted-foreground">{l.relation ?? '—'}</span>
+              <span className="text-muted-foreground" title="Compte">Compte : {l.compte ?? '—'}</span>
               <Button type="button" variant="ghost" size="icon-sm" className="ml-auto" aria-label={`Retirer ${l.contact ?? 'le lien'}`}
                 onClick={() => void retirer(l.id, l.contact)}>
                 <Trash2 />

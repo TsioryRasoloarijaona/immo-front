@@ -10,6 +10,7 @@ import {
   type NatureEtatVentes,
 } from '../../lib/etatVentes';
 import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { useChoixAgences } from '../../lib/agences';
 import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
 
 type Item = { label: string; value: string };
@@ -38,11 +39,13 @@ export default function FiltresEtatVentesPanneau({
 }>) {
   const [ferme, basculer] = useBooleenMemorise(cleFiltresFermes('etat-des-ventes'));
   const nature = filtres.nature === 'TOUS' ? null : filtres.nature;
+  const choixAgences = useChoixAgences();
   const puces = [
     ...pucesCascade(cascade, filtres),
     ...puceSelection('Statut', statuts, filtres.statut),
     ...puceSelection('Catégorie', categories, filtres.categorieId),
     ...puceSelection('Type', types, filtres.typeId),
+    ...puceSelection('Agence', choixAgences, filtres.agence),
     ...puceUnique(NATURES_FILTRANTES, nature),
     ...(filtres.search ? [`« ${filtres.search} »`] : []),
   ];
@@ -76,6 +79,7 @@ export default function FiltresEtatVentesPanneau({
       <BoiteFiltre titre="Statut" mode="multiple" items={statuts} valeur={filtres.statut} onChange={(v) => changer('statut', v)} />
       <BoiteFiltre titre="Catégorie" mode="multiple" items={categories} valeur={filtres.categorieId} onChange={(v) => changer('categorieId', v)} />
       <BoiteFiltre titre="Type" mode="multiple" items={types} valeur={filtres.typeId} onChange={(v) => changer('typeId', v)} />
+      {choixAgences.length > 0 && <BoiteFiltre titre="Agence" mode="multiple" items={choixAgences} valeur={filtres.agence} onChange={(v) => changer('agence', v)} />}
       <BoiteFiltre
         titre="Nature"
         mode="unique"

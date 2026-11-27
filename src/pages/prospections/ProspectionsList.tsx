@@ -38,6 +38,7 @@ import { useExportListe } from '../../lib/useExportListe';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
+import { useChoixAgences } from '../../lib/agences';
 import { useCascadeTranches } from '../../lib/cascadeTranches';
 import {
   PIPELINE_STAGES,
@@ -103,10 +104,13 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
 
   const [avances, setAvances] = useState<FiltresAvancesState>(emptyFiltresAvances());
   // Aboutie et date visée vivent dans la barre mais partent avec les filtres avancés (même objet serveur).
-  const filtresAvances = filtresServeurProspection(avances, filters);
+  const [agence, setAgence] = useState<string[]>([]);
+  const choixAgences = useChoixAgences();
+  const filtresBase = filtresServeurProspection(avances, filters);
+  const filtresAvances = agence.length > 0 ? { ...filtresBase, agence } : filtresBase;
   // Sérialisée pour la clé de dépendance : des listes qu'aucune comparaison de références ne stabilise.
   const cleAvances = filtresAvances ? JSON.stringify(filtresAvances) : '';
-  const filtresActifs = hasActiveProspectionFilters(filters, defauts) || countActiveFiltresAvances(avances) > 0;
+  const filtresActifs = hasActiveProspectionFilters(filters, defauts) || countActiveFiltresAvances(avances) > 0 || agence.length > 0;
 
   function setFilter<K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) {
     setPage(0);
@@ -215,6 +219,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
     groupement.reinitialiser();
     setModifs({});
     setAvances(emptyFiltresAvances());
+    setAgence([]);
   }
 
   function toutesLesPeriodes() {
@@ -278,6 +283,14 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
         etapeItems={ETAPE_ITEMS}
         origineItems={origineItems}
         commercialItems={commercialItems}
+        agence={{
+          items: choixAgences,
+          valeur: agence,
+          onChange: (v) => {
+            setPage(0);
+            setAgence(v);
+          },
+        }}
         cascade={cascade}
         ferme={filtresFermes}
         onBasculer={basculerFiltres}
