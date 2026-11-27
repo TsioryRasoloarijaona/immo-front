@@ -112,11 +112,11 @@ export default function TiersList({ famille }: Readonly<{ famille: FamilleTiers 
       ]}
       exportListe={{ export: exportListe, inactif: colonnes.visibles.length === 0 }}
       propres={[
-        { id: 'ouvrir', libelle: `Ouvrir le ${cfg.sujet}`, icone: FolderOpen, disabled: !choisie, onClick: () => choisie && ouvrir(choisie) },
-        { id: 'supprimer', libelle: `Supprimer le ${cfg.sujet}`, icone: Trash2, disabled: !choisie, onClick: () => void supprimer() },
+        { id: 'ouvrir', libelle: 'Ouvrir la fiche', icone: FolderOpen, disabled: !choisie, onClick: () => choisie && ouvrir(choisie) },
+        { id: 'supprimer', libelle: 'Supprimer la fiche', icone: Trash2, disabled: !choisie, onClick: () => void supprimer() },
         { id: 'importer', libelle: `Importer des ${cfg.titre.toLowerCase()}`, icone: Upload, onClick: () => void navigate(`/articles/import?type=${famille}`) },
       ]}
-      admin={{ nouveau: { libelle: `Nouveau ${cfg.sujet}`, onClick: () => void navigate(`${cfg.chemin}/nouveau`) } }}
+      admin={{ nouveau: { libelle: cfg.nouveau, onClick: () => void navigate(`${cfg.chemin}/nouveau`) } }}
     >
       <DataGrid
         cleOrdre={`tiers-${famille}`}

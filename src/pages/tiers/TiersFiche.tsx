@@ -98,7 +98,7 @@ function CorpsFiche({ cfg, fiche, listes, erreurListes, onEnregistre }: Readonly
   const onglets: OngletFiche[] = [
     { id: 'general', libelle: 'Général', contenu: formulaire('general') },
     ...(cfg.ficheReduite ? [] : [{ id: 'autres', libelle: 'Autres', contenu: formulaire('autres') }]),
-    ...(cfg.ongletContacts && fiche ? [{ id: 'contacts', libelle: 'Contacts', contenu: <OngletLiensTiers tiersId={fiche.id} /> }] : []),
+    ...(cfg.ongletContacts && fiche ? [{ id: 'contacts', libelle: 'Contacts', contenu: <OngletLiensTiers tiersId={fiche.id} avecPersonnel={cfg.famille === 'agences'} /> }] : []),
     { id: 'notes', libelle: 'Notes', contenu: formulaire('notes') },
     ...(fiche ? ongletsLecture(cfg.famille).map((o) => ({
       id: o.id, libelle: o.libelle, contenu: <OngletLectureTiers famille={cfg.famille} tiersId={fiche.id} onglet={o} />,
@@ -139,7 +139,7 @@ export default function TiersFiche({ famille }: Readonly<{ famille: FamilleTiers
   const { id } = useParams();
   const { listes, erreur: erreurListes } = useListesTiers(cfg);
   const { data, loading, error, refetch } = useApi(() => (id ? getTiers(famille, id) : Promise.resolve(null)), [famille, id]);
-  const titre = data?.description || data?.code || `Nouveau ${cfg.sujet}`;
+  const titre = data?.description || data?.code || cfg.nouveau;
 
   return (
     <AdminGuard title={titre} icon={<Users />} fullHeight

@@ -9,6 +9,7 @@ import { useConfirm } from '../../lib/confirmContext';
 import { errorMessage, useApi } from '../../lib/useApi';
 import { useToast } from '../../lib/toastContext';
 import type { UUID } from '../../types';
+import type { LigneTiersDto } from '../../types/administration';
 
 const TAILLE_CHOIX = 200;
 
@@ -30,8 +31,10 @@ function ChoixListe({ libelle, items, valeur, onChange }: Readonly<{
   );
 }
 
-/** Onglet Contacts : les contacts liés au tiers et leur type de relation. */
-export default function OngletLiensTiers({ tiersId }: Readonly<{ tiersId: UUID }>) {
+const libelleTiers = (t: LigneTiersDto) => t.description || t.code || t.id;
+
+/** Onglet Contacts : les contacts liés au tiers et leur type de relation ; `avecPersonnel` (agence) propose aussi le personnel, vendeurs possibles. */
+export default function OngletLiensTiers({ tiersId, avecPersonnel = false }: Readonly<{ tiersId: UUID; avecPersonnel?: boolean }>) {
   const confirmer = useConfirm();
   const toast = useToast();
   const [version, setVersion] = useState(0);
@@ -39,9 +42,13 @@ export default function OngletLiensTiers({ tiersId }: Readonly<{ tiersId: UUID }
   const [relationId, setRelationId] = useState<string | null>(null);
   const liens = useApi(() => listLiensTiers(tiersId), [tiersId, version]);
   const contacts = useApi(() => listTiers('contacts', { size: TAILLE_CHOIX }), []);
+  const personnel = useApi(() => (avecPersonnel ? listTiers('personnels', { size: TAILLE_CHOIX }) : Promise.resolve(null)), [avecPersonnel]);
   const relations = useApi(() => getTypesRelationContact(), []);
 
-  const choixContacts = (contacts.data?.content ?? []).map((c) => ({ value: c.id, label: c.description || c.code || c.id }));
+  const choixContacts = [
+    ...(contacts.data?.content ?? []).map((c) => ({ value: c.id, label: libelleTiers(c) })),
+    ...(personnel.data?.content ?? []).map((p) => ({ value: p.id, label: `${libelleTiers(p)} (personnel)` })),
+  ];
   const choixRelations = (relations.data ?? []).map((r) => ({ value: r.id, label: r.description || r.code || r.id }));
 
   async function agir(action: () => Promise<unknown>) {
