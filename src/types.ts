@@ -3374,6 +3374,8 @@ export interface UtilisateurCourantDto {
   projetsAutorises?: ProjetPerimetreDto[];
   /** Compte du rôle Agence : menu et routes réduits (le serveur répond 403 sinon). */
   agence?: boolean;
+  /** Siège valideur des demandes de remise des agences (lu en base). */
+  validationRemise: boolean;
 }
 
 export interface ProjetPerimetreDto {
