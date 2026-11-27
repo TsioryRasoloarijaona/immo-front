@@ -7,11 +7,12 @@ import { useApi } from '../../lib/useApi';
 import type { UUID } from '../../types';
 import type { DocumentCommissionDto } from '../../types/commissions';
 import { lire } from './lecture';
+import CommercialAgence from './PastilleAgence';
 
 const COLONNES_DOCUMENTS: ColonneGrille<DocumentCommissionDto>[] = [
   { nom: 'code', libelle: 'Code', largeur: 8, classe: 'font-medium text-foreground' },
   { nom: 'date', libelle: 'Date', type: 'DATE', largeur: 6 },
-  { nom: 'commercial', libelle: 'Commercial', largeur: 12 },
+  { nom: 'commercial', libelle: 'Commercial', largeur: 12, rendu: (d) => <CommercialAgence nom={d.commercial} agence={d.beneficiaireAgence} /> },
   { nom: 'montant', libelle: 'Montant TTC', type: 'MONTANT', largeur: 8 },
   { nom: 'reste', libelle: 'À payer', type: 'MONTANT', largeur: 8, classe: 'font-bold text-destructive' },
   { nom: 'regle', libelle: 'Réglé', type: 'MONTANT', largeur: 8, classe: 'font-bold text-(--success)' },

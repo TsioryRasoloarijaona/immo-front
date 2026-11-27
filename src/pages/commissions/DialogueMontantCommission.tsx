@@ -52,7 +52,7 @@ export default function DialogueMontantCommission({
         className="flex flex-col gap-3"
       >
         <div className="grid grid-cols-2 gap-3">
-          <Lecture libelle="Commercial / Gestionnaire" valeur={ligne.commercial} />
+          <Lecture libelle="Commercial / Gestionnaire" valeur={ligne.beneficiaireAgence && ligne.commercial ? `${ligne.commercial} (agence)` : ligne.commercial} />
           <Lecture libelle="Dossier" valeur={ligne.dossierCode} />
           <Lecture libelle="Type" valeur={ligne.type} />
           <Lecture libelle="Date" valeur={ligne.date ? formatDate(ligne.date) : null} />
