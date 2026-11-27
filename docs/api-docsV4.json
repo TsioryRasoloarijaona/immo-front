@@ -17428,6 +17428,18 @@
             "example": false
           },
           {
+            "name": "agence",
+            "in": "query",
+            "description": "Ids d'agence (CfgTier.id) et/ou « siege », répétables, en OU ; rien = tout.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
             "name": "ordreOmran",
             "in": "query",
             "description": "Remplace le tri reçu par celui d'OMRAN : code de l'article principal, puis tranche, projet et entité. Faux par défaut : le `sort` reçu s'applique.",
@@ -41081,6 +41093,18 @@
             "example": "2025-03-31"
           },
           {
+            "name": "agence",
+            "in": "query",
+            "description": "Ids d'agence du commercial du dossier et/ou « siege », en OU ; exclut les libres.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
             "name": "colonnes",
             "in": "query",
             "required": false,
@@ -41349,6 +41373,18 @@
               "format": "date"
             },
             "example": "2025-03-31"
+          },
+          {
+            "name": "agence",
+            "in": "query",
+            "description": "Ids d'agence du commercial du dossier et/ou « siege », en OU ; exclut les libres.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "responses": {
@@ -41692,6 +41728,18 @@
             "example": "2025-03-31"
           },
           {
+            "name": "agence",
+            "in": "query",
+            "description": "Ids d'agence du commercial du dossier et/ou « siege », en OU ; exclut les libres.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -41913,6 +41961,18 @@
               "format": "date"
             },
             "example": "2025-03-31"
+          },
+          {
+            "name": "agence",
+            "in": "query",
+            "description": "Ids d'agence du commercial du dossier et/ou « siege », en OU ; exclut les libres.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           },
           {
             "name": "colonnes",
@@ -44976,6 +45036,18 @@
               "default": false
             },
             "example": false
+          },
+          {
+            "name": "agence",
+            "in": "query",
+            "description": "Ids d'agence (CfgTier.id) et/ou « siege », répétables, en OU ; rien = tout.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "responses": {
@@ -45221,6 +45293,18 @@
               "default": false
             },
             "example": false
+          },
+          {
+            "name": "agence",
+            "in": "query",
+            "description": "Ids d'agence (CfgTier.id) et/ou « siege », répétables, en OU ; rien = tout.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         ],
         "responses": {
@@ -45529,6 +45613,18 @@
             "example": false
           },
           {
+            "name": "agence",
+            "in": "query",
+            "description": "Ids d'agence (CfgTier.id) et/ou « siege », répétables, en OU ; rien = tout.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -45779,6 +45875,18 @@
             "example": false
           },
           {
+            "name": "agence",
+            "in": "query",
+            "description": "Ids d'agence (CfgTier.id) et/ou « siege », répétables, en OU ; rien = tout.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
             "name": "ordreOmran",
             "in": "query",
             "required": false,
@@ -45919,6 +46027,18 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "agence",
+            "in": "query",
+            "description": "Ids d'agence (CfgTier.id) et/ou « siege », répétables, en OU ; rien = tout.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
@@ -66289,6 +66409,15 @@
             "type": "string",
             "description": "Nom du commercial."
           },
+          "agenceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'agence du commercial (lien vendeur) ; null pour le siège."
+          },
+          "agence": {
+            "type": "string",
+            "description": "Agence du commercial (CfgTier.Description), « Siège » s'il n'est vendeur d'aucune agence."
+          },
           "modePaiementId": {
             "type": "string",
             "format": "uuid"
@@ -72367,6 +72496,15 @@
           "commercialNom": {
             "type": "string"
           },
+          "agenceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "« Vendu par » : agence (CfgTier.id) dont le commercial est vendeur ; null pour le siège."
+          },
+          "agence": {
+            "type": "string",
+            "description": "« Vendu par » : libellé de l'agence du commercial (CfgTier.Description), « Siège » sinon."
+          },
           "avocatId": {
             "type": "string",
             "format": "uuid"
@@ -74424,6 +74562,10 @@
           "relation": {
             "type": "string",
             "description": "Libellé du type de relation."
+          },
+          "compte": {
+            "type": "string",
+            "description": "Codes des comptes utilisateur (AdmUser) du contact, séparés par des virgules ; null si aucun."
           }
         }
       },
@@ -80487,6 +80629,16 @@
           "commercialNom": {
             "type": "string"
           },
+          "agenceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Agence du commercial (lien vendeur) ; null si siège ou hors liste."
+          },
+          "agence": {
+            "type": "string",
+            "description": "Libellé de l'agence du commercial, « Siège » sans agence ; null hors liste.",
+            "example": "Siège"
+          },
           "origine": {
             "type": "string"
           },
@@ -80810,6 +80962,15 @@
           },
           "commercialNom": {
             "type": "string"
+          },
+          "agenceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Agence (CfgTier.id) dont le commercial est vendeur ; null pour le siège."
+          },
+          "agence": {
+            "type": "string",
+            "description": "Libellé de l'agence du commercial (CfgTier.Description), « Siège » sinon."
           },
           "prix": {
             "type": "number"
@@ -81733,6 +81894,13 @@
               "OUI",
               "NON"
             ]
+          },
+          "agence": {
+            "type": "array",
+            "description": "Id(s) d'agence du commercial, ou `siege` (commercial vendeur d'aucune agence). Répétable.",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -85501,6 +85669,15 @@
           "commercial": {
             "type": "string",
             "description": "Nom affiché du commercial du dossier."
+          },
+          "agenceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'agence du commercial du dossier ; null pour le siège ou un article libre."
+          },
+          "agence": {
+            "type": "string",
+            "description": "Agence du commercial du dossier, « Siège » sans agence ; null si l'article est libre."
           },
           "dateReservation": {
             "type": "string",
