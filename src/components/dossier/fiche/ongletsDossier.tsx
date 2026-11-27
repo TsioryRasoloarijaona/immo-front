@@ -3,6 +3,7 @@ import OngletAcquereurs from '../onglets/OngletAcquereurs';
 import OngletActions from '../onglets/OngletActions';
 import OngletArticles from '../onglets/OngletArticles';
 import OngletCadeaux from '../onglets/OngletCadeaux';
+import OngletDemandesRemise from '../onglets/OngletDemandesRemise';
 import OngletDocumentsGeneres from '../onglets/OngletDocumentsGeneres';
 import OngletEcheancier from '../onglets/OngletEcheancier';
 import OngletHistorique from '../onglets/OngletHistorique';
@@ -37,6 +38,7 @@ export default function ongletsDossier(f: DonneesFicheDossier, d: DossierDetailD
     },
     acquereurs: { id: 'acquereurs', libelle: 'Acquéreurs', contenu: <OngletAcquereurs dossier={d} onChanged={f.relireDossierEtMontants} /> },
     modifications: { id: 'modifications', libelle: 'Modifications', contenu: <OngletModifications dossierId={d.id} onChanged={f.relireDossierEtMontants} /> },
+    remises: { id: 'remises', libelle: 'Demandes de remise', contenu: <OngletDemandesRemise dossierId={d.id} tauxActuel={d.remise} /> },
     cadeaux: { id: 'cadeaux', libelle: 'Cadeaux', contenu: <OngletCadeaux dossierId={d.id} /> },
     actions: {
       id: 'actions',

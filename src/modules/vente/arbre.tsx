@@ -1,4 +1,5 @@
 import {
+  BadgePercent,
   Calendar,
   ChartNoAxesColumn,
   CircleAlert,
@@ -116,6 +117,7 @@ export const arbreVente: ArbreModule = ({ user, terrain }) => estAgence(user) ? 
     entrees: [
       { to: '/desistements', libelle: 'Désistements', Icone: FolderX, couleur: 'var(--sec-dossier)' },
       { to: '/commissions', libelle: 'Commissions', Icone: Percent, couleur: 'var(--sec-dossier)' },
+      ...(user?.validationRemise ? [{ to: '/demandes-remise', libelle: 'Demandes de remise', Icone: BadgePercent, couleur: 'var(--sec-dossier)' }] : []),
     ],
   },
   tableauxDeBord(user),

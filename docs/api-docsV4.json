@@ -288,6 +288,10 @@
       "description": "Listes de choix des fiches programme, tranche et article."
     },
     {
+      "name": "Demandes de remise",
+      "description": "Demandes de remise des agences (`AppDemandeRemise`, table propre à Arpent). Une agence ne modifie pas le prix d'un dossier : elle demande un taux de remise, en pourcentage du total HT avant remise ; le siège valideur l'accepte (la remise est alors appliquée au dossier par le même calcul que `PATCH /api/dossiers/{id}`) ou la refuse avec un motif. Une seule demande `EN_ATTENTE` par dossier. Est valideur un compte sans rôle Agence qui porte le second niveau de plafond de remise ou le droit « sans plafond » (`validationRemise` du profil). Voir `instructions/FEATURE-agences-vente.md` (A3)."
+    },
+    {
       "name": "Frais de terrain",
       "description": "Onglet « Coûts » de la fiche terrain : frais `StkExpense`. Le coût total du terrain en est la somme, calculée à la\nlecture de la fiche. « Valider pour règlement » crée la facture fournisseur du frais (module Achat d'OMRAN) ; son\npaiement reste hors du CRM."
     },
@@ -19221,6 +19225,99 @@
         }
       }
     },
+    "/api/dossiers/{id}/demandes-remise": {
+      "get": {
+        "tags": [
+          "Demandes de remise"
+        ],
+        "summary": "Historique des demandes de remise d'un dossier, la plus récente d'abord",
+        "operationId": "historique",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du dossier de vente.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les demandes du dossier, tous statuts (liste vide si aucune).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DemandeRemiseDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inconnu ou hors du périmètre de l'appelant."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Demandes de remise"
+        ],
+        "summary": "Demande une remise sur un dossier (agence)",
+        "description": "Réservé aux comptes Agence, sur un dossier de leur agence (sinon 404). Ordre des contrôles : corps (400), dossier sorti (409), taux demandé ≤ taux actuel du dossier (400), demande déjà en attente (409). Rien n'est écrit sur le dossier.",
+        "operationId": "demander",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du dossier de vente.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemanderRemiseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "La demande créée, statut EN_ATTENTE.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeRemiseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Taux absent, ≤ 0, > 100 ou ≤ taux actuel ; motif vide ou trop long."
+          },
+          "403": {
+            "description": "Le compte ne porte pas le rôle Agence."
+          },
+          "404": {
+            "description": "Dossier inconnu ou hors du périmètre de l'appelant."
+          },
+          "409": {
+            "description": "Dossier sorti, ou une demande déjà en attente sur ce dossier."
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/cadeaux": {
       "get": {
         "tags": [
@@ -20001,6 +20098,159 @@
           },
           "409": {
             "description": "Désistement non validé, rien à rembourser, ou montant au-delà du reste à rembourser."
+          }
+        }
+      }
+    },
+    "/api/demandes-remise/{id}/refus": {
+      "post": {
+        "tags": [
+          "Demandes de remise"
+        ],
+        "summary": "Refuse une demande avec un motif (siège valideur)",
+        "operationId": "refuser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande de remise.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefuserRemiseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "La demande REFUSEE ; le dossier n'est pas modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeRemiseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Motif absent, vide ou trop long."
+          },
+          "403": {
+            "description": "Le compte n'est pas valideur de remise (profil validationRemise)."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors du périmètre de l'appelant."
+          },
+          "409": {
+            "description": "La demande n'est plus en attente."
+          }
+        }
+      }
+    },
+    "/api/demandes-remise/{id}/annulation": {
+      "post": {
+        "tags": [
+          "Demandes de remise"
+        ],
+        "summary": "Annule une demande en attente (agence du dossier)",
+        "description": "Réservé à l'agence du dossier ; sans corps.",
+        "operationId": "annuler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande de remise.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La demande ANNULEE.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeRemiseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Le compte ne porte pas le rôle Agence."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors du périmètre de l'appelant."
+          },
+          "409": {
+            "description": "La demande n'est plus en attente."
+          }
+        }
+      }
+    },
+    "/api/demandes-remise/{id}/acceptation": {
+      "post": {
+        "tags": [
+          "Demandes de remise"
+        ],
+        "summary": "Accepte une demande et applique la remise au dossier (siège valideur)",
+        "description": "Corps facultatif : sans `taux`, le taux demandé est accordé. La remise est appliquée au dossier avec le niveau de plafond le plus haut ; si l'application échoue (dossier sorti, remise dépassant le total HT), la demande reste `EN_ATTENTE`.",
+        "operationId": "accepter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la demande de remise.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccepterRemiseRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "La demande ACCEPTEE ; le prix du dossier est recalculé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DemandeRemiseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Taux accordé ≤ 0, > taux demandé ou ≤ remise actuelle du dossier."
+          },
+          "403": {
+            "description": "Le compte n'est pas valideur de remise (profil validationRemise)."
+          },
+          "404": {
+            "description": "Demande inconnue ou hors du périmètre de l'appelant."
+          },
+          "409": {
+            "description": "Demande plus en attente, ou dossier sorti."
           }
         }
       }
@@ -35320,7 +35570,7 @@
         ],
         "summary": "Historique complet du parcours d'une prospection",
         "description": "Piste d'audit paginée (plus récent en premier) des transitions pré-prospect → prospect → prospection\ntracées par cette API : \"Prospect créé et lié\" (POST /api/pre-prospections/{id}/creer-prospect) et\n\"Transformée en prospection\" (POST /api/prospections/{id}/transformer). Comble une lacune constatée\nsur données réelles : Omran ne trace nulle part ces deux transitions\n(ComProspection.UserUpdateDateTime reste toujours NULL même sur des lignes déjà transformées, la\nmême ligne étant mutée en place). La date de création du pré-prospect reste disponible séparément\nvia ProspectionDetailDto.dateDocument (pas dupliquée ici). Le stade \"Dossier de vente\" a son propre\nhistorique, voir GET /api/dossiers/{id}/historique.",
-        "operationId": "historique",
+        "operationId": "historique_1",
         "parameters": [
           {
             "name": "id",
@@ -36067,7 +36317,7 @@
         ],
         "summary": "Historique des statuts (StrHistory)",
         "description": "Lignes `StrHistory` de la prospection : « Création » puis une ligne par transition.",
-        "operationId": "historique_1",
+        "operationId": "historique_2",
         "parameters": [
           {
             "name": "id",
@@ -38323,7 +38573,7 @@
           "Projet — configuration, onglets"
         ],
         "summary": "Historique des statuts du projet (StrHistory), le plus récent d'abord",
-        "operationId": "historique_2",
+        "operationId": "historique_3",
         "parameters": [
           {
             "name": "id",
@@ -40663,7 +40913,7 @@
         ],
         "summary": "Historique des statuts de l'étude, par date",
         "description": "Une ligne par changement de statut, création comprise : date, code, libellé et ordre du statut, utilisateur\n(`AdmUser.Description`).",
-        "operationId": "historique_3",
+        "operationId": "historique_4",
         "parameters": [
           {
             "name": "id",
@@ -46263,6 +46513,55 @@
         }
       }
     },
+    "/api/demandes-remise": {
+      "get": {
+        "tags": [
+          "Demandes de remise"
+        ],
+        "summary": "File des demandes de remise à décider (siège valideur)",
+        "operationId": "file",
+        "parameters": [
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Statut filtré ; absent = EN_ATTENTE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "EN_ATTENTE",
+              "enum": [
+                "EN_ATTENTE",
+                "ACCEPTEE",
+                "REFUSEE",
+                "ANNULEE"
+              ]
+            },
+            "example": "EN_ATTENTE"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Les demandes du statut demandé, la plus ancienne d'abord.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DemandeRemiseDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Statut inconnu."
+          },
+          "403": {
+            "description": "Le compte n'est pas valideur de remise (profil validationRemise)."
+          }
+        }
+      }
+    },
     "/api/dashboard": {
       "get": {
         "tags": [
@@ -47599,7 +47898,7 @@
         ],
         "summary": "Historique des statuts des dossiers de l'article",
         "description": "Lignes `StrFolderStatusHistory` dont `StkItemId` est l'article, plus celles d'un **transfert produit légalisé**\n(`ComSaleWithdrawalProduct.IsLegalized = 1`) dont l'article est l'ancien ou le nouveau. Tri par date décroissante (OMRAN\ntrie par date croissante ; le CRM garde l'ordre de l'historique du tiers). Une ligne d'un dossier de vente hors\npérimètre commercial est masquée ; une ligne sans dossier de vente (location, syndic) l'est si l'article est hors\npérimètre, comme dans l'onglet Dossiers. Origine : `ComFolderId` → VENTE, sinon `RntFolderId` → LOCATION, sinon `SynFolderId` →\nSYNDIC. Auteur : le compte de la ligne, sinon la ligne `StrHistory` jumelle du dossier de vente, sinon « Système ».",
-        "operationId": "historique_4",
+        "operationId": "historique_5",
         "parameters": [
           {
             "name": "id",
@@ -51239,7 +51538,7 @@
         ],
         "summary": "Historique des statuts de la demande (StrHistory), le plus récent d'abord",
         "description": "Droit de lecture ; mêmes refus que la fiche.",
-        "operationId": "historique_5",
+        "operationId": "historique_6",
         "parameters": [
           {
             "name": "id",
@@ -70403,6 +70702,10 @@
           "agence": {
             "type": "boolean",
             "description": "Vrai si le compte porte le rôle Agence (lu en base) : seuls les écrans agence lui sont ouverts."
+          },
+          "validationRemise": {
+            "type": "boolean",
+            "description": "Vrai si le compte peut décider les demandes de remise des agences (siège valideur, lu en base)."
           }
         }
       },
@@ -73900,6 +74203,121 @@
           }
         }
       },
+      "DemanderRemiseRequest": {
+        "type": "object",
+        "description": "Demande de remise d'une agence sur un dossier.",
+        "properties": {
+          "taux": {
+            "type": "number",
+            "description": "Taux de remise demandé, en pourcentage (> 0 et ≤ 100), supérieur au taux actuel du dossier.",
+            "example": 5
+          },
+          "motif": {
+            "type": "string",
+            "description": "Justification de la demande, obligatoire, 1 000 caractères au plus."
+          }
+        }
+      },
+      "DemandeRemiseDto": {
+        "type": "object",
+        "description": "Une demande de remise d'agence et le contexte du dossier pour la décider. Taux en pourcentage 0-100.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la demande."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du dossier de vente concerné."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Statut de la demande.",
+            "enum": [
+              "EN_ATTENTE",
+              "ACCEPTEE",
+              "REFUSEE",
+              "ANNULEE"
+            ]
+          },
+          "tauxDemande": {
+            "type": "number",
+            "description": "Taux de remise demandé par l'agence, en pourcentage."
+          },
+          "tauxAccorde": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Taux accordé par le siège, en pourcentage ; null tant que la demande n'est pas acceptée."
+          },
+          "motif": {
+            "type": "string",
+            "description": "Justification saisie par l'agence."
+          },
+          "motifRefus": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Motif du refus saisi par le siège ; null sauf statut REFUSEE."
+          },
+          "demandeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date et heure de la demande."
+          },
+          "traiteLe": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Date et heure de la décision ou de l'annulation ; null si en attente."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "N° du dossier (ComFolder.Code)."
+          },
+          "agence": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Nom de l'agence qui porte le dossier."
+          },
+          "vendeur": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Vendeur du dossier (commercial)."
+          },
+          "lot": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Code du lot vendu."
+          },
+          "prix": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Prix de vente actuel du dossier."
+          },
+          "tauxActuel": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Taux de remise actuel du dossier en pourcentage, calculé à la lecture."
+          }
+        }
+      },
       "CreerActionDossierRequest": {
         "type": "object",
         "description": "Création d'une action sur un dossier ; la catégorie est déduite du statut, jamais fournie.",
@@ -74098,6 +74516,30 @@
           "montant",
           "typeId"
         ]
+      },
+      "RefuserRemiseRequest": {
+        "type": "object",
+        "description": "Refus d'une demande de remise par le siège.",
+        "properties": {
+          "motif": {
+            "type": "string",
+            "description": "Motif du refus, obligatoire, 1 000 caractères au plus ; visible de l'agence."
+          }
+        }
+      },
+      "AccepterRemiseRequest": {
+        "type": "object",
+        "description": "Acceptation d'une demande de remise par le siège.",
+        "properties": {
+          "taux": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Taux accordé en pourcentage, ≤ taux demandé ; absent = taux demandé.",
+            "example": 4
+          }
+        }
       },
       "DocumentAJoindreDto": {
         "type": "object",

@@ -4,6 +4,7 @@
 interface PorteurDeRoles {
   roles?: readonly string[];
   agence?: boolean;
+  validationRemise?: boolean;
 }
 
 export function estAgence(user: PorteurDeRoles | null | undefined): boolean {

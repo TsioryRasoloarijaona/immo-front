@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowRightLeft, ArrowUpRight, BellDot, Phone } from 'lucide-react';
+import { ArrowRightLeft, ArrowUpRight, BellDot, Percent, Phone } from 'lucide-react';
 import { Badge, ErrorState, LoadingState } from '../../ui';
 import ClasseurBas from '../../fiche/ClasseurBas';
 import FenetreFiche from '../../fiche/FenetreFiche';
@@ -44,6 +44,7 @@ function CorpsDossier({
         enregistrer={{ disabled: true, onClick: () => undefined, aide: 'Les champs se modifient par les boutons du ruban.' }}
         propres={[
           ...(agence ? [] : [{ id: 'statut', libelle: 'Changer le statut', icone: ArrowRightLeft, onClick: () => onOnglet('statut') }]),
+          ...(agence ? [{ id: 'remise', libelle: 'Demander une remise', icone: Percent, onClick: () => onOnglet('remises') }] : []),
           { id: 'appeler', libelle: 'Appeler', icone: Phone, onClick: () => showToast('Intégration VOIP à venir.') },
           ...(prospectionId
             ? [{ id: 'prospection', libelle: 'Ouvrir la prospection', icone: ArrowUpRight, onClick: () => ouvrirFicheProspection(prospectionId, false) }]
@@ -71,7 +72,7 @@ function CorpsDossier({
       <ClasseurBas
         actif={onglet}
         onChange={onOnglet}
-        onglets={[o.financier, o.acquereurs, o.articles, o.modifications, o.cadeaux, o.statut, o.actions, o.pieces, o.documents, o.historique]}
+        onglets={[o.financier, o.acquereurs, o.articles, o.modifications, o.remises, o.cadeaux, o.statut, o.actions, o.pieces, o.documents, o.historique]}
       />
     </>
   );
