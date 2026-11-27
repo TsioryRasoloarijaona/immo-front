@@ -29,7 +29,7 @@ export function colonnesCommissions(choix: {
     { nom: 'dateFin', libelle: 'Date fin', type: 'date' },
     { nom: 'personnelId', libelle: 'Personnel', type: 'choix', choix: choix.personnels, facultatif: true },
     { nom: 'actionCommercialeId', libelle: 'Action commerciale', type: 'choix', choix: choix.actions, facultatif: true },
-    { nom: 'commercialId', libelle: 'Commercial', type: 'choix', choix: choix.commerciaux, facultatif: true },
+    { nom: 'commercialId', libelle: 'Commercial / Agence', type: 'choix', choix: choix.commerciaux, facultatif: true },
     { nom: 'categorieArticleId', libelle: "Catégorie d'article", type: 'choix', choix: choix.categories, facultatif: true },
     ...BLOCS.map((b) => ({ ...b, type: 'bloc' as const })),
   ];

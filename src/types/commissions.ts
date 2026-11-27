@@ -39,6 +39,10 @@ export interface DossierCommissionDto {
   commercialId: UUID | null;
   commercial: string | null;
   commercialExterne: boolean;
+  /** Commercial vendeur d'une agence : la Concrétisation est due à l'agence. */
+  beneficiaireAgence: boolean;
+  /** Libellé de l'agence du commercial ; null = siège. */
+  agence: string | null;
   gestionnaireId: UUID | null;
   gestionnaire: string | null;
   gestionnaireExterne: boolean;
@@ -80,6 +84,8 @@ export interface LigneCommissionCalculeeDto {
   statut: string | null;
   commercialId: UUID | null;
   commercial: string | null;
+  /** Bénéficiaire = agence de vente ; `commercial` porte alors le libellé de l'agence. */
+  beneficiaireAgence: boolean;
   regle: number;
   reste: number;
   documentId: UUID | null;
@@ -111,6 +117,8 @@ export interface DocumentCommissionDto {
   date: string | null;
   commercialId: UUID | null;
   commercial: string | null;
+  /** Tiers du document = agence de vente. */
+  beneficiaireAgence: boolean;
   montant: number;
   regle: number;
   reste: number;

@@ -7,10 +7,12 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { genererCommissions, getDossiersCommission } from '../../lib/apiCommissions';
+import { libelleAgence } from '../../lib/agences';
 import { errorMessage, useApi } from '../../lib/useApi';
 import type { UUID } from '../../types';
 import type { DossierCommissionDto, ResultatGenerationDto, TypeCommission } from '../../types/commissions';
 import { lire } from './lecture';
+import CommercialAgence from './PastilleAgence';
 
 const MAX_SELECTION = 500;
 
@@ -21,13 +23,24 @@ const TYPES: { type: TypeCommission; libelle: string; date: (d: DossierCommissio
   { type: 'DESISTEMENT', libelle: 'Désistement', date: (d) => d.dateAnnulation },
 ];
 
+function nomBeneficiaire(d: DossierCommissionDto) {
+  return d.beneficiaireAgence ? `${libelleAgence(d.agence)} (vendeur ${d.commercial ?? '—'})` : d.commercial;
+}
+
 const COLONNES: ColonneGrille<Ligne>[] = [
   { nom: 'code', libelle: 'Dossier', largeur: 8, classe: 'font-medium text-foreground' },
   { nom: 'statut', libelle: 'Statut', largeur: 8 },
   { nom: 'client', libelle: 'Client', largeur: 12 },
   { nom: 'articleCode', libelle: 'Article', largeur: 8 },
   { nom: 'categorie', libelle: 'Catégorie', largeur: 8 },
-  { nom: 'commercial', libelle: 'Commercial', largeur: 10 },
+  {
+    nom: 'commercial',
+    libelle: 'Commercial',
+    largeur: 10,
+    valeur: nomBeneficiaire,
+    rendu: (d) => <CommercialAgence nom={nomBeneficiaire(d)} agence={d.beneficiaireAgence} />,
+  },
+  { nom: 'agence', libelle: 'Agence', largeur: 8, valeur: (d) => libelleAgence(d.agence) },
   { nom: 'gestionnaire', libelle: 'Gestionnaire', largeur: 10 },
   { nom: 'dateConcretisation', libelle: 'Concrétisation', type: 'DATE', largeur: 6 },
   { nom: 'dateFinalisation1', libelle: 'Finalisation 1', type: 'DATE', largeur: 6 },
