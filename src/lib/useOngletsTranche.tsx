@@ -1,6 +1,7 @@
 import type { OngletFiche } from '../components/FicheShell';
 import GrilleOnglet from '../components/patrimoine/GrilleOnglet';
 import { getActionsCommerciales, getCategoriesBien } from './api';
+import { listTiers } from './apiAdministration';
 import { getChoixOngletTranche, getEntitesFinalisation, getReferentielPatrimoine } from './apiPatrimoine';
 import { commercialLabel, useAppData } from './appData';
 import { colonnesCommissions } from './commissionsTranche';
@@ -45,8 +46,12 @@ export function useOngletsTranche(trancheId: string, onPlancherEnregistre: () =>
   const entites = useChoix(getEntitesFinalisation);
   const finalisation = statutsFinalisation(entites);
   const { commerciaux } = useAppData();
+  const agences = useApi(() => listTiers('agences', { size: 200 }), [], 'agences-regles-tranche').data?.content ?? [];
   const commissions = colonnesCommissions({
-    commerciaux: commerciaux.map((c) => ({ id: c.id, code: c.code, description: commercialLabel(c) })),
+    commerciaux: [
+      ...commerciaux.map((c) => ({ id: c.id, code: c.code, description: commercialLabel(c) })),
+      ...agences.map((a) => ({ id: a.id, code: a.code ?? undefined, description: `${a.description || a.code || a.id} (agence)` })),
+    ],
     categories: useChoix(() => getCategoriesBien()),
     personnels: useChoix(() => getReferentielPatrimoine('personnels')),
     actions: useChoix(getActionsCommerciales),

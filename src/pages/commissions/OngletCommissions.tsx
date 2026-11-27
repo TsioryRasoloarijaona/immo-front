@@ -20,9 +20,15 @@ import type { UUID } from '../../types';
 import type { DocumentCommissionDto, DroitsCommissionDto, LigneCommissionCalculeeDto } from '../../types/commissions';
 import DialogueMontantCommission from './DialogueMontantCommission';
 import { lire } from './lecture';
+import CommercialAgence from './PastilleAgence';
 
 const COLONNES: ColonneGrille<LigneCommissionCalculeeDto>[] = [
-  { nom: 'commercial', libelle: 'Commercial / Gestionnaire', largeur: 12 },
+  {
+    nom: 'commercial',
+    libelle: 'Commercial / Gestionnaire',
+    largeur: 12,
+    rendu: (l) => <CommercialAgence nom={l.commercial} agence={l.beneficiaireAgence} />,
+  },
   { nom: 'tranche', libelle: 'Tranche', largeur: 8 },
   { nom: 'categorie', libelle: 'Catégorie', largeur: 8 },
   { nom: 'dossierCode', libelle: 'Dossier', largeur: 8, classe: 'font-medium text-foreground' },
@@ -47,7 +53,7 @@ function DocumentModal({ document, onClose }: Readonly<{ document: DocumentCommi
         <dt className="text-muted-foreground">Date</dt>
         <dd>{formatDate(document.date)}</dd>
         <dt className="text-muted-foreground">Commercial</dt>
-        <dd>{document.commercial || '—'}</dd>
+        <dd>{document.beneficiaireAgence ? 'Agence' : document.commercial || '—'}</dd>
         <dt className="text-muted-foreground">Montant TTC</dt>
         <dd>{formatCurrency(document.montant)}</dd>
         <dt className="text-muted-foreground">Réglé</dt>
