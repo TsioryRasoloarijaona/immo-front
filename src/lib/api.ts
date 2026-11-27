@@ -776,6 +776,8 @@ export interface DevisFilterParams {
   search?: string;
   trancheId?: UUID[];
   commercial?: UUID;
+  /** Agence du commercial (id de l'agence ou `siege`), répétable ; autre valeur → 400. */
+  agence?: string[];
   /** Date-heure ISO (pas une date seule), borne incluse. */
   dateDebut?: string;
   /** Date-heure ISO (pas une date seule), borne incluse. */
@@ -807,6 +809,8 @@ export function supprimerOffre(id: UUID): Promise<void> {
 export type DossierFilterParams = {
   statut?: string[];
   commercial?: UUID;
+  /** Agence du commercial (id de l'agence ou `siege`), répétable ; autre valeur → 400. */
+  agence?: string[];
   /** Rapproché via l'article principal du dossier. */
   projet?: UUID;
   trancheId?: UUID[];
@@ -1566,6 +1570,8 @@ export type FiltresEtatVentes = {
   /** `aaaa-mm-jj`, bornes incluses. */
   du?: string;
   au?: string;
+  /** Agence du commercial du dossier (id ou `siege`), répétable ; exclut les lots libres. */
+  agence?: string[];
 };
 
 export function getSyntheseEtatVentes(

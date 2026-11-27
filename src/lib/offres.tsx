@@ -4,6 +4,7 @@ import FicheOffreActions from '../components/offres/FicheOffreActions';
 import type { ColonneGrille } from '../components/DataGrid';
 import type { ValeursEditionDevis } from '../components/DevisFormSection';
 import type { DispositionColonnes } from './colonnes';
+import { libelleAgence } from './agences';
 import { formatMontantOptionnel, formatPercent, formatPercentValue, formatSurface } from './format';
 import type { ColonneDto, CreerDevisRequest, DevisDto, FicheDevisDto, GroupeColonne, ModifierDevisRequest } from '../types';
 
@@ -115,6 +116,7 @@ export const COLONNES_OFFRES: ColonneOffre[] = [
     rendu: (o) => (o.articleSuperficie == null ? TIRET_MUET : formatSurface(o.articleSuperficie)),
   },
   { nom: 'commercial', libelle: 'Commercial', largeur: 11, classe: 'text-muted-foreground', groupe: 'ACTEURS', titre: (o) => o.commercial },
+  { nom: 'agence', libelle: 'Agence', largeur: 8, classe: 'text-muted-foreground', groupe: 'ACTEURS', rendu: (o) => libelleAgence(o.agence), valeur: (o) => libelleAgence(o.agence) },
   { nom: 'prospect', libelle: 'Prospect', largeur: 11, classe: 'font-medium text-foreground', groupe: 'ACTEURS', titre: (o) => o.prospect },
   {
     nom: 'prospectionCode',

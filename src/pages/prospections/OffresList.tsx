@@ -28,7 +28,8 @@ import { CASCADE_VIDE, pucesCascade, useCascadeTranches, type SelectionCascade }
 import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
-import { puceUnique } from '../../lib/pucesFiltres';
+import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
+import { useChoixAgences } from '../../lib/agences';
 import { debutMoisISO, finMoisISO, formatCurrency, pluriel } from '../../lib/format';
 import { prospectionDisplayName } from '../../lib/domain';
 import type { CreerDevisRequest, ProspectionListItemDto } from '../../types';
@@ -43,6 +44,8 @@ export default function OffresList() {
   const cascade = useCascadeTranches(selection);
   const trancheId = cascade.params().trancheId;
   const [commercial, setCommercial] = useState<string | null>(null);
+  const [agence, setAgence] = useState<string[]>([]);
+  const choixAgences = useChoixAgences();
   const [dateDebut, setDateDebut] = useState(debutMoisISO);
   const [dateFin, setDateFin] = useState(finMoisISO);
   const [page, setPage] = useState(0);
@@ -57,13 +60,14 @@ export default function OffresList() {
           search: debouncedSearch || undefined,
           trancheId,
           commercial: commercial || undefined,
+          agence: agence.length > 0 ? agence : undefined,
           dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
           dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
         },
         // Tri sur `docDate` (propriété d'entité), pas `dateDocument` (champ du DTO) : sinon 400.
         { page, size: DEFAULT_PAGE_SIZE, sort: ['docDate,desc'] },
       ),
-    [debouncedSearch, trancheId?.join(',') ?? '', commercial, dateDebut, dateFin, page],
+    [debouncedSearch, trancheId?.join(',') ?? '', commercial, agence.join(','), dateDebut, dateFin, page],
     'offres',
   );
   const offres = data?.content ?? [];
@@ -91,6 +95,7 @@ export default function OffresList() {
     setSearch('');
     setSelection(CASCADE_VIDE);
     setCommercial(null);
+    setAgence([]);
     setDateDebut(debutMoisISO());
     setDateFin(finMoisISO());
   }
@@ -101,11 +106,12 @@ export default function OffresList() {
 
   // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
-    !!search || trancheId !== undefined || !!commercial || dateDebut !== debutMoisISO() || dateFin !== finMoisISO();
+    !!search || trancheId !== undefined || !!commercial || agence.length > 0 || dateDebut !== debutMoisISO() || dateFin !== finMoisISO();
 
   const puces = [
     ...pucesCascade(cascade, selection),
     ...puceUnique(commercialItems, commercial),
+    ...puceSelection('Agence', choixAgences, agence),
     ...(search ? [`« ${search} »`] : []),
   ];
   const decompte = data ? pluriel(data.totalElements, 'offre') : undefined;
@@ -139,6 +145,7 @@ export default function OffresList() {
       >
         <FiltreEntiteProjetTranche valeur={selection} onChange={(sel) => resetAndSet(setSelection, sel)} cascade={cascade} />
         <BoiteFiltre titre="Commercial" mode="unique" items={commercialItems} valeur={commercial} onChange={(v) => resetAndSet(setCommercial, v)} />
+        {choixAgences.length > 0 && <BoiteFiltre titre="Agence" mode="multiple" items={choixAgences} valeur={agence} onChange={(v) => resetAndSet(setAgence, v)} />}
       </PanneauFiltresCoches>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">

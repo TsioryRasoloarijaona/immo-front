@@ -372,6 +372,10 @@ export interface ProspectionListItemDto {
   prospectNom?: string;
   commercialId?: UUID;
   commercialNom?: string;
+  /** Agence du commercial (lien vendeur) ; null pour le siège. */
+  agenceId?: UUID | null;
+  /** Libellé de l'agence, « Siège » sans agence. */
+  agence?: string | null;
   origine?: string;
   etape?: string;
   fermee?: boolean;
@@ -475,6 +479,8 @@ export interface FiltresAvancesProspection {
   periodeSur?: PeriodeSur;
   /** Présence de la date choisie ; les bornes sont alors ignorées. */
   dateRenseignee?: DateRenseignee;
+  /** Agence du commercial (id de l'agence ou `siege`), répétable ; autre valeur → 400. */
+  agence?: string[];
 }
 
 export type PeriodeSur = 'DATE' | 'ARCHIVAGE';
@@ -1018,6 +1024,10 @@ export interface DevisDto {
   prospect?: string;
   commercialId?: UUID;
   commercial?: string;
+  /** Agence du commercial (lien vendeur) ; null pour le siège. */
+  agenceId?: UUID | null;
+  /** Libellé de l'agence, « Siège » sans agence. */
+  agence?: string | null;
   modePaiementId?: UUID;
   modePaiement?: string;
   montants?: MontantsOffreDto;
@@ -1224,6 +1234,10 @@ export interface DossierListItemDto {
   clientNom?: string;
   commercialId?: UUID;
   commercialNom?: string;
+  /** Agence du commercial (lien vendeur) ; null pour le siège. */
+  agenceId?: UUID | null;
+  /** Libellé de l'agence, « Siège » sans agence. */
+  agence?: string | null;
   prix?: number;
   totalAPayer?: number;
   prospectionId?: UUID;
@@ -1410,6 +1424,10 @@ export interface DossierDetailDto {
   clientNom?: string;
   commercialId?: UUID;
   commercialNom?: string;
+  /** Agence du commercial (lien vendeur) ; null pour le siège. */
+  agenceId?: UUID | null;
+  /** Libellé de l'agence, « Siège » sans agence. */
+  agence?: string | null;
   avocatId?: UUID;
   avocatNom?: string;
   /** Acteur distinct du commercial. */
@@ -3878,6 +3896,10 @@ export interface LigneEtatVentesDto extends Omit<MontantsNatureDossier, 'prixReg
   dossierCode?: string | null;
   clientNom?: string | null;
   commercial?: string | null;
+  /** null pour le siège ou un article libre. */
+  agenceId?: string | null;
+  /** « Siège » sans agence ; null si l'article est libre. */
+  agence?: string | null;
   dateReservation?: string | null;
   /** null si libre. */
   montantRegle?: number | null;

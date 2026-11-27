@@ -241,6 +241,8 @@ export interface LienTiersDto {
   contact: string | null;
   relationTypeId: UUID | null;
   relation: string | null;
+  /** Code(s) du compte AdmUser du contact, joints par « , » ; null sans compte. */
+  compte?: string | null;
 }
 
 export interface LienTiersRequest {

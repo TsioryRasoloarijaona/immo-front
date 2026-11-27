@@ -5,7 +5,7 @@ import { formatNumber } from '../../lib/format';
 
 /** Au-delà, la boîte devient une liste déroulante : elle n'affiche que 4 lignes. Personnes : toujours déroulante. */
 const SEUIL_DEROULANT = 8;
-const LISTE_DE_PERSONNES = /commercia|utilisateur|vendeur|créé par/i;
+const LISTE_DE_PERSONNES = /commercia|utilisateur|vendeur|créé par|agence/i;
 
 export interface ItemFiltre {
   value: string;
