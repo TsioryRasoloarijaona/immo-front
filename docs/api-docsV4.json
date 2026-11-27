@@ -20241,7 +20241,7 @@
             }
           },
           "400": {
-            "description": "Taux accordé ≤ 0 ou supérieur au taux demandé."
+            "description": "Taux accordé ≤ 0, > taux demandé ou ≤ remise actuelle du dossier."
           },
           "403": {
             "description": "Le compte n'est pas valideur de remise (profil validationRemise)."
@@ -59328,6 +59328,10 @@
           "commercial": {
             "type": "string"
           },
+          "beneficiaireAgence": {
+            "type": "boolean",
+            "description": "Vrai si le bénéficiaire est une agence de vente (nature AGV) ; commercial = libellé de l'agence."
+          },
           "regle": {
             "type": "number",
             "description": "Part réglée de la ligne : réglé du document au prorata du montant de ses lignes."
@@ -74812,6 +74816,10 @@
           "commercial": {
             "type": "string"
           },
+          "beneficiaireAgence": {
+            "type": "boolean",
+            "description": "Vrai si le tiers du document est une agence de vente (nature AGV)."
+          },
           "montant": {
             "type": "number",
             "description": "Montant TTC du document ; Σ des lignes visibles si une ligne est d'une tranche invisible."
@@ -88212,6 +88220,14 @@
           "commercialExterne": {
             "type": "boolean",
             "description": "Le commercial est un prestataire (CfgTier.IsExtern)."
+          },
+          "beneficiaireAgence": {
+            "type": "boolean",
+            "description": "Le commercial est vendeur d'une agence : la Concrétisation est due à l'agence."
+          },
+          "agence": {
+            "type": "string",
+            "description": "Libellé de l'agence du commercial (lien « Vendeur d'agence ») ; null = siège."
           },
           "gestionnaireId": {
             "type": "string",
