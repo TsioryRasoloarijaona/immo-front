@@ -21,6 +21,7 @@ export type FiltresHistorique = SelectionCascade & {
   totalMin: string;
   totalMax: string;
   commercial: string;
+  agence: string[];
 };
 
 export const FILTRES_DEFAUT: FiltresHistorique = {
@@ -34,6 +35,7 @@ export const FILTRES_DEFAUT: FiltresHistorique = {
   totalMin: '',
   totalMax: '',
   commercial: '',
+  agence: [],
 };
 
 function nombreOuAbsent(saisie: string): number | undefined {
@@ -60,6 +62,7 @@ export function versParams(f: FiltresHistorique, trancheId: string[] | undefined
     statut: codes.length > 0 ? codes : undefined,
     sansStatut: f.statuts.includes(OPTION_SANS_STATUT) || undefined,
     commercial: f.commercial || undefined,
+    agence: f.agence.length > 0 ? f.agence : undefined,
     totalMin: nombreOuAbsent(f.totalMin),
     totalMax: nombreOuAbsent(f.totalMax),
     inclureSortis: true,

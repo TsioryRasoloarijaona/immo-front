@@ -1,5 +1,6 @@
 import ChampFiche, { BandeFiche } from '../../fiche/ChampFiche';
 import { canonicalStatusLabel } from '../../../lib/dossierStatus';
+import { libelleAgence } from '../../../lib/agences';
 import { formatCurrency, formatDate, formatPercent, formatSurface } from '../../../lib/format';
 import type { DossierDetailDto, EnTeteFicheDto } from '../../../types';
 
@@ -21,6 +22,7 @@ export default function BandeDossier({ dossier: d, enTete: e }: Readonly<{ dossi
       <ChampFiche libelle="TVA" type="montant" valeur={d.tauxTVA ? formatPercent(d.tauxTVA, 2) : null} />
       <ChampFiche libelle="Réservé le" valeur={formatDate(d.dateDocument)} />
       <ChampFiche libelle="Commercial" valeur={d.commercialNom || '— non assigné —'} />
+      {d.commercialNom && <ChampFiche libelle="Vendu par" valeur={`${libelleAgence(d.agence)} — ${d.commercialNom}`} />}
       <ChampFiche libelle="Société" valeur={d.societeCode} />
     </BandeFiche>
   );

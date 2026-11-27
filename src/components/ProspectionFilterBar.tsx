@@ -43,7 +43,10 @@ export default function ProspectionFilterBar({
   onBasculer,
   onReinitialiser,
   champs,
+  agence,
 }: Readonly<{
+  /** Filtre Agence (prospections) ; masqué sans choix. */
+  agence?: { items: { label: string; value: string }[]; valeur: string[]; onChange: (v: string[]) => void };
   state: ProspectionFilterBarState;
   /** Le parent remet lui-même la page à 0 (via `set`). */
   onChange: <K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) => void;
@@ -76,6 +79,7 @@ export default function ProspectionFilterBar({
     ...pucesCascade(cascade, state),
     ...(state.sansTranche ? ['Non affectés'] : []),
     ...puceSelection('Commercial', commercialItems, state.commercial),
+    ...(agence ? puceSelection('Agence', agence.items, agence.valeur) : []),
     ...(state.archive === 'tous' ? [] : [`Archivé : ${puceUnique(ARCHIVE_ITEMS, state.archive)[0]}`]),
     ...(prospections && state.aboutie !== 'tous' ? [`Aboutie : ${puceUnique(ABOUTIE_ITEMS, state.aboutie)[0]}`] : []),
     ...(state.search ? [`« ${state.search} »`] : []),
@@ -121,6 +125,7 @@ export default function ProspectionFilterBar({
         />
       )}
       <BoiteFiltre titre="Commercial" mode="multiple" items={commercialItems} valeur={state.commercial} onChange={(v) => onChange('commercial', v)} />
+      {agence && agence.items.length > 0 && <BoiteFiltre titre="Agence" mode="multiple" items={agence.items} valeur={agence.valeur} onChange={agence.onChange} />}
       <BoiteFiltre
         titre="Archivé"
         mode="unique"
