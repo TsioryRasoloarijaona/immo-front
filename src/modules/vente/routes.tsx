@@ -32,6 +32,7 @@ const NewDossier = lazy(() => import('../../pages/dossiers/NewDossier'));
 const DossiersList = lazy(() => import('../../pages/dossiers/DossiersList'));
 const PlansAccueil = lazy(() => import('../../pages/tranches/PlansAccueil'));
 const CommissionsList = lazy(() => import('../../pages/commissions/CommissionsList'));
+const DemandesRemise = lazy(() => import('../../pages/remises/DemandesRemise'));
 const Aide = lazy(() => import('../../pages/aide/Aide'));
 const ListeRapports = lazy(() => import('../../pages/rapports/ListeRapports'));
 const Rapport = lazy(() => import('../../pages/rapports/Rapport'));
@@ -49,7 +50,7 @@ const vente: ModuleApp = {
     '/etat-des-ventes', '/suivi-commerciaux', '/suivi-affectations', '/performances', '/equipe', '/journee', '/tri',
     '/prospections', '/pre-prospections', '/prospects', '/clients', '/dossiers', '/offres', '/encaissements',
     '/impayes', '/desistements', '/aide', '/rapports', '/historique-ventes',
-    '/suivi-previsions', '/commissions', '/plans',
+    '/suivi-previsions', '/commissions', '/plans', '/demandes-remise',
   ],
   arbre: arbreVente,
   routes: [
@@ -87,6 +88,7 @@ const vente: ModuleApp = {
     // Une seule route : `/dossiers/:id` garde la liste montée (filtres, page) avec la fiche ouverte en fenêtre.
     { path: '/dossiers/:id?', element: <DossiersList /> },
     { path: '/commissions/:trancheId?', element: <CommissionsList /> },
+    { path: '/demandes-remise', element: <DemandesRemise /> },
     { path: '/rapports', element: <ListeRapports module="vente" /> },
     { path: '/rapports/:code', element: <Rapport module="vente" /> },
     { path: '/plans', element: <PlansAccueil /> },
