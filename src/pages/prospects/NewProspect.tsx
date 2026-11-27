@@ -7,15 +7,41 @@ import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { createProspect, doublonsDepuisErreur } from '../../lib/api';
+import { Textarea } from '../../components/ui/textarea';
+import { createProspect, doublonsDepuisErreur, listProjets, listProjetTranches } from '../../lib/api';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { referentielItems, useTierTypes } from '../../lib/referentiels';
+import { useAuth } from '../../lib/auth';
+import { estAgence } from '../../lib/roles';
+import { useApi } from '../../lib/useApi';
+import { referentielItems, useOriginesProspection, useTierTypes, useTypesContactProspection } from '../../lib/referentiels';
 import DoublonsProspectPanel from '../../components/DoublonsProspectPanel';
 import TelephoneField, { INDICATIF_MAROC } from '../../components/TelephoneField';
 import type { CreerProspectRequest, ProspectDoublonDto } from '../../types';
 
 // Indicatifs pré-remplis : leur absence produit des numéros que le canal WhatsApp rejette.
 const EMPTY: CreerProspectRequest = { indicatifTelephone: INDICATIF_MAROC, indicatifMobile: INDICATIF_MAROC };
+
+function ChoixReferentiel({ id, label, items, value, onChange }: Readonly<{
+  id: string; label: string; items: { label: string; value: string }[]; value: string | null; onChange: (v: string | null) => void;
+}>) {
+  return (
+    <FormField>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Select items={items} value={value} onValueChange={(v) => onChange(v || null)}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue placeholder="Choisir…" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {items.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </FormField>
+  );
+}
 
 function libelleCreer(enCours: boolean, doublons: boolean): string {
   if (enCours) return 'Création…';
@@ -34,13 +60,31 @@ export default function NewProspect() {
   const tierTypes = useTierTypes();
   const tierTypeItems = referentielItems(tierTypes.data);
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
+  const agence = estAgence(useAuth().user);
+
+  const [projetId, setProjetId] = useState<string | null>(null);
+  const [trancheId, setTrancheId] = useState<string | null>(null);
+  const [origineId, setOrigineId] = useState<string | null>(null);
+  const [typeContactId, setTypeContactId] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const projets = useApi(() => (agence ? listProjets({ page: 0, size: 200 }) : Promise.resolve(null)), [agence]);
+  const tranches = useApi(
+    () => (agence && projetId ? listProjetTranches(projetId, { page: 0, size: 200 }) : Promise.resolve(null)),
+    [agence, projetId],
+  );
+  const origines = useOriginesProspection();
+  const typesContact = useTypesContactProspection();
+  const projetItems = (projets.data?.content ?? []).map((p) => ({ label: p.description || p.code || p.id, value: p.id }));
+  const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  const origineItems = referentielItems(origines.data);
+  const typeContactItems = referentielItems(typesContact.data);
 
   function set<K extends keyof CreerProspectRequest>(key: K, value: CreerProspectRequest[K]) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
   const isMorale = !!form.raisonSociale?.trim();
-  const canCreate = (form.prenom?.trim() && form.nom?.trim()) || isMorale;
+  const canCreate = ((form.prenom?.trim() && form.nom?.trim()) || isMorale) && (!agence || !!trancheId);
 
   // « Nouveau contact » rappelle cette fonction avec `ignorerDoublons: true`.
   async function handleCreate(ignorerDoublons = false) {
@@ -48,7 +92,10 @@ export default function NewProspect() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const prospect = await createProspect({ ...form, ignorerDoublons: ignorerDoublons || undefined });
+      const prospection = agence && trancheId
+        ? { trancheId, origineId: origineId ?? undefined, typeContactId: typeContactId ?? undefined, notes: notes.trim() || undefined }
+        : undefined;
+      const prospect = await createProspect({ ...form, prospection, ignorerDoublons: ignorerDoublons || undefined });
       void navigate(`/prospects/${prospect.id}`);
     } catch (err) {
       const trouves = doublonsDepuisErreur(err);
@@ -90,7 +137,7 @@ export default function NewProspect() {
                   </SelectContent>
                 </Select>
               </FormField>
-              <FormField>
+              {!agence && <FormField>
                 <FieldLabel htmlFor="p-commercial">Commercial</FieldLabel>
                 <Select items={commercialItems} value={form.commercialId ?? null} onValueChange={(v) => set('commercialId', (v as string) || undefined)}>
                   <SelectTrigger id="p-commercial" className="w-full">
@@ -104,7 +151,7 @@ export default function NewProspect() {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-              </FormField>
+              </FormField>}
               <FormField>
                 <FieldLabel htmlFor="p-prenom">Prénom {!isMorale && '*'}</FieldLabel>
                 <Input id="p-prenom" value={form.prenom ?? ''} onChange={(e) => set('prenom', e.target.value || undefined)} />
@@ -153,6 +200,25 @@ export default function NewProspect() {
             </p>
           </FieldGroup>
         </Card>
+
+        {agence && (
+          <Card title="Première prospection" accent="var(--sec-prospect)">
+            <FieldGroup>
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                <ChoixReferentiel id="pp-projet" label="Projet" items={projetItems} value={projetId}
+                  onChange={(v) => { setProjetId(v); setTrancheId(null); }} />
+                <ChoixReferentiel id="pp-tranche" label="Tranche *" items={trancheItems} value={trancheId} onChange={setTrancheId} />
+                <ChoixReferentiel id="pp-origine" label="Source de contact" items={origineItems} value={origineId} onChange={setOrigineId} />
+                <ChoixReferentiel id="pp-type" label="Type de contact" items={typeContactItems} value={typeContactId} onChange={setTypeContactId} />
+                <FormField className="sm:col-span-2">
+                  <FieldLabel htmlFor="pp-notes">Notes</FieldLabel>
+                  <Textarea id="pp-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+                </FormField>
+              </div>
+              {!trancheId && <p className="text-micro text-muted-foreground">Choisissez la tranche de la prospection pour créer le prospect.</p>}
+            </FieldGroup>
+          </Card>
+        )}
 
         {submitError && <p className="text-body text-destructive">{submitError}</p>}
 
